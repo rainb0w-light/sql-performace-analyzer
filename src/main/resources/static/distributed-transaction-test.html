@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分布式事务时序测试</title>
+    <script src="/libs/vue/vue.global.js"></script>
+    <script src="/libs/mermaid/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4CAF50;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        /* 滑动开关样式 */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #4CAF50;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .toggle-switch input:focus + .toggle-slider {
+            box-shadow: 0 0 1px #4CAF50;
+        }
+
+        .toggle-text {
+            font-size: 14px;
+            color: #555;
+        }
+
+        select, input[type="text"], input[type="checkbox"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #0b7dda;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            margin-top: 30px;
+        }
+
+        .result-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 4px;
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .stat-value.failed {
+            color: #f44336;
+        }
+
+        .mermaid-container {
+            background: white;
+            padding: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-bottom: 20px;
+            overflow-x: auto;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .results-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .results-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .status-success {
+            color: #4CAF50;
+            font-weight: 600;
+        }
+
+        .status-failed {
+            color: #f44336;
+            font-weight: 600;
+        }
+
+        .error-details {
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #c62828;
+        }
+
+        .error-details pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+        }
+
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4CAF50;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab.active {
+            color: #4CAF50;
+            border-bottom-color: #4CAF50;
+            font-weight: 600;
+        }
+
+        /* Tab content display is controlled by Vue v-show directive */
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>分布式事务时序测试工具</h1>
+
+            <div class="section">
+                <div class="section-title">测试配置</div>
+                <label for="scenarioSelect">选择测试场景：</label>
+                <select id="scenarioSelect" v-model="selectedScenario" :disabled="useYamlConfig">
+                    <option value="">-- 请选择场景 --</option>
+                    <option v-for="scenario in scenarios" :key="scenario" :value="scenario">
+                        {{ scenario }}
+                    </option>
+                </select>
+                <div class="toggle-container">
+                    <span class="toggle-text">使用配置文件</span>
+                    <label class="toggle-label">
+                        <span class="toggle-switch">
+                            <input type="checkbox" v-model="useYamlConfig" @change="onConfigSourceChange">
+                            <span class="toggle-slider"></span>
+                        </span>
+                        <span class="toggle-text">直接编辑YAML配置</span>
+                    </label>
+                </div>
+                <div v-show="useYamlConfig" style="margin-top: 15px;">
+                    <label for="yamlContent">YAML配置内容：</label>
+                    <textarea id="yamlContent" v-model="yamlContent" placeholder="在此输入YAML配置..."></textarea>
+                </div>
+                <div class="button-group">
+                    <button class="btn-primary" @click="executeTest" :disabled="loading">执行测试</button>
+                    <button class="btn-secondary" @click="loadScenarios">刷新场景列表</button>
+                </div>
+            </div>
+
+            <div class="loading" :class="{ active: loading }">
+                <div class="spinner"></div>
+                <div>正在执行测试，请稍候...</div>
+            </div>
+
+            <div v-if="alert.message" :class="['alert', `alert-${alert.type}`]">
+                {{ alert.message }}
+            </div>
+
+            <div class="result-section" v-show="showResults">
+                <div class="section-title">测试结果</div>
+                <div class="result-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">测试ID</div>
+                        <div class="stat-value" style="font-size: 14px;">{{ testResult.testId }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">场景名称</div>
+                        <div class="stat-value" style="font-size: 14px;">{{ testResult.scenarioName }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">成功</div>
+                        <div class="stat-value">{{ testResult.successCount }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">失败</div>
+                        <div class="stat-value failed">{{ testResult.failedCount }}</div>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button 
+                        class="tab" 
+                        :class="{ active: activeTab === 'diagram' }"
+                        @click="activeTab = 'diagram'">
+                        时序图
+                    </button>
+                    <button 
+                        class="tab" 
+                        :class="{ active: activeTab === 'results' }"
+                        @click="activeTab = 'results'">
+                        执行详情
+                    </button>
+                </div>
+
+                <div v-show="activeTab === 'diagram'" class="tab-content">
+                    <div class="mermaid-container">
+                        <div class="mermaid" ref="mermaidDiagram"></div>
+                    </div>
+                </div>
+
+                <div v-show="activeTab === 'results'" class="tab-content">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>步骤ID</th>
+                                <th>线程</th>
+                                <th>SQL语句</th>
+                                <th>状态</th>
+                                <th>耗时(ms)</th>
+                                <th>异常信息</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="result in testResult.results" :key="result.stepId + '-' + result.threadId">
+                                <td>{{ result.stepId }}</td>
+                                <td>{{ result.threadId }}</td>
+                                <td><code>{{ result.sql }}</code></td>
+                                <td :class="result.status === 'SUCCESS' ? 'status-success' : 'status-failed'">
+                                    {{ result.status === 'SUCCESS' ? '成功' : '失败' }}
+                                </td>
+                                <td>{{ result.durationMillis || '-' }}</td>
+                                <td>
+                                    <div v-if="result.exception" class="error-details">
+                                        <strong>{{ result.exception.exceptionType || 'Exception' }}</strong><br>
+                                        {{ result.exception.message || '' }}<br>
+                                        <span v-if="result.exception.sqlErrorCode">
+                                            错误码: {{ result.exception.sqlErrorCode }}
+                                        </span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    scenarios: [],
+                    selectedScenario: '',
+                    useYamlConfig: false,
+                    yamlContent: '',
+                    loading: false,
+                    showResults: false,
+                    activeTab: 'diagram',
+                    alert: {
+                        message: '',
+                        type: ''
+                    },
+                    testResult: {
+                        testId: '',
+                        scenarioName: '',
+                        successCount: 0,
+                        failedCount: 0,
+                        results: [],
+                        sequenceDiagram: ''
+                    }
+                };
+            },
+            mounted() {
+                // 初始化Mermaid
+                mermaid.initialize({ 
+                    startOnLoad: false,
+                    theme: 'default',
+                    flowchart: {
+                        useMaxWidth: true,
+                        htmlLabels: true
+                    }
+                });
+                
+                // 加载场景列表
+                this.loadScenarios();
+            },
+            methods: {
+                onConfigSourceChange() {
+                    // 切换配置源时的处理
+                    if (this.useYamlConfig) {
+                        this.selectedScenario = '';
+                    }
+                },
+                async loadScenarios() {
+                    try {
+                        const response = await fetch('/api/distributed-transaction/scenarios');
+                        const data = await response.json();
+                        
+                        this.scenarios = data.scenarios || [];
+                    } catch (error) {
+                        this.showAlert('加载场景列表失败: ' + error.message, 'error');
+                    }
+                },
+                async executeTest() {
+                    let requestBody = {};
+
+                    if (!this.useYamlConfig) {
+                        if (!this.selectedScenario) {
+                            this.showAlert('请选择测试场景', 'error');
+                            return;
+                        }
+                        requestBody.configPath = 'classpath:' + this.selectedScenario;
+                    } else {
+                        if (!this.yamlContent.trim()) {
+                            this.showAlert('请输入YAML配置内容', 'error');
+                            return;
+                        }
+                        requestBody.configYaml = this.yamlContent;
+                    }
+
+                    // 显示加载状态
+                    this.loading = true;
+                    this.showResults = false;
+                    this.hideAlert();
+
+                    try {
+                        const response = await fetch('/api/distributed-transaction/execute', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(requestBody)
+                        });
+
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(data.message || '执行测试失败');
+                        }
+
+                        this.displayResults(data);
+
+                    } catch (error) {
+                        this.showAlert('执行测试失败: ' + error.message, 'error');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                displayResults(data) {
+                    // 更新测试结果数据
+                    this.testResult = {
+                        testId: data.testId || '',
+                        scenarioName: data.scenarioName || '',
+                        successCount: data.successCount || 0,
+                        failedCount: data.failedCount || 0,
+                        results: data.results || [],
+                        sequenceDiagram: data.sequenceDiagram || ''
+                    };
+
+                    // 显示结果
+                    this.showResults = true;
+                    this.activeTab = 'diagram';
+
+                    // 渲染Mermaid时序图
+                    this.$nextTick(() => {
+                        if (this.$refs.mermaidDiagram && this.testResult.sequenceDiagram) {
+                            const diagramElement = this.$refs.mermaidDiagram;
+                            
+                            // 完全清空之前的内容和Mermaid添加的属性
+                            diagramElement.innerHTML = '';
+                            
+                            // 移除Mermaid可能添加的所有类（保留mermaid类）
+                            diagramElement.className = 'mermaid';
+                            
+                            // 移除Mermaid可能添加的其他属性
+                            diagramElement.removeAttribute('data-processed');
+                            
+                            // 将Mermaid代码作为文本内容设置（不是innerHTML）
+                            diagramElement.textContent = this.testResult.sequenceDiagram;
+                            
+                            // 使用mermaid.run()来渲染所有带有class="mermaid"的元素
+                            mermaid.run({
+                                nodes: [diagramElement]
+                            }).catch(err => {
+                                console.error('Mermaid渲染失败:', err);
+                                // 如果渲染失败，显示原始代码
+                                diagramElement.innerHTML = '<pre style="white-space: pre-wrap;">' + 
+                                    this.testResult.sequenceDiagram + '</pre>';
+                            });
+                        }
+                    });
+
+                    this.showAlert('测试执行完成', 'success');
+                },
+                showAlert(message, type) {
+                    this.alert = {
+                        message: message,
+                        type: type
+                    };
+                    
+                    if (type === 'success') {
+                        setTimeout(() => this.hideAlert(), 3000);
+                    }
+                },
+                hideAlert() {
+                    this.alert = {
+                        message: '',
+                        type: ''
+                    };
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

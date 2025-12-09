@@ -1,0 +1,70 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.4'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'SQL Performance Analyzer'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = uri("https://repo.spring.io/milestone")
+    }
+}
+
+dependencies {
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    
+    // MySQL JDBC驱动
+    implementation 'mysql:mysql-connector-java:8.0.33'
+    
+    // H2 数据库（用于缓存）
+    implementation 'com.h2database:h2'
+    
+    // HikariCP 连接池（Spring Boot 默认使用，但显式添加以确保版本控制）
+    implementation 'com.zaxxer:HikariCP'
+    
+    // Spring AI (使用 OpenAI starter，因为 DeepSeek API 兼容 OpenAI)
+    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M4'
+    
+    // JSON处理
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.15.2'
+    
+    // YAML处理
+    implementation 'org.yaml:snakeyaml'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2'
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    
+    // 开发工具
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    
+    // 测试
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

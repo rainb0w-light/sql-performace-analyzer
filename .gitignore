@@ -1,0 +1,81 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# 数据库文件
+data/*.db
+data/*.lock.db
+data/*.mv.db
+data/*.trace.db
+*.db
+*.lock.db
+*.mv.db
+*.trace.db
+
+# 日志文件
+*.log
+logs/
+docker/mysql/logs/
+
+# 操作系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# 编译输出
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# 依赖包（本地安装的依赖）
+scripts/spring-ai-dependencies/*.jar
+scripts/spring-ai-dependencies/*.pom
+scripts/*.zip
+
+# 应用配置（如果包含敏感信息）
+# application-local.yml
+# application-prod.yml
+
+# 测试覆盖率
+.nyc_output/
+coverage/
+
+# 其他
+*.pid
+*.seed
+*.pid.lock

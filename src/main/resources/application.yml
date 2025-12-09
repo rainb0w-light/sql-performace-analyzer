@@ -1,0 +1,86 @@
+server:
+  port: 8080
+  # 静态资源路径配置
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: sql-performance-analyzer
+  
+  # H2 数据源（用于缓存SQL分析结果，JPA使用）
+  datasource:
+    url: jdbc:h2:file:./data/sql-analysis-cache;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # JPA 配置（用于H2缓存数据库）
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        # 禁用对序列的检查（H2不需要）
+        use_sql_comments: false
+  
+  # H2 控制台（可选，用于调试）
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # 多数据源配置（用于SQL分析，通过自定义配置类管理）
+  datasources:
+    configs:
+      - name: mysql-primary
+        url: jdbc:mysql://localhost:3306/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+        username: root
+        password: password
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+          maximum-pool-size: 10
+          minimum-idle: 5
+          connection-timeout: 30000
+          idle-timeout: 600000
+          max-lifetime: 1800000
+          leak-detection-threshold: 60000
+
+      - name: mysql-secondary
+        url: jdbc:mysql://localhost:3306/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+        username: root
+        password: password
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+          maximum-pool-size: 10
+          minimum-idle: 5
+          connection-timeout: 30000
+          idle-timeout: 600000
+          max-lifetime: 1800000
+          leak-detection-threshold: 60000
+  
+  # 多大模型配置（使用 Spring AI OpenAI starter，因为 DeepSeek API 兼容 OpenAI）
+  llms:
+    configs:
+      - name: deepseek1
+        type: openai
+        api-key: sk-f251ef2a739746d394fb1df3935bb06f
+        base-url: https://api.deepseek.com
+        model: deepseek-chat
+        temperature: 0.7
+      - name: deepseek2
+        type: openai
+        api-key: sk-f251ef2a739746d394fb1df3935bb06f
+        base-url: https://api.deepseek.com
+        model: deepseek-chat
+        temperature: 0.7
+
+logging:
+  level:
+    root: INFO
+    com.example.sqlanalyzer: DEBUG
+

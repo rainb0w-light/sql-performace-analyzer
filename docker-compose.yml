@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sql-analyzer-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: test_db
+      MYSQL_USER: testuser
+      MYSQL_PASSWORD: testpass
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      # 挂载初始化脚本目录
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      # 持久化数据（可选，如果需要保留数据）
+      - mysql_data:/var/lib/mysql
+      # 挂载慢查询日志目录
+      - ./docker/mysql/logs:/var/log/mysql
+    command: 
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      # 启用 InnoDB 锁日志
+      - --innodb-status-output=ON
+      - --innodb-status-output-locks=ON
+      # 打印所有死锁信息到错误日志（MySQL 8.0.13+）
+      - --innodb-print-all-deadlocks=ON
+      # 锁等待超时时间（秒，默认50）
+      - --innodb-lock-wait-timeout=50
+      # 启用错误日志并指定路径（死锁和锁等待超时会记录在这里）
+      - --log-error=/var/log/mysql/error.log
+      # 启用错误日志详细输出（包含锁相关信息）
+      - --log-error-verbosity=3
+      # 启用慢查询日志
+      - --slow-query-log=1
+      - --long-query-time=1
+      - --slow-query-log-file=/var/log/mysql/slow-query.log
+      # 记录未使用索引的查询
+      - --log-queries-not-using-indexes=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql_data:
+    driver: local
+

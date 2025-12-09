@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt 模板管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+
+        .nav-link {
+            color: #2196F3;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            border: 1px solid #2196F3;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: #2196F3;
+            color: white;
+        }
+
+        .template-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .template-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            background: #fafafa;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .template-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .template-card.active {
+            border-color: #4CAF50;
+            background: white;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+        }
+
+        .template-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .template-card .template-type {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #2196F3;
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .template-card .template-type.mysql {
+            background: #4CAF50;
+        }
+
+        .template-card .template-type.goldendb {
+            background: #FF9800;
+        }
+
+        .template-card .description {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .template-card .meta {
+            color: #999;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .editor-section {
+            margin-top: 30px;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .editor-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #0b7dda;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .btn-cancel {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background: #757575;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 500px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h4 {
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            color: #555;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .success-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .template-stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-item .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-item .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* 模态框样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+
+        .modal-close:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .modal-body .form-group {
+            margin-bottom: 20px;
+        }
+
+        .modal-body input[type="text"],
+        .modal-body textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .modal-body input[type="text"]:focus,
+        .modal-body textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .modal-body textarea {
+            min-height: 300px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding-top: 15px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="header">
+                <h1>Prompt 模板管理</h1>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" @click="showCreateModal = true">新增模板</button>
+                    <a href="/index.html" class="nav-link">返回 SQL 分析</a>
+                </div>
+            </div>
+
+            <div v-if="loading && templates.length === 0" class="loading">
+                加载中...
+            </div>
+
+            <div v-else>
+                <div class="template-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ templates.length }}</div>
+                        <div class="stat-label">模板总数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">{{ editedTemplates.size }}</div>
+                        <div class="stat-label">已修改</div>
+                    </div>
+                </div>
+
+                <div class="template-list">
+                    <div 
+                        v-for="template in templates" 
+                        :key="template.id"
+                        class="template-card"
+                        :class="{ active: selectedTemplate && selectedTemplate.id === template.id }"
+                        @click="selectTemplate(template)"
+                    >
+                        <span class="template-type" :class="template.templateType.toLowerCase()">
+                            {{ template.templateType }}
+                        </span>
+                        <h3>{{ template.templateName }}</h3>
+                        <div class="description">{{ template.description || '无描述' }}</div>
+                        <div class="meta">
+                            创建时间: {{ formatDate(template.gmtCreated) }}<br>
+                            更新时间: {{ formatDate(template.gmtModified) }}
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="templates.length === 0" class="empty-state">
+                    <h3>暂无模板</h3>
+                    <p>系统将自动初始化默认模板</p>
+                </div>
+
+                <div v-if="selectedTemplate" class="editor-section">
+                    <div class="info-box">
+                        <h4>模板变量说明</h4>
+                        <p>模板支持以下变量，系统会自动替换：</p>
+                        <p><strong>{sql}</strong> - SQL 语句</p>
+                        <p><strong>{execution_plan}</strong> - 执行计划</p>
+                        <p><strong>{table_structures}</strong> - 表结构信息</p>
+                    </div>
+
+                    <div v-if="successMessage" class="success-message">
+                        {{ successMessage }}
+                    </div>
+
+                    <div v-if="errorMessage" class="error-message">
+                        {{ errorMessage }}
+                    </div>
+
+                    <div class="editor-header">
+                        <h2>编辑模板: {{ selectedTemplate.templateName }}</h2>
+                        <div class="editor-actions">
+                            <button 
+                                class="btn-primary" 
+                                @click="saveTemplate"
+                                :disabled="saving || !isTemplateModified"
+                            >
+                                {{ saving ? '保存中...' : '保存更改' }}
+                            </button>
+                            <button 
+                                class="btn-cancel" 
+                                @click="resetTemplate"
+                                :disabled="saving || !isTemplateModified"
+                            >
+                                重置
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>模板内容：</label>
+                        <textarea 
+                            v-model="editingContent"
+                            @input="onContentChange"
+                            placeholder="请输入模板内容..."
+                        ></textarea>
+                    </div>
+
+                    <div class="editor-actions">
+                        <button 
+                            class="btn-primary" 
+                            @click="saveTemplate"
+                            :disabled="saving || !isTemplateModified"
+                        >
+                            {{ saving ? '保存中...' : '保存更改' }}
+                        </button>
+                        <button 
+                            class="btn-cancel" 
+                            @click="resetTemplate"
+                            :disabled="saving || !isTemplateModified"
+                        >
+                            重置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增模板模态框 -->
+        <div v-if="showCreateModal" class="modal-overlay" @click.self="closeCreateModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>新增 Prompt 模板</h2>
+                    <button class="modal-close" @click="closeCreateModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div v-if="createErrorMessage" class="error-message">
+                        {{ createErrorMessage }}
+                    </div>
+                    <div class="form-group">
+                        <label>模板类型（唯一标识，如：POSTGRESQL、ORACLE）：</label>
+                        <input 
+                            type="text" 
+                            v-model="newTemplate.templateType"
+                            placeholder="例如: POSTGRESQL"
+                            :disabled="creating"
+                        />
+                        <div class="form-hint">模板类型必须唯一，建议使用大写字母</div>
+                    </div>
+                    <div class="form-group">
+                        <label>模板名称：</label>
+                        <input 
+                            type="text" 
+                            v-model="newTemplate.templateName"
+                            placeholder="例如: PostgreSQL性能分析专家"
+                            :disabled="creating"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>模板描述（可选）：</label>
+                        <input 
+                            type="text" 
+                            v-model="newTemplate.description"
+                            placeholder="模板的简要描述"
+                            :disabled="creating"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>模板内容：</label>
+                        <textarea 
+                            v-model="newTemplate.templateContent"
+                            placeholder="请输入模板内容，支持变量：{sql}、{execution_plan}、{table_structures}"
+                            :disabled="creating"
+                        ></textarea>
+                        <div class="form-hint">
+                            支持的变量：<strong>{sql}</strong> - SQL 语句，<strong>{execution_plan}</strong> - 执行计划，<strong>{table_structures}</strong> - 表结构信息
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button 
+                        class="btn-cancel" 
+                        @click="closeCreateModal"
+                        :disabled="creating"
+                    >
+                        取消
+                    </button>
+                    <button 
+                        class="btn-primary" 
+                        @click="createTemplate"
+                        :disabled="creating || !isNewTemplateValid"
+                    >
+                        {{ creating ? '创建中...' : '创建模板' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue 3 (本地) -->
+    <script src="/libs/vue/vue.global.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    templates: [],
+                    selectedTemplate: null,
+                    editingContent: '',
+                    originalContent: '',
+                    loading: false,
+                    saving: false,
+                    successMessage: '',
+                    errorMessage: '',
+                    editedTemplates: new Set(),
+                    showCreateModal: false,
+                    creating: false,
+                    createErrorMessage: '',
+                    newTemplate: {
+                        templateType: '',
+                        templateName: '',
+                        templateContent: '',
+                        description: ''
+                    }
+                };
+            },
+            computed: {
+                isTemplateModified() {
+                    return this.selectedTemplate && 
+                           this.editingContent !== this.originalContent;
+                },
+                isNewTemplateValid() {
+                    return this.newTemplate.templateType.trim() !== '' &&
+                           this.newTemplate.templateName.trim() !== '' &&
+                           this.newTemplate.templateContent.trim() !== '';
+                }
+            },
+            mounted() {
+                this.loadTemplates();
+            },
+            methods: {
+                async loadTemplates() {
+                    this.loading = true;
+                    this.errorMessage = '';
+                    try {
+                        const response = await fetch('/api/prompts');
+                        if (!response.ok) {
+                            throw new Error('加载模板列表失败');
+                        }
+                        this.templates = await response.json();
+                        if (this.templates.length > 0 && !this.selectedTemplate) {
+                            this.selectTemplate(this.templates[0]);
+                        }
+                    } catch (err) {
+                        this.errorMessage = '加载模板列表失败: ' + err.message;
+                        console.error('加载模板列表错误:', err);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                selectTemplate(template) {
+                    if (this.isTemplateModified) {
+                        if (!confirm('您有未保存的更改，确定要切换模板吗？')) {
+                            return;
+                        }
+                    }
+                    this.selectedTemplate = template;
+                    this.editingContent = template.templateContent;
+                    this.originalContent = template.templateContent;
+                    this.successMessage = '';
+                    this.errorMessage = '';
+                },
+                onContentChange() {
+                    if (this.selectedTemplate) {
+                        if (this.editingContent !== this.originalContent) {
+                            this.editedTemplates.add(this.selectedTemplate.id);
+                        } else {
+                            this.editedTemplates.delete(this.selectedTemplate.id);
+                        }
+                    }
+                },
+                async saveTemplate() {
+                    if (!this.selectedTemplate || !this.isTemplateModified) {
+                        return;
+                    }
+
+                    this.saving = true;
+                    this.successMessage = '';
+                    this.errorMessage = '';
+
+                    try {
+                        const response = await fetch(`/api/prompts/${this.selectedTemplate.templateType}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                content: this.editingContent
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({ message: '保存失败' }));
+                            throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+                        }
+
+                        const updatedTemplate = await response.json();
+                        
+                        // 更新本地数据
+                        const index = this.templates.findIndex(t => t.id === updatedTemplate.id);
+                        if (index !== -1) {
+                            this.templates[index] = updatedTemplate;
+                        }
+                        
+                        this.selectedTemplate = updatedTemplate;
+                        this.originalContent = updatedTemplate.templateContent;
+                        this.editedTemplates.delete(updatedTemplate.id);
+                        
+                        this.successMessage = '模板保存成功！新的模板将在下次分析时生效。';
+                        
+                        // 3秒后清除成功消息
+                        setTimeout(() => {
+                            this.successMessage = '';
+                        }, 3000);
+                    } catch (err) {
+                        this.errorMessage = '保存失败: ' + err.message;
+                        console.error('保存模板错误:', err);
+                    } finally {
+                        this.saving = false;
+                    }
+                },
+                resetTemplate() {
+                    if (!this.selectedTemplate) {
+                        return;
+                    }
+                    
+                    if (confirm('确定要重置所有更改吗？')) {
+                        this.editingContent = this.originalContent;
+                        this.editedTemplates.delete(this.selectedTemplate.id);
+                        this.successMessage = '';
+                        this.errorMessage = '';
+                    }
+                },
+                formatDate(dateString) {
+                    if (!dateString) return '未知';
+                    const date = new Date(dateString);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                },
+                closeCreateModal() {
+                    if (this.creating) return;
+                    this.showCreateModal = false;
+                    this.createErrorMessage = '';
+                    this.newTemplate = {
+                        templateType: '',
+                        templateName: '',
+                        templateContent: '',
+                        description: ''
+                    };
+                },
+                async createTemplate() {
+                    if (!this.isNewTemplateValid) {
+                        this.createErrorMessage = '请填写所有必填字段';
+                        return;
+                    }
+
+                    this.creating = true;
+                    this.createErrorMessage = '';
+
+                    try {
+                        const response = await fetch('/api/prompts', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                templateType: this.newTemplate.templateType.trim().toUpperCase(),
+                                templateName: this.newTemplate.templateName.trim(),
+                                templateContent: this.newTemplate.templateContent.trim(),
+                                description: this.newTemplate.description.trim() || ''
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({ message: '创建失败' }));
+                            throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+                        }
+
+                        const createdTemplate = await response.json();
+                        
+                        // 刷新模板列表
+                        await this.loadTemplates();
+                        
+                        // 选中新创建的模板
+                        this.selectTemplate(createdTemplate);
+                        
+                        // 关闭模态框
+                        this.closeCreateModal();
+                        
+                        // 显示成功消息
+                        this.successMessage = '模板创建成功！';
+                        setTimeout(() => {
+                            this.successMessage = '';
+                        }, 3000);
+                    } catch (err) {
+                        this.createErrorMessage = '创建失败: ' + err.message;
+                        console.error('创建模板错误:', err);
+                    } finally {
+                        this.creating = false;
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

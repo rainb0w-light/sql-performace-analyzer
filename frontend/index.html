@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL 性能分析工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #0b7dda;
+        }
+
+        .btn-secondary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            border-left: 4px solid #c62828;
+        }
+
+        .result-section {
+            margin-top: 30px;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .result-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        .report-content {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 20px;
+        }
+
+        /* Markdown 样式 */
+        .markdown-body {
+            color: #24292e;
+        }
+
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3,
+        .markdown-body h4,
+        .markdown-body h5,
+        .markdown-body h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        .markdown-body h1 {
+            font-size: 2em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+
+        .markdown-body h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+
+        .markdown-body h3 {
+            font-size: 1.25em;
+        }
+
+        .markdown-body p {
+            margin-bottom: 16px;
+        }
+
+        .markdown-body code {
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            background-color: rgba(27,31,35,0.05);
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .markdown-body pre {
+            padding: 16px;
+            overflow: auto;
+            font-size: 85%;
+            line-height: 1.45;
+            background-color: #f6f8fa;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body pre code {
+            display: inline;
+            padding: 0;
+            margin: 0;
+            overflow: visible;
+            background-color: transparent;
+            border: 0;
+        }
+
+        .markdown-body table {
+            border-spacing: 0;
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body table th,
+        .markdown-body table td {
+            padding: 6px 13px;
+            border: 1px solid #dfe2e5;
+        }
+
+        .markdown-body table th {
+            font-weight: 600;
+            background-color: #f6f8fa;
+        }
+
+        .markdown-body table tr:nth-child(2n) {
+            background-color: #f6f8fa;
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            padding-left: 2em;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body li {
+            margin-bottom: 0.25em;
+        }
+
+        .markdown-body blockquote {
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body details {
+            margin-bottom: 16px;
+        }
+
+        .markdown-body details[open] {
+            display: block;
+        }
+
+        .markdown-body summary {
+            cursor: pointer;
+            font-weight: 600;
+            list-style: none;
+        }
+
+        .markdown-body summary::-webkit-details-marker {
+            display: none;
+        }
+
+        /* 默认展开所有 details 元素 */
+        .markdown-body details {
+            display: block;
+        }
+
+        .markdown-body summary {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>SQL 性能分析工具</h1>
+            
+            <div class="input-section">
+                <label for="sql-input">请输入 SQL 语句：</label>
+                <textarea 
+                    id="sql-input" 
+                    v-model="sql" 
+                    placeholder="例如: SELECT * FROM users WHERE id = 1"
+                    :disabled="loading"
+                ></textarea>
+                
+                <div class="button-group">
+                    <button 
+                        class="btn-primary" 
+                        @click="analyze" 
+                        :disabled="loading || !sql.trim()"
+                    >
+                        {{ loading ? '分析中...' : '开始分析' }}
+                    </button>
+                    <button 
+                        class="btn-secondary" 
+                        @click="exportPdf" 
+                        :disabled="!report"
+                    >
+                        导出 PDF
+                    </button>
+                </div>
+
+                <div v-if="error" class="error">
+                    {{ error }}
+                </div>
+            </div>
+
+            <div v-if="report" class="result-section">
+                <div class="result-header">
+                    <h2>分析报告</h2>
+                </div>
+                <div class="report-content markdown-body" id="report-content" v-html="renderedReport"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Marked (Markdown 解析) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11/marked.min.js"></script>
+    <!-- html2pdf.js (PDF 导出) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    sql: '',
+                    report: '',
+                    renderedReport: '',
+                    loading: false,
+                    error: null,
+                    apiUrl: 'http://localhost:8080/api/sql/analyze'
+                };
+            },
+            methods: {
+                async analyze() {
+                    if (!this.sql.trim()) {
+                        this.error = '请输入 SQL 语句';
+                        return;
+                    }
+
+                    this.loading = true;
+                    this.error = null;
+                    this.report = '';
+                    this.renderedReport = '';
+
+                    try {
+                        const response = await fetch(this.apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                sql: this.sql.trim()
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({ message: '请求失败' }));
+                            throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+                        }
+
+                        const data = await response.json();
+                        
+                        if (data.report) {
+                            this.report = data.report;
+                            this.renderedReport = marked.parse(data.report);
+                        } else {
+                            throw new Error('服务器返回的数据中没有报告内容');
+                        }
+                    } catch (err) {
+                        this.error = err.message || '分析失败，请检查网络连接或稍后重试';
+                        console.error('分析错误:', err);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async exportPdf() {
+                    if (!this.report) {
+                        this.error = '没有可导出的报告';
+                        return;
+                    }
+
+                    try {
+                        const element = document.getElementById('report-content');
+                        
+                        // 确保所有 details 元素都展开
+                        const detailsElements = element.querySelectorAll('details');
+                        detailsElements.forEach(detail => {
+                            detail.open = true;
+                        });
+                        
+                        const opt = {
+                            margin: 1,
+                            filename: `sql-analysis-report-${new Date().getTime()}.pdf`,
+                            image: { type: 'jpeg', quality: 0.98 },
+                            html2canvas: { scale: 2 },
+                            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                        };
+
+                        await html2pdf().set(opt).from(element).save();
+                    } catch (err) {
+                        this.error = 'PDF 导出失败: ' + err.message;
+                        console.error('PDF 导出错误:', err);
+                    }
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
+

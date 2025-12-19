@@ -9,6 +9,10 @@ SQL性能分析系统，通过REST API接收SQL语句，自动获取MySQL执行�
 - 使用DeepSeek大模型进行性能分析
 - 生成Markdown格式的详细分析报告
 - **Prompt 模板动态配置**：支持通过前端页面动态配置和修改 Prompt 模板，无需重启应用即可生效
+- **MCP协议支持**：实现MCP Server，允许大模型通过标准化协议调用项目功能
+- **MyBatis XML解析**：解析MyBatis Mapper XML文件，提取所有可能的SQL查询（包括动态SQL）
+- **单表综合分析**：针对单个表的所有查询进行综合分析，生成优化建议
+- **自然语言分析**：使用自然语言描述需求，AI自动识别意图并调用相关工具进行分析
 
 ## 技术栈
 
@@ -297,6 +301,46 @@ Content-Type: application/json
 }
 ```
 
+### 上传MyBatis Mapper XML文件
+
+**请求：**
+```http
+POST /api/mybatis/upload
+Content-Type: application/json
+
+{
+  "xmlContent": "<mapper namespace=\"com.example.mapper.UserMapper\">...</mapper>",
+  "mapperNamespace": "com.example.mapper.UserMapper"
+}
+```
+
+### 分析指定表的所有查询
+
+**请求：**
+```http
+GET /api/analysis/table/users?datasourceName=mysql-primary
+```
+
+### MCP协议调用
+
+**请求：**
+```http
+POST /api/mcp/v1
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "get_table_structure",
+    "arguments": {
+      "tableName": "users"
+    }
+  },
+  "id": "1"
+}
+```
+
 ## 项目结构
 
 ```
@@ -318,6 +362,12 @@ src/main/java/com/example/sqlanalyzer/
     ├── SqlPerformanceAnalysisService.java
     └── ReportGenerator.java
 ```
+
+## 新功能文档
+
+- [MCP协议使用指南](docs/MCP_USAGE.md) - MCP Server使用说明
+- [MyBatis解析器使用指南](docs/MYBATIS_PARSER_USAGE.md) - MyBatis XML解析功能说明
+- [单表分析使用指南](docs/TABLE_ANALYSIS_USAGE.md) - 单表慢SQL综合分析功能说明
 
 ## 配置说明
 

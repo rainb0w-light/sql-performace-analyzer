@@ -53,6 +53,10 @@ dependencies {
     implementation 'org.yaml:snakeyaml'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2'
     
+    // XML解析（用于MyBatis Mapper解析）
+    implementation 'org.dom4j:dom4j:2.1.4'
+    implementation 'jaxen:jaxen:1.2.0' // XPath支持
+    
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

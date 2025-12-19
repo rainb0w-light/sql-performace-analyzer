@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.mapper.UserMapper">
+
+    <!-- 根据ID查询用户 -->
+    <select id="selectById" resultType="com.example.model.User">
+        SELECT * FROM users WHERE id = #{id}
+    </select>
+
+    <!-- 根据多个条件查询用户（动态WHERE） -->
+    <select id="selectByCondition" resultType="com.example.model.User">
+        SELECT * FROM users
+        <where>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="username != null and username != ''">
+                AND username = #{username}
+            </if>
+            <if test="email != null and email != ''">
+                AND email = #{email}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="createTime != null">
+                AND create_time >= #{createTime}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- 根据用户名或邮箱查询（choose） -->
+    <select id="selectByUsernameOrEmail" resultType="com.example.model.User">
+        SELECT * FROM users
+        <choose>
+            <when test="username != null and username != ''">
+                WHERE username = #{username}
+            </when>
+            <when test="email != null and email != ''">
+                WHERE email = #{email}
+            </when>
+            <otherwise>
+                WHERE status = 'active'
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 根据ID列表查询用户（foreach） -->
+    <select id="selectByIds" resultType="com.example.model.User">
+        SELECT * FROM users
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 分页查询用户 -->
+    <select id="selectByPage" resultType="com.example.model.User">
+        SELECT * FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (username LIKE CONCAT('%', #{keyword}, '%') 
+                     OR email LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY 
+        <choose>
+            <when test="orderBy == 'createTime'">
+                create_time DESC
+            </when>
+            <when test="orderBy == 'username'">
+                username ASC
+            </when>
+            <otherwise>
+                id DESC
+            </otherwise>
+        </choose>
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 关联查询：用户和订单 -->
+    <select id="selectUserWithOrders" resultMap="userWithOrdersMap">
+        SELECT 
+            u.id, u.username, u.email, u.status,
+            o.id as order_id, o.order_number, o.total_amount, o.create_time as order_create_time
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        <where>
+            <if test="userId != null">
+                AND u.id = #{userId}
+            </if>
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+        </where>
+        ORDER BY o.create_time DESC
+    </select>
+
+    <!-- 统计查询 -->
+    <select id="countByCondition" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM users
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="createTimeStart != null">
+                AND create_time >= #{createTimeStart}
+            </if>
+            <if test="createTimeEnd != null">
+                AND create_time &lt;= #{createTimeEnd}
+            </if>
+        </where>
+    </select>
+
+    <!-- 插入用户 -->
+    <insert id="insert" parameterType="com.example.model.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (username, email, password, status, create_time)
+        VALUES (#{username}, #{email}, #{password}, #{status}, NOW())
+    </insert>
+
+    <!-- 批量插入用户 -->
+    <insert id="insertBatch" parameterType="java.util.List">
+        INSERT INTO users (username, email, password, status, create_time)
+        VALUES
+        <foreach collection="list" item="user" separator=",">
+            (#{user.username}, #{user.email}, #{user.password}, #{user.status}, NOW())
+        </foreach>
+    </insert>
+
+    <!-- 更新用户（动态SET） -->
+    <update id="update" parameterType="com.example.model.User">
+        UPDATE users
+        <set>
+            <if test="username != null and username != ''">
+                username = #{username},
+            </if>
+            <if test="email != null and email != ''">
+                email = #{email},
+            </if>
+            <if test="password != null and password != ''">
+                password = #{password},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 更新用户状态 -->
+    <update id="updateStatus">
+        UPDATE users
+        SET status = #{status}, update_time = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 删除用户 -->
+    <delete id="deleteById">
+        DELETE FROM users WHERE id = #{id}
+    </delete>
+
+    <!-- 批量删除用户 -->
+    <delete id="deleteByIds">
+        DELETE FROM users WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 复杂查询：用户订单统计 -->
+    <select id="selectUserOrderStats" resultType="java.util.Map">
+        SELECT 
+            u.id,
+            u.username,
+            u.email,
+            COUNT(o.id) as order_count,
+            COALESCE(SUM(o.total_amount), 0) as total_amount,
+            MAX(o.create_time) as last_order_time
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        <where>
+            <if test="userId != null">
+                AND u.id = #{userId}
+            </if>
+            <if test="status != null">
+                AND u.status = #{status}
+            </if>
+            <if test="minOrderAmount != null">
+                AND o.total_amount >= #{minOrderAmount}
+            </if>
+        </where>
+        GROUP BY u.id, u.username, u.email
+        HAVING COUNT(o.id) > 0
+        ORDER BY total_amount DESC
+    </select>
+
+    <!-- 使用trim标签的动态查询 -->
+    <select id="selectWithTrim" resultType="com.example.model.User">
+        SELECT * FROM users
+        <trim prefix="WHERE" prefixOverrides="AND |OR ">
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="username != null">
+                OR username = #{username}
+            </if>
+            <if test="email != null">
+                OR email = #{email}
+            </if>
+        </trim>
+    </select>
+
+    <!-- 嵌套查询：查询用户及其订单详情 -->
+    <select id="selectUserWithOrderDetails" resultMap="userOrderDetailsMap">
+        SELECT 
+            u.*,
+            o.id as order_id,
+            o.order_number,
+            o.total_amount,
+            oi.id as item_id,
+            oi.product_name,
+            oi.quantity,
+            oi.price
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        <where>
+            <if test="userId != null">
+                AND u.id = #{userId}
+            </if>
+            <if test="orderStatus != null">
+                AND o.status = #{orderStatus}
+            </if>
+        </where>
+        ORDER BY o.create_time DESC, oi.id ASC
+    </select>
+
+    <!-- ResultMap定义 -->
+    <resultMap id="userWithOrdersMap" type="com.example.model.User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="email" column="email"/>
+        <result property="status" column="status"/>
+        <collection property="orders" ofType="com.example.model.Order">
+            <id property="id" column="order_id"/>
+            <result property="orderNumber" column="order_number"/>
+            <result property="totalAmount" column="total_amount"/>
+            <result property="createTime" column="order_create_time"/>
+        </collection>
+    </resultMap>
+
+    <resultMap id="userOrderDetailsMap" type="com.example.model.User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="email" column="email"/>
+        <collection property="orders" ofType="com.example.model.Order">
+            <id property="id" column="order_id"/>
+            <result property="orderNumber" column="order_number"/>
+            <result property="totalAmount" column="total_amount"/>
+            <collection property="items" ofType="com.example.model.OrderItem">
+                <id property="id" column="item_id"/>
+                <result property="productName" column="product_name"/>
+                <result property="quantity" column="quantity"/>
+                <result property="price" column="price"/>
+            </collection>
+        </collection>
+    </resultMap>
+
+</mapper>
+

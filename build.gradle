@@ -57,6 +57,10 @@ dependencies {
     implementation 'org.dom4j:dom4j:2.1.4'
     implementation 'jaxen:jaxen:1.2.0' // XPath支持
     
+    // MyBatis（用于内置Mapper解析器）
+    implementation 'org.mybatis:mybatis:3.5.13'
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
+    
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

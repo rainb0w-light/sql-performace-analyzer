@@ -1,6 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
+import com.biz.sccba.sqlanalyzer.model.ParseResult;
 import com.biz.sccba.sqlanalyzer.model.TableStructure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -344,7 +345,7 @@ public class NaturalLanguageAnalysisService {
             }
 
             // 解析XML
-            MyBatisMapperParserService.ParseResult parseResult = 
+            ParseResult parseResult =
                     myBatisMapperParserService.parseMapperXml(xmlContent, namespace);
 
             result.put("namespace", parseResult.getMapperNamespace());

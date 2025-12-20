@@ -11,11 +11,7 @@ spring:
   # H2 数据源（用于缓存SQL分析结果，JPA使用）
   # 使用TCP服务器模式，支持多客户端访问
   # 数据库文件存储在H2服务器的/opt/h2-data目录下
-  datasource:
-    url: jdbc:h2:tcp://localhost:9092/sql-analysis-cache
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: 
+
   
   # JPA 配置（用于H2缓存数据库）
   jpa:
@@ -29,12 +25,17 @@ spring:
         format_sql: true
         # 禁用对序列的检查（H2不需要）
         use_sql_comments: false
-  
-  # H2 控制台（可选，用于调试）
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+    defer-datasource-initialization: true
+  datasource:
+    url: jdbc:h2:file:./data/sql-analysis-cache;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+#  # H2 控制台（可选，用于调试）
+#  h2:
+#    console:
+#      enabled: true
+#      path: /h2-console
   
   # 多数据源配置（用于SQL分析，通过自定义配置类管理）
   datasources:

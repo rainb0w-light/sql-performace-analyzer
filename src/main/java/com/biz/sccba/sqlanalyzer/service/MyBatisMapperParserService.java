@@ -1,5 +1,6 @@
 package com.biz.sccba.sqlanalyzer.service;
 
+import com.biz.sccba.sqlanalyzer.model.ParseResult;
 import com.biz.sccba.sqlanalyzer.model.ParsedSqlQuery;
 import com.biz.sccba.sqlanalyzer.repository.ParsedSqlQueryRepository;
 import org.dom4j.Document;
@@ -20,6 +21,9 @@ import java.util.regex.Pattern;
 /**
  * MyBatis Mapper XML解析服务
  * 解析MyBatis Mapper XML文件，提取所有可能的SQL查询
+ * 
+ * 注意：推荐使用MyBatisConfigurationParserService来使用MyBatis内置解析器
+ * 这个服务保留用于向后兼容
  */
 @Service
 public class MyBatisMapperParserService {
@@ -28,13 +32,45 @@ public class MyBatisMapperParserService {
 
     @Autowired
     private ParsedSqlQueryRepository parsedSqlQueryRepository;
+    
+    @Autowired(required = false)
+    private MyBatisConfigurationParserService myBatisConfigurationParserService;
 
     /**
      * 解析MyBatis Mapper XML内容
+     * 
+     * @param xmlContent XML内容
+     * @param mapperNamespace Mapper命名空间
+     * @param useMyBatisParser 是否使用MyBatis内置解析器（推荐）
+     * @return 解析结果
+     */
+    @Transactional
+    public ParseResult parseMapperXml(String xmlContent, String mapperNamespace, boolean useMyBatisParser) {
+        // 如果启用MyBatis内置解析器且服务可用，使用内置解析器
+        if (useMyBatisParser && myBatisConfigurationParserService != null) {
+            logger.info("使用MyBatis内置解析器解析XML");
+            return myBatisConfigurationParserService.parseMapperXmlWithMyBatis(xmlContent, mapperNamespace);
+        }
+        
+        // 否则使用原有的XML解析方式
+        return parseMapperXmlLegacy(xmlContent, mapperNamespace);
+    }
+
+    /**
+     * 解析MyBatis Mapper XML内容（默认使用MyBatis内置解析器）
      */
     @Transactional
     public ParseResult parseMapperXml(String xmlContent, String mapperNamespace) {
-        logger.info("开始解析MyBatis Mapper XML: namespace={}", mapperNamespace);
+        // 默认使用MyBatis内置解析器
+        return parseMapperXml(xmlContent, mapperNamespace, true);
+    }
+
+    /**
+     * 使用传统方式解析MyBatis Mapper XML内容（向后兼容）
+     */
+    @Transactional
+    public ParseResult parseMapperXmlLegacy(String xmlContent, String mapperNamespace) {
+        logger.info("开始使用传统方式解析MyBatis Mapper XML: namespace={}", mapperNamespace);
 
         try {
             // 删除旧数据
@@ -427,37 +463,5 @@ public class MyBatisMapperParserService {
         }
     }
 
-    /**
-     * 解析结果
-     */
-    public static class ParseResult {
-        private String mapperNamespace;
-        private int queryCount;
-        private List<ParsedSqlQuery> queries;
-
-        public String getMapperNamespace() {
-            return mapperNamespace;
-        }
-
-        public void setMapperNamespace(String mapperNamespace) {
-            this.mapperNamespace = mapperNamespace;
-        }
-
-        public int getQueryCount() {
-            return queryCount;
-        }
-
-        public void setQueryCount(int queryCount) {
-            this.queryCount = queryCount;
-        }
-
-        public List<ParsedSqlQuery> getQueries() {
-            return queries;
-        }
-
-        public void setQueries(List<ParsedSqlQuery> queries) {
-            this.queries = queries;
-        }
-    }
 }
 

@@ -1,10 +1,11 @@
 package com.biz.sccba.sqlanalyzer.service;
 
+import com.biz.sccba.sqlanalyzer.model.ColumnStatistics;
 import com.biz.sccba.sqlanalyzer.model.TableStructure;
+import com.biz.sccba.sqlanalyzer.repository.ColumnStatisticsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -24,7 +25,13 @@ public class SqlParameterReplacerService {
     private SqlExecutionPlanService sqlExecutionPlanService;
 
     @Autowired
-    private DataSourceManagerService dataSourceManagerService;
+    private ColumnStatisticsCollectorService columnStatisticsCollectorService;
+
+    @Autowired
+    private ColumnStatisticsRepository columnStatisticsRepository;
+
+    @Autowired
+    private ColumnStatisticsParserService columnStatisticsParserService;
 
     // 匹配MyBatis占位符的正则表达式：#{paramName} 或 ${paramName}
     private static final Pattern PARAM_PATTERN = Pattern.compile("#\\{([^}]+)\\}|\\$\\{([^}]+)\\}");
@@ -59,11 +66,8 @@ public class SqlParameterReplacerService {
                 }
             }
 
-            // 获取样本数据
-            Map<String, Object> sampleData = getSampleData(tableName, datasourceName);
-
             // 替换占位符
-            String replacedSql = replacePlaceholders(sql, columnMap, sampleData, tableName, datasourceName);
+            String replacedSql = replacePlaceholders(sql, columnMap, tableName, datasourceName);
 
             logger.debug("SQL参数替换: {} -> {}", sql, replacedSql);
             return replacedSql;
@@ -79,22 +83,20 @@ public class SqlParameterReplacerService {
      * 替换占位符
      */
     private String replacePlaceholders(String sql, Map<String, TableStructure.ColumnInfo> columnMap,
-                                      Map<String, Object> sampleData, String tableName, String datasourceName) {
+                                      String tableName, String datasourceName) {
         Matcher matcher = PARAM_PATTERN.matcher(sql);
         StringBuffer result = new StringBuffer();
-        Set<String> processedParams = new HashSet<>();
         
         // 获取扩展样本数据（包含统计信息）
         Map<String, ColumnSampleData> extendedSampleData = getExtendedSampleData(tableName, datasourceName, columnMap);
 
         while (matcher.find()) {
             String paramName = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
-            String replacement = getReplacementValue(paramName, columnMap, sampleData, extendedSampleData, 
+            String replacement = getReplacementValue(paramName, columnMap, extendedSampleData,
                                                     tableName, datasourceName, sql);
             
             // 转义特殊字符，避免在replaceReplacement中使用$等特殊字符
             matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
-            processedParams.add(paramName);
         }
         matcher.appendTail(result);
 
@@ -105,7 +107,7 @@ public class SqlParameterReplacerService {
      * 获取替换值
      */
     private String getReplacementValue(String paramName, Map<String, TableStructure.ColumnInfo> columnMap,
-                                      Map<String, Object> sampleData, Map<String, ColumnSampleData> extendedSampleData,
+                                      Map<String, ColumnSampleData> extendedSampleData,
                                       String tableName, String datasourceName, String sql) {
         // 提取列名（去掉可能的表别名前缀）
         String columnName = paramName;
@@ -128,8 +130,8 @@ public class SqlParameterReplacerService {
         }
         
         // 根据参数名和SQL上下文智能选择值
-        Object value = selectValueForParameter(paramName, columnName, columnInfo, columnSamples, sampleData, sql);
-        
+        Object value = selectValueForParameter(paramName, columnName, columnInfo, columnSamples, sql);
+
         // 如果还是找不到，使用默认值
         if (value == null) {
             if (columnInfo != null) {
@@ -148,11 +150,7 @@ public class SqlParameterReplacerService {
      */
     private Object selectValueForParameter(String paramName, String columnName, 
                                           TableStructure.ColumnInfo columnInfo,
-                                          ColumnSampleData columnSamples,
-                                          Map<String, Object> sampleData, String sql) {
-        String lowerParamName = paramName.toLowerCase();
-        String lowerColumnName = columnName.toLowerCase();
-        
+                                          ColumnSampleData columnSamples, String sql) {
         // 1. 检查是否是范围查询参数
         RangeQueryType rangeType = detectRangeQueryType(paramName, columnName, sql);
         
@@ -188,18 +186,12 @@ public class SqlParameterReplacerService {
             return randomSamples.get(Math.abs(paramName.hashCode()) % randomSamples.size());
         }
         
-        // 3. 尝试从基础样本数据中获取
-        Object value = sampleData.get(lowerParamName);
-        if (value == null) {
-            value = sampleData.get(lowerColumnName);
-        }
-        
-        // 4. 如果有中位数，优先使用中位数（更能代表数据分布）
-        if (value == null && columnSamples != null && columnSamples.getMedian() != null) {
+        // 3. 如果有中位数，使用中位数（更能代表数据分布）
+        if (columnSamples != null && columnSamples.getMedian() != null) {
             return columnSamples.getMedian();
         }
         
-        return value;
+        return null;
     }
     
     /**
@@ -378,216 +370,72 @@ public class SqlParameterReplacerService {
     }
 
     /**
-     * 获取表的样本数据（基础版本，保持向后兼容）
-     */
-    private Map<String, Object> getSampleData(String tableName, String datasourceName) {
-        Map<String, Object> sampleData = new HashMap<>();
-        
-        try {
-            JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
-            
-            // 查询一条样本数据
-            String sql = "SELECT * FROM " + tableName + " LIMIT 1";
-            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql);
-            
-            if (!results.isEmpty()) {
-                Map<String, Object> row = results.get(0);
-                // 将所有键转为小写，方便匹配
-                for (Map.Entry<String, Object> entry : row.entrySet()) {
-                    sampleData.put(entry.getKey().toLowerCase(), entry.getValue());
-                }
-                logger.debug("获取样本数据成功: table={}, data={}", tableName, sampleData);
-            } else {
-                logger.warn("表 {} 没有数据，将使用默认值", tableName);
-            }
-        } catch (Exception e) {
-            logger.warn("获取样本数据失败: table={}, error={}", tableName, e.getMessage());
-        }
-
-        return sampleData;
-    }
-    
-    /**
      * 获取扩展样本数据（包含统计信息和多个样本）
-     * 基于数据库数据分布提供更广泛的样本
+     * 使用ColumnStatisticsCollectorService收集的统计信息
      */
     private Map<String, ColumnSampleData> getExtendedSampleData(String tableName, String datasourceName,
                                                                 Map<String, TableStructure.ColumnInfo> columnMap) {
         Map<String, ColumnSampleData> extendedData = new HashMap<>();
         
         try {
-            JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
+            // 从数据库查询已保存的列统计信息
+            List<ColumnStatistics> statisticsList = columnStatisticsRepository
+                .findByDatasourceNameAndTableName(datasourceName, tableName);
             
-            // 对每个数值类型的列获取统计信息
+            // 将统计信息转换为Map，方便查找
+            Map<String, ColumnStatistics> statisticsMap = new HashMap<>();
+            for (ColumnStatistics stat : statisticsList) {
+                statisticsMap.put(stat.getColumnName().toLowerCase(), stat);
+            }
+            
+            // 对每个列，从统计信息中构建ColumnSampleData
             for (Map.Entry<String, TableStructure.ColumnInfo> entry : columnMap.entrySet()) {
                 String columnName = entry.getKey();
-                TableStructure.ColumnInfo columnInfo = entry.getValue();
-                String dataType = columnInfo.getDataType().toLowerCase();
+                ColumnStatistics statistics = statisticsMap.get(columnName);
+                
+                if (statistics == null) {
+                    // 如果没有统计信息，尝试收集（可选，避免每次都收集）
+                    logger.debug("列 {} 没有统计信息，跳过", columnName);
+                    continue;
+                }
                 
                 ColumnSampleData sampleData = new ColumnSampleData();
                 
-                // 判断是否是数值类型
-                boolean isNumeric = dataType.contains("int") || dataType.contains("bigint") || 
-                                 dataType.contains("smallint") || dataType.contains("tinyint") ||
-                                 dataType.contains("mediumint") || dataType.contains("decimal") ||
-                                 dataType.contains("numeric") || dataType.contains("float") ||
-                                 dataType.contains("double") || dataType.contains("real");
+                // 从ColumnStatistics中提取数据
+                // 最小值和最大值（需要转换为Object类型）
+                if (statistics.getMinValue() != null) {
+                    sampleData.setMinValue(parseValue(statistics.getMinValue()));
+                }
+                if (statistics.getMaxValue() != null) {
+                    sampleData.setMaxValue(parseValue(statistics.getMaxValue()));
+                }
                 
-                // 判断是否是日期时间类型
-                boolean isDateTime = dataType.contains("date") || dataType.contains("time") ||
-                                   dataType.contains("timestamp") || dataType.contains("year");
-                
-                try {
-                    if (isNumeric) {
-                        // 获取数值列的统计信息
-                        String statsSql = String.format(
-                            "SELECT " +
-                            "MIN(`%s`) as min_val, " +
-                            "MAX(`%s`) as max_val, " +
-                            "AVG(`%s`) as avg_val, " +
-                            "COUNT(*) as cnt " +
-                            "FROM `%s`",
-                            columnName, columnName, columnName, tableName);
+                // 从采样值中获取随机样本
+                List<Object> sampleValues = columnStatisticsParserService.getSampleValues(statistics);
+                if (!sampleValues.isEmpty()) {
+                    sampleData.setRandomSamples(sampleValues);
+                    
+                    // 如果有采样值，可以计算中位数和分位数（如果采样值足够多）
+                    if (sampleValues.size() >= 2) {
+                        // 简单处理：使用采样值的中位数作为中位数
+                        List<Object> sortedSamples = new ArrayList<>(sampleValues);
+                        sortedSamples.sort((a, b) -> compareValues(a, b));
                         
-                        List<Map<String, Object>> statsResults = jdbcTemplate.queryForList(statsSql);
-                        if (!statsResults.isEmpty()) {
-                            Map<String, Object> stats = statsResults.get(0);
-                            sampleData.setMinValue(stats.get("min_val"));
-                            sampleData.setMaxValue(stats.get("max_val"));
-                            sampleData.setAverage(stats.get("avg_val"));
-                            
-                            Long count = ((Number) stats.get("cnt")).longValue();
-                            
-                            // 如果数据量足够，获取中位数和分位数
-                            if (count > 0) {
-                                // 获取中位数（50分位数）
-                                long medianOffset = count / 2;
-                                if (medianOffset > 0) {
-                                    String medianSql = String.format(
-                                        "SELECT `%s` as median_val FROM `%s` ORDER BY `%s` LIMIT 1 OFFSET %d",
-                                        columnName, tableName, columnName, medianOffset);
-                                    try {
-                                        List<Map<String, Object>> medianResults = jdbcTemplate.queryForList(medianSql);
-                                        if (!medianResults.isEmpty()) {
-                                            sampleData.setMedian(medianResults.get(0).get("median_val"));
-                                        }
-                                    } catch (Exception e) {
-                                        logger.debug("获取中位数失败: column={}, error={}", columnName, e.getMessage());
-                                    }
-                                }
-                                
-                                // 获取25分位数
-                                if (count >= 4) {
-                                    long p25Offset = count / 4;
-                                    String p25Sql = String.format(
-                                        "SELECT `%s` as p25_val FROM `%s` ORDER BY `%s` LIMIT 1 OFFSET %d",
-                                        columnName, tableName, columnName, p25Offset);
-                                    try {
-                                        List<Map<String, Object>> p25Results = jdbcTemplate.queryForList(p25Sql);
-                                        if (!p25Results.isEmpty()) {
-                                            sampleData.setPercentile25(p25Results.get(0).get("p25_val"));
-                                        }
-                                    } catch (Exception e) {
-                                        logger.debug("获取25分位数失败: column={}, error={}", columnName, e.getMessage());
-                                    }
-                                }
-                                
-                                // 获取75分位数
-                                if (count >= 4) {
-                                    long p75Offset = (count * 3) / 4;
-                                    String p75Sql = String.format(
-                                        "SELECT `%s` as p75_val FROM `%s` ORDER BY `%s` LIMIT 1 OFFSET %d",
-                                        columnName, tableName, columnName, p75Offset);
-                                    try {
-                                        List<Map<String, Object>> p75Results = jdbcTemplate.queryForList(p75Sql);
-                                        if (!p75Results.isEmpty()) {
-                                            sampleData.setPercentile75(p75Results.get(0).get("p75_val"));
-                                        }
-                                    } catch (Exception e) {
-                                        logger.debug("获取75分位数失败: column={}, error={}", columnName, e.getMessage());
-                                    }
-                                }
-                            }
-                            
-                            // 获取多个随机样本（最多10个）
-                            int sampleCount = Math.min(10, count.intValue());
-                            if (sampleCount > 0) {
-                                String randomSql = String.format(
-                                    "SELECT `%s` as sample_val FROM `%s` ORDER BY RAND() LIMIT %d",
-                                    columnName, tableName, sampleCount);
-                                List<Map<String, Object>> randomResults = jdbcTemplate.queryForList(randomSql);
-                                List<Object> randomSamples = new ArrayList<>();
-                                for (Map<String, Object> row : randomResults) {
-                                    randomSamples.add(row.get("sample_val"));
-                                }
-                                sampleData.setRandomSamples(randomSamples);
-                            }
-                        }
-                    } else if (isDateTime) {
-                        // 日期时间类型：获取最小值和最大值
-                        String statsSql = String.format(
-                            "SELECT " +
-                            "MIN(`%s`) as min_val, " +
-                            "MAX(`%s`) as max_val, " +
-                            "COUNT(*) as cnt " +
-                            "FROM `%s`",
-                            columnName, columnName, tableName);
+                        int midIndex = sortedSamples.size() / 2;
+                        sampleData.setMedian(sortedSamples.get(midIndex));
                         
-                        List<Map<String, Object>> statsResults = jdbcTemplate.queryForList(statsSql);
-                        if (!statsResults.isEmpty()) {
-                            Map<String, Object> stats = statsResults.get(0);
-                            sampleData.setMinValue(stats.get("min_val"));
-                            sampleData.setMaxValue(stats.get("max_val"));
-                            
-                            Long count = ((Number) stats.get("cnt")).longValue();
-                            // 获取随机样本
-                            int sampleCount = Math.min(10, count.intValue());
-                            if (sampleCount > 0) {
-                                String randomSql = String.format(
-                                    "SELECT `%s` as sample_val FROM `%s` ORDER BY RAND() LIMIT %d",
-                                    columnName, tableName, sampleCount);
-                                List<Map<String, Object>> randomResults = jdbcTemplate.queryForList(randomSql);
-                                List<Object> randomSamples = new ArrayList<>();
-                                for (Map<String, Object> row : randomResults) {
-                                    randomSamples.add(row.get("sample_val"));
-                                }
-                                sampleData.setRandomSamples(randomSamples);
-                            }
+                        // 25分位数
+                        if (sortedSamples.size() >= 4) {
+                            int p25Index = sortedSamples.size() / 4;
+                            sampleData.setPercentile25(sortedSamples.get(p25Index));
                         }
-                    } else {
-                        // 字符串类型：获取多个不同的随机样本
-                        String countSql = String.format("SELECT COUNT(DISTINCT `%s`) as distinct_cnt FROM `%s`", 
-                                                        columnName, tableName);
-                        List<Map<String, Object>> countResults = jdbcTemplate.queryForList(countSql);
-                        if (!countResults.isEmpty()) {
-                            Long distinctCount = ((Number) countResults.get(0).get("distinct_cnt")).longValue();
-                            int sampleCount = Math.min(10, distinctCount.intValue());
-                            if (sampleCount > 0) {
-                                String randomSql = String.format(
-                                    "SELECT DISTINCT `%s` as sample_val FROM `%s` ORDER BY RAND() LIMIT %d",
-                                    columnName, tableName, sampleCount);
-                                List<Map<String, Object>> randomResults = jdbcTemplate.queryForList(randomSql);
-                                List<Object> randomSamples = new ArrayList<>();
-                                for (Map<String, Object> row : randomResults) {
-                                    randomSamples.add(row.get("sample_val"));
-                                }
-                                sampleData.setRandomSamples(randomSamples);
-                                
-                                // 对于字符串，也可以获取最小值和最大值（按字典序）
-                                String minMaxSql = String.format(
-                                    "SELECT MIN(`%s`) as min_val, MAX(`%s`) as max_val FROM `%s`",
-                                    columnName, columnName, tableName);
-                                List<Map<String, Object>> minMaxResults = jdbcTemplate.queryForList(minMaxSql);
-                                if (!minMaxResults.isEmpty()) {
-                                    sampleData.setMinValue(minMaxResults.get(0).get("min_val"));
-                                    sampleData.setMaxValue(minMaxResults.get(0).get("max_val"));
-                                }
-                            }
+                        
+                        // 75分位数
+                        if (sortedSamples.size() >= 4) {
+                            int p75Index = (sortedSamples.size() * 3) / 4;
+                            sampleData.setPercentile75(sortedSamples.get(p75Index));
                         }
                     }
-                } catch (Exception e) {
-                    // 如果获取统计信息失败，记录日志但继续处理其他列
-                    logger.debug("获取列 {} 的统计信息失败: {}", columnName, e.getMessage());
                 }
                 
                 // 如果获取到了任何数据，添加到结果中
@@ -604,6 +452,45 @@ public class SqlParameterReplacerService {
         }
         
         return extendedData;
+    }
+    
+    /**
+     * 解析字符串值为Object类型
+     */
+    private Object parseValue(String valueStr) {
+        if (valueStr == null || valueStr.trim().isEmpty()) {
+            return null;
+        }
+        
+        // 尝试解析为数字
+        try {
+            if (valueStr.contains(".")) {
+                return Double.parseDouble(valueStr);
+            } else {
+                return Long.parseLong(valueStr);
+            }
+        } catch (NumberFormatException e) {
+            // 不是数字，返回字符串
+            return valueStr;
+        }
+    }
+    
+    /**
+     * 比较两个值的大小（用于排序）
+     */
+    @SuppressWarnings("unchecked")
+    private int compareValues(Object a, Object b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return -1;
+        if (b == null) return 1;
+        
+        if (a instanceof Number && b instanceof Number) {
+            double da = ((Number) a).doubleValue();
+            double db = ((Number) b).doubleValue();
+            return Double.compare(da, db);
+        }
+        
+        return a.toString().compareTo(b.toString());
     }
 
     /**

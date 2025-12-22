@@ -7,7 +7,6 @@ import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.SqlCommandType;
 import org.apache.ibatis.session.Configuration;
-import org.mybatis.spring.SqlSessionFactoryBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,17 +15,14 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.sql.DataSource;
 import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 使用MyBatis内置解析器解析Mapper接口和XML
- * 支持注解方式（@Select, @Update等）和XML方式
+ * 使用MyBatis内置解析器解析Mapper XML配置
+ * 只支持基于XML模板的SQL配置解析
  */
 @Service
 public class MyBatisConfigurationParserService {
@@ -37,54 +33,6 @@ public class MyBatisConfigurationParserService {
     private ParsedSqlQueryRepository parsedSqlQueryRepository;
 
     /**
-     * 从Mapper接口类解析SQL（支持注解和XML）
-     * 
-     * @param mapperClass Mapper接口类
-     * @param xmlContent 可选的XML内容（如果Mapper使用XML配置）
-     * @return 解析结果
-     */
-    @Transactional
-    public ParseResult parseMapperInterface(Class<?> mapperClass, String xmlContent) {
-        logger.info("开始解析Mapper接口: {}", mapperClass.getName());
-
-        try {
-            String mapperNamespace = mapperClass.getName();
-            
-            // 删除旧数据
-            parsedSqlQueryRepository.deleteByMapperNamespace(mapperNamespace);
-
-            // 创建MyBatis Configuration
-            Configuration configuration = createMyBatisConfiguration();
-            
-            // 如果提供了XML内容，先解析XML
-            if (xmlContent != null && !xmlContent.trim().isEmpty()) {
-                parseMapperXml(configuration, xmlContent, mapperNamespace);
-            }
-            
-            // 解析Mapper接口的注解
-            parseMapperAnnotations(configuration, mapperClass);
-
-            // 从Configuration中提取所有MappedStatement
-            List<ParsedSqlQuery> queries = extractQueriesFromConfiguration(configuration, mapperNamespace);
-
-            // 保存所有查询
-            parsedSqlQueryRepository.saveAll(queries);
-
-            logger.info("解析完成，共解析出 {} 个SQL查询", queries.size());
-
-            ParseResult result = new ParseResult();
-            result.setMapperNamespace(mapperNamespace);
-            result.setQueryCount(queries.size());
-            result.setQueries(queries);
-            return result;
-
-        } catch (Exception e) {
-            logger.error("解析Mapper接口失败", e);
-            throw new RuntimeException("解析Mapper接口失败: " + e.getMessage(), e);
-        }
-    }
-
-    /**
      * 从XML内容解析Mapper（使用MyBatis内置解析器）
      * 
      * @param xmlContent XML内容
@@ -92,7 +40,7 @@ public class MyBatisConfigurationParserService {
      * @return 解析结果
      */
     @Transactional
-    public ParseResult parseMapperXmlWithMyBatis(String xmlContent, String mapperNamespace) {
+    public ParseResult parseMapperXml(String xmlContent, String mapperNamespace) {
         logger.info("开始使用MyBatis内置解析器解析XML: namespace={}", mapperNamespace);
 
         try {
@@ -147,43 +95,6 @@ public class MyBatisConfigurationParserService {
             configuration.getSqlFragments()
         );
         mapperParser.parse();
-    }
-
-    /**
-     * 解析Mapper接口的注解
-     */
-    private void parseMapperAnnotations(Configuration configuration, Class<?> mapperClass) {
-        // MyBatis的MapperRegistry会自动处理注解
-        // 我们需要手动注册Mapper接口
-        try {
-            // 使用反射创建MapperProxyFactory并注册
-            // 这里简化处理，实际应该使用MapperRegistry
-            Method[] methods = mapperClass.getMethods();
-            for (Method method : methods) {
-                // 检查是否有MyBatis注解
-                if (hasMyBatisAnnotation(method)) {
-                    // MyBatis会自动处理注解，我们只需要确保Configuration中有对应的MappedStatement
-                    // 这里需要更复杂的处理，暂时跳过
-                    logger.debug("发现带注解的方法: {}", method.getName());
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("解析Mapper注解时出错: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * 检查方法是否有MyBatis注解
-     */
-    private boolean hasMyBatisAnnotation(Method method) {
-        return method.isAnnotationPresent(org.apache.ibatis.annotations.Select.class) ||
-               method.isAnnotationPresent(org.apache.ibatis.annotations.Insert.class) ||
-               method.isAnnotationPresent(org.apache.ibatis.annotations.Update.class) ||
-               method.isAnnotationPresent(org.apache.ibatis.annotations.Delete.class) ||
-               method.isAnnotationPresent(org.apache.ibatis.annotations.SelectProvider.class) ||
-               method.isAnnotationPresent(org.apache.ibatis.annotations.InsertProvider.class) ||
-               method.isAnnotationPresent(org.apache.ibatis.annotations.UpdateProvider.class) ||
-               method.isAnnotationPresent(org.apache.ibatis.annotations.DeleteProvider.class);
     }
 
     /**
@@ -284,6 +195,28 @@ public class MyBatisConfigurationParserService {
         }
         
         return String.join(",", tableNames);
+    }
+
+    /**
+     * 根据表名获取相关查询
+     */
+    public List<Map<String, Object>> getQueriesByTable(String tableName) {
+        List<ParsedSqlQuery> queries = parsedSqlQueryRepository.findByTableName(tableName);
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ParsedSqlQuery query : queries) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", query.getId());
+            map.put("mapperNamespace", query.getMapperNamespace());
+            map.put("statementId", query.getStatementId());
+            map.put("queryType", query.getQueryType());
+            map.put("sql", query.getSql());
+            map.put("tableName", query.getTableName());
+            map.put("dynamicConditions", query.getDynamicConditions());
+            result.add(map);
+        }
+        
+        return result;
     }
 
 }

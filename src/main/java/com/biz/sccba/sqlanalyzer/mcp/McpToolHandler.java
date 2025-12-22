@@ -24,7 +24,7 @@ public class McpToolHandler {
     private SqlExecutionPlanService sqlExecutionPlanService;
 
     @Autowired(required = false)
-    private MyBatisMapperParserService myBatisMapperParserService;
+    private MyBatisConfigurationParserService myBatisConfigurationParserService;
 
     @Autowired(required = false)
     private SqlParameterReplacerService sqlParameterReplacerService;
@@ -174,11 +174,11 @@ public class McpToolHandler {
                 return createErrorResult("tableName参数不能为空");
             }
 
-            if (myBatisMapperParserService == null) {
+            if (myBatisConfigurationParserService == null) {
                 return createErrorResult("MyBatis解析服务未启用");
             }
 
-            List<Map<String, Object>> queries = myBatisMapperParserService.getQueriesByTable(tableName);
+            List<Map<String, Object>> queries = myBatisConfigurationParserService.getQueriesByTable(tableName);
             String jsonResult = objectMapper.writeValueAsString(queries);
 
             return createSuccessResult(jsonResult);
@@ -268,16 +268,13 @@ public class McpToolHandler {
                 return createErrorResult("tableName参数不能为空");
             }
 
-            if (myBatisMapperParserService == null) {
-                return createErrorResult("MyBatis解析服务未启用");
-            }
 
             if (aiClientService == null || llmManagerService == null) {
                 return createErrorResult("AI服务未启用");
             }
 
             // 获取表的所有查询
-            List<Map<String, Object>> queries = myBatisMapperParserService.getQueriesByTable(tableName);
+            List<Map<String, Object>> queries = myBatisConfigurationParserService.getQueriesByTable(tableName);
             if (queries.isEmpty()) {
                 return createErrorResult("未找到表 " + tableName + " 相关的SQL查询");
             }

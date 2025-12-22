@@ -10,8 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 单表查询综合分析服务
@@ -30,9 +28,6 @@ public class TableQueryAnalysisService {
 
     @Autowired
     private SqlParameterReplacerService sqlParameterReplacerService;
-
-    @Autowired(required = false)
-    private AiClientService aiClientService;
 
     @Autowired(required = false)
     private LlmManagerService llmManagerService;
@@ -173,81 +168,30 @@ public class TableQueryAnalysisService {
         suggestions.setSlowQueries(slowQueries);
         suggestions.setQueriesWithoutIndex(queriesWithoutIndex);
 
-        // 生成基于规则的优化建议
-        List<String> indexSuggestions = new ArrayList<>();
-        List<String> sqlSuggestions = new ArrayList<>();
-        
-        // 分析WHERE条件中常用的列
-        Map<String, Integer> columnUsage = new HashMap<>();
-        for (QueryAnalysis analysis : queryAnalyses) {
-            if (analysis.getSql() != null) {
-                extractColumnUsage(analysis.getSql(), columnUsage);
-            }
-        }
-
-        // 检查现有索引
-        Set<String> existingIndexColumns = new HashSet<>();
-        if (tableStructure != null && tableStructure.getIndexes() != null) {
-            for (TableStructure.IndexInfo index : tableStructure.getIndexes()) {
-                existingIndexColumns.add(index.getColumnName().toLowerCase());
-            }
-        }
-
-        // 建议为常用列创建索引
-        for (Map.Entry<String, Integer> entry : columnUsage.entrySet()) {
-            String column = entry.getKey().toLowerCase();
-            int usageCount = entry.getValue();
-            
-            if (!existingIndexColumns.contains(column) && usageCount >= 2) {
-                indexSuggestions.add("建议为列 '" + entry.getKey() + "' 创建索引（在 " + usageCount + " 个查询中使用）");
-            }
-        }
-
-        // 生成SQL优化建议
-        for (QueryAnalysis analysis : queryAnalyses) {
-            if (analysis.isSlowQuery()) {
-                StringBuilder sb = new StringBuilder("查询 #" + analysis.getQueryId());
-                if (analysis.getStatementId() != null) {
-                    sb.append(" (").append(analysis.getStatementId()).append(")");
-                }
-                sb.append(" 可能存在性能问题：");
-                
-                List<String> issues = new ArrayList<>();
-                if (!analysis.isUsesIndex()) {
-                    issues.add("未使用索引");
-                }
-                if ("ALL".equals(analysis.getAccessType())) {
-                    issues.add("全表扫描");
-                }
-                if (analysis.getRowsExamined() != null && analysis.getRowsExamined() > 10000) {
-                    issues.add("扫描行数过多(" + analysis.getRowsExamined() + ")");
-                }
-                
-                if (!issues.isEmpty()) {
-                    sb.append(String.join(", ", issues));
-                    sqlSuggestions.add(sb.toString());
-                }
-            }
-        }
-
-        // 如果启用了AI服务，调用大模型生成更智能的优化建议
-        if (aiClientService != null && llmManagerService != null && slowQueries > 0) {
+        // 调用大模型生成优化建议
+        if (llmManagerService != null) {
             try {
                 String aiSuggestions = generateAiOptimizationSuggestions(
                         tableStructure, queryAnalyses, tableName);
                 if (aiSuggestions != null && !aiSuggestions.trim().isEmpty()) {
-                    // 将AI建议添加到SQL优化建议中
-                    sqlSuggestions.add("=== AI智能优化建议 ===");
-                    sqlSuggestions.add(aiSuggestions);
                     suggestions.setAiSuggestions(aiSuggestions);
+                    // 将AI建议同时设置到SQL建议中，保持向后兼容
+                    List<String> sqlSuggestions = new ArrayList<>();
+                    sqlSuggestions.add(aiSuggestions);
+                    suggestions.setSqlSuggestions(sqlSuggestions);
+                } else {
+                    suggestions.setSqlSuggestions(new ArrayList<>());
                 }
             } catch (Exception e) {
-                logger.warn("调用AI生成优化建议失败，使用基于规则的建议", e);
+                logger.warn("调用AI生成优化建议失败", e);
+                suggestions.setSqlSuggestions(new ArrayList<>());
             }
+        } else {
+            logger.warn("未配置大模型服务，无法生成优化建议");
+            suggestions.setSqlSuggestions(new ArrayList<>());
         }
 
-        suggestions.setIndexSuggestions(indexSuggestions);
-        suggestions.setSqlSuggestions(sqlSuggestions);
+        suggestions.setIndexSuggestions(new ArrayList<>());
 
         return suggestions;
     }
@@ -343,24 +287,6 @@ public class TableQueryAnalysisService {
         }
         
         return null;
-    }
-
-    /**
-     * 从SQL中提取列使用情况
-     */
-    private void extractColumnUsage(String sql, Map<String, Integer> columnUsage) {
-        // 简单的列提取逻辑（可以改进）
-        // 查找WHERE、JOIN、ORDER BY等子句中的列名
-        Pattern pattern = Pattern.compile(
-            "(?i)(?:WHERE|JOIN|ON|ORDER BY|GROUP BY)\\s+[a-zA-Z_][a-zA-Z0-9_]*\\.?([a-zA-Z_][a-zA-Z0-9_]*)",
-            Pattern.CASE_INSENSITIVE
-        );
-        
-        Matcher matcher = pattern.matcher(sql);
-        while (matcher.find()) {
-            String column = matcher.group(1);
-            columnUsage.put(column, columnUsage.getOrDefault(column, 0) + 1);
-        }
     }
 
     /**

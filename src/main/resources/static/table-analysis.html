@@ -183,6 +183,15 @@
             background: #0b7dda;
         }
 
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+
         .loading {
             text-align: center;
             padding: 20px;
@@ -262,6 +271,138 @@
             background: white;
             border-left: 4px solid #ff9800;
             border-radius: 4px;
+        }
+
+        .markdown-content {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 20px;
+            line-height: 1.8;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        .markdown-content h1 {
+            font-size: 2em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+
+        .markdown-content h3 {
+            font-size: 1.25em;
+        }
+
+        .markdown-content h4 {
+            font-size: 1em;
+        }
+
+        .markdown-content p {
+            margin-bottom: 16px;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin-bottom: 16px;
+            padding-left: 2em;
+        }
+
+        .markdown-content li {
+            margin-bottom: 8px;
+        }
+
+        .markdown-content code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .markdown-content pre {
+            background: #f4f4f4;
+            padding: 16px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 16px;
+            margin: 16px 0;
+            color: #6a737d;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        .markdown-content table th,
+        .markdown-content table td {
+            border: 1px solid #dfe2e5;
+            padding: 8px 12px;
+        }
+
+        .markdown-content table th {
+            background: #f6f8fa;
+            font-weight: 600;
+        }
+
+        .markdown-content a {
+            color: #2196F3;
+            text-decoration: none;
+        }
+
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .download-btn:hover {
+            background: #1976D2;
+        }
+
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
         }
 
         .query-list {
@@ -378,6 +519,7 @@
                 <h1>单表综合分析工具</h1>
                 <div class="nav-links">
                     <a href="/index.html">SQL分析</a>
+                    <a href="/natural-language-analysis.html">自然语言分析</a>
                     <a href="/prompt-management.html">Prompt管理</a>
                 </div>
             </div>
@@ -385,6 +527,7 @@
             <div class="tabs">
                 <button class="tab active" @click="switchTab('upload')">上传MyBatis XML</button>
                 <button class="tab" @click="switchTab('analyze')">表分析</button>
+                <button class="tab" @click="switchTab('parameters')">参数管理</button>
             </div>
 
             <!-- 上传MyBatis XML标签页 -->
@@ -544,7 +687,16 @@
 
                     <!-- 优化建议 -->
                     <div v-if="analysisResult.suggestions" class="result-card">
-                        <h3>优化建议</h3>
+                        <div class="suggestion-header">
+                            <h3>优化建议</h3>
+                            <button 
+                                v-if="getOptimizationMarkdown()" 
+                                @click="downloadMarkdown" 
+                                class="download-btn"
+                                title="下载 Markdown 文档">
+                                📥 下载 Markdown
+                            </button>
+                        </div>
                         
                         <div v-if="analysisResult.suggestions.indexSuggestions && analysisResult.suggestions.indexSuggestions.length > 0">
                             <h4 style="margin-top: 15px; margin-bottom: 10px; color: #666;">索引建议</h4>
@@ -555,27 +707,15 @@
                             </ul>
                         </div>
 
-                        <div v-if="analysisResult.suggestions.sqlSuggestions && analysisResult.suggestions.sqlSuggestions.length > 0">
-                            <h4 style="margin-top: 15px; margin-bottom: 10px; color: #666;">SQL优化建议</h4>
-                            <ul class="suggestions-list">
-                                <li v-for="(suggestion, index) in analysisResult.suggestions.sqlSuggestions" :key="index">
-                                    {{ suggestion }}
-                                </li>
-                            </ul>
-                        </div>
-
-                        <div v-if="analysisResult.suggestions.aiSuggestions && analysisResult.suggestions.aiSuggestions.trim()">
+                        <div v-if="getOptimizationMarkdown()">
                             <h4 style="margin-top: 15px; margin-bottom: 10px; color: #2196F3;">
                                 🤖 AI智能优化建议
                             </h4>
-                            <div style="background: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; border-radius: 4px; white-space: pre-wrap; font-family: inherit;">
-                                {{ analysisResult.suggestions.aiSuggestions }}
-                            </div>
+                            <div class="markdown-content" v-html="renderMarkdown(getOptimizationMarkdown())"></div>
                         </div>
 
                         <div v-if="(!analysisResult.suggestions.indexSuggestions || analysisResult.suggestions.indexSuggestions.length === 0) && 
-                                   (!analysisResult.suggestions.sqlSuggestions || analysisResult.suggestions.sqlSuggestions.length === 0) &&
-                                   (!analysisResult.suggestions.aiSuggestions || !analysisResult.suggestions.aiSuggestions.trim())">
+                                   !getOptimizationMarkdown()">
                             <p style="color: #666; margin-top: 15px;">暂无优化建议，所有查询性能良好。</p>
                         </div>
                     </div>
@@ -649,11 +789,138 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 参数管理标签页 -->
+            <div id="parameters-tab" class="tab-content">
+                <div class="form-section">
+                    <h2>Mapper参数管理</h2>
+                    <p style="color: #666; margin-bottom: 20px;">
+                        管理用于解析动态SQL的参数。Mapper ID格式：namespace.statementId（例如：com.example.mapper.UserMapper.selectById）<br>
+                        <strong>支持层级配置：</strong>可以配置到任意层级（如：com.example.demo），查找时会从最具体到最外层逐级查找，直到找到为止。
+                    </p>
+                    
+                    <!-- 添加/编辑参数表单 -->
+                    <div class="form-section" style="background: #f9f9f9; padding: 20px; border-radius: 4px; margin-bottom: 30px;">
+                        <h3 style="margin-bottom: 15px; font-size: 16px;">{{ editingParameter ? '编辑参数' : '添加新参数' }}</h3>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label for="param-mapper-id">Mapper ID：</label>
+                            <input 
+                                type="text" 
+                                id="param-mapper-id"
+                                v-model="parameterForm.mapperId"
+                                placeholder="例如: com.example.mapper.UserMapper.selectById 或 com.example.mapper.UserMapper"
+                                :disabled="savingParameter"
+                            />
+                            <small style="color: #666; display: block; margin-top: 5px;">
+                                支持完整路径（如：com.example.demo.selectByKey）或命名空间层级（如：com.example.demo）
+                            </small>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label for="param-json">参数JSON：</label>
+                            <textarea 
+                                id="param-json"
+                                v-model="parameterForm.parameterJson"
+                                placeholder='例如: {"id": 1, "username": "test", "status": "active"}'
+                                :disabled="savingParameter"
+                                style="min-height: 150px; font-family: 'Courier New', monospace;"
+                            ></textarea>
+                            <small style="color: #666; display: block; margin-top: 5px;">
+                                请输入有效的JSON格式，将被解析为Map&lt;String,Object&gt;
+                            </small>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button 
+                                class="btn-primary"
+                                @click="saveParameter"
+                                :disabled="savingParameter || !parameterForm.mapperId.trim() || !parameterForm.parameterJson.trim()"
+                            >
+                                {{ savingParameter ? '保存中...' : (editingParameter ? '更新' : '保存') }}
+                            </button>
+                            <button 
+                                v-if="editingParameter"
+                                class="btn-secondary"
+                                @click="cancelEdit"
+                                :disabled="savingParameter"
+                            >
+                                取消
+                            </button>
+                        </div>
+                        <div v-if="parameterError" class="error" style="margin-top: 15px;">
+                            {{ parameterError }}
+                        </div>
+                        <div v-if="parameterSuccess" class="success" style="margin-top: 15px;">
+                            {{ parameterSuccess }}
+                        </div>
+                    </div>
+
+                    <!-- 参数列表 -->
+                    <div class="form-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin: 0; font-size: 16px;">参数列表（共 {{ parameters.length }} 条）</h3>
+                            <button 
+                                class="btn-secondary"
+                                @click="loadParameters"
+                                :disabled="loadingParameters"
+                            >
+                                {{ loadingParameters ? '加载中...' : '刷新' }}
+                            </button>
+                        </div>
+                        
+                        <div v-if="loadingParameters" class="loading">
+                            加载中...
+                        </div>
+                        
+                        <div v-else-if="parameters.length === 0" style="text-align: center; padding: 40px; color: #999;">
+                            暂无参数，请添加新参数
+                        </div>
+                        
+                        <div v-else class="query-list">
+                            <div v-for="param in parameters" :key="param.mapperId" class="query-item">
+                                <div class="query-header">
+                                    <h4 style="margin: 0; font-size: 14px; font-weight: 600; color: #333;">
+                                        {{ param.mapperId }}
+                                    </h4>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button 
+                                            class="btn-secondary"
+                                            style="padding: 6px 12px; font-size: 12px;"
+                                            @click="editParameter(param)"
+                                        >
+                                            编辑
+                                        </button>
+                                        <button 
+                                            class="btn-danger"
+                                            style="padding: 6px 12px; font-size: 12px; background: #f44336;"
+                                            @click="deleteParameter(param.mapperId)"
+                                        >
+                                            删除
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                                        <strong>参数JSON：</strong>
+                                    </div>
+                                    <div class="sql-code" style="font-size: 12px; max-height: 200px; overflow-y: auto;">
+                                        {{ param.parameterJson }}
+                                    </div>
+                                    <div style="font-size: 11px; color: #999; margin-top: 5px;">
+                                        创建时间：{{ formatDateTime(param.createdAt) }} | 
+                                        更新时间：{{ formatDateTime(param.updatedAt) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Vue 3 -->
     <script src="/libs/vue/vue.global.js"></script>
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 
     <script>
         const { createApp } = Vue;
@@ -674,7 +941,18 @@
                     datasources: [],
                     analyzing: false,
                     analyzeError: null,
-                    analysisResult: null
+                    analysisResult: null,
+                    // 参数管理相关
+                    parameters: [],
+                    loadingParameters: false,
+                    savingParameter: false,
+                    parameterError: null,
+                    parameterSuccess: null,
+                    editingParameter: null,
+                    parameterForm: {
+                        mapperId: '',
+                        parameterJson: ''
+                    }
                 };
             },
             mounted() {
@@ -684,14 +962,20 @@
                 switchTab(tab) {
                     this.activeTab = tab;
                     // 更新tab按钮状态
+                    const tabs = ['upload', 'analyze', 'parameters'];
                     document.querySelectorAll('.tab').forEach((t, index) => {
                         t.classList.remove('active');
-                        if ((tab === 'upload' && index === 0) || (tab === 'analyze' && index === 1)) {
+                        if (tabs[index] === tab) {
                             t.classList.add('active');
                         }
                     });
                     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                     document.getElementById(tab + '-tab').classList.add('active');
+                    
+                    // 切换到参数管理标签页时加载参数列表
+                    if (tab === 'parameters') {
+                        this.loadParameters();
+                    }
                 },
                 async loadDatasources() {
                     try {
@@ -779,6 +1063,201 @@
                     } finally {
                         this.analyzing = false;
                     }
+                },
+                async loadParameters() {
+                    this.loadingParameters = true;
+                    this.parameterError = null;
+                    
+                    try {
+                        const response = await fetch('/api/mybatis/parameters');
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(data.error || '加载失败');
+                        }
+                        
+                        this.parameters = data.parameters || [];
+                    } catch (err) {
+                        this.parameterError = err.message || '加载参数列表失败';
+                        console.error('加载参数错误:', err);
+                    } finally {
+                        this.loadingParameters = false;
+                    }
+                },
+                async saveParameter() {
+                    if (!this.parameterForm.mapperId.trim() || !this.parameterForm.parameterJson.trim()) {
+                        this.parameterError = '请填写Mapper ID和参数JSON';
+                        return;
+                    }
+                    
+                    // 验证JSON格式
+                    try {
+                        JSON.parse(this.parameterForm.parameterJson);
+                    } catch (e) {
+                        this.parameterError = '参数JSON格式无效，请检查JSON语法';
+                        return;
+                    }
+                    
+                    this.savingParameter = true;
+                    this.parameterError = null;
+                    this.parameterSuccess = null;
+                    
+                    try {
+                        const response = await fetch('/api/mybatis/parameters', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                mapperId: this.parameterForm.mapperId.trim(),
+                                parameters: JSON.parse(this.parameterForm.parameterJson)
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(data.error || '保存失败');
+                        }
+                        
+                        this.parameterSuccess = '参数保存成功！';
+                        this.resetParameterForm();
+                        await this.loadParameters();
+                    } catch (err) {
+                        this.parameterError = err.message || '保存失败，请检查网络连接或稍后重试';
+                        console.error('保存参数错误:', err);
+                    } finally {
+                        this.savingParameter = false;
+                    }
+                },
+                editParameter(param) {
+                    this.editingParameter = param;
+                    this.parameterForm.mapperId = param.mapperId;
+                    this.parameterForm.parameterJson = param.parameterJson;
+                    // 滚动到表单
+                    document.getElementById('param-mapper-id').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                },
+                cancelEdit() {
+                    this.resetParameterForm();
+                },
+                resetParameterForm() {
+                    this.parameterForm.mapperId = '';
+                    this.parameterForm.parameterJson = '';
+                    this.editingParameter = null;
+                    this.parameterError = null;
+                    this.parameterSuccess = null;
+                },
+                async deleteParameter(mapperId) {
+                    if (!confirm(`确定要删除参数 "${mapperId}" 吗？`)) {
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(`/api/mybatis/parameters/${encodeURIComponent(mapperId)}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(data.error || '删除失败');
+                        }
+                        
+                        this.parameterSuccess = '参数删除成功！';
+                        await this.loadParameters();
+                    } catch (err) {
+                        this.parameterError = err.message || '删除失败';
+                        console.error('删除参数错误:', err);
+                    }
+                },
+                formatDateTime(dateTimeStr) {
+                    if (!dateTimeStr) return '-';
+                    try {
+                        const date = new Date(dateTimeStr);
+                        return date.toLocaleString('zh-CN');
+                    } catch (e) {
+                        return dateTimeStr;
+                    }
+                },
+                getOptimizationMarkdown() {
+                    if (!this.analysisResult || !this.analysisResult.suggestions) {
+                        return null;
+                    }
+                    const suggestions = this.analysisResult.suggestions;
+                    // 优先使用 aiSuggestions，如果没有则使用 sqlSuggestions
+                    if (suggestions.aiSuggestions && suggestions.aiSuggestions.trim()) {
+                        return suggestions.aiSuggestions;
+                    }
+                    if (suggestions.sqlSuggestions && suggestions.sqlSuggestions.length > 0) {
+                        return suggestions.sqlSuggestions.join('\n\n');
+                    }
+                    return null;
+                },
+                renderMarkdown(markdown) {
+                    if (!markdown) return '';
+                    try {
+                        // 配置 marked 选项
+                        if (typeof marked !== 'undefined') {
+                            marked.setOptions({
+                                breaks: true,
+                                gfm: true,
+                                headerIds: true,
+                                mangle: false
+                            });
+                            return marked.parse(markdown);
+                        }
+                        // 如果 marked 未加载，返回原始文本（转义 HTML）
+                        return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                    } catch (e) {
+                        console.error('Markdown 渲染错误:', e);
+                        return markdown.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                    }
+                },
+                downloadMarkdown() {
+                    const markdown = this.getOptimizationMarkdown();
+                    if (!markdown) {
+                        alert('没有可下载的优化建议内容');
+                        return;
+                    }
+
+                    // 构建完整的 markdown 文档
+                    const tableName = this.analysisResult?.tableName || '未知表';
+                    const datasourceName = this.analysisResult?.datasourceName || '';
+                    const queryCount = this.analysisResult?.queryCount || 0;
+                    const timestamp = new Date().toLocaleString('zh-CN');
+
+                    let fullMarkdown = `# ${tableName} 表优化建议\n\n`;
+                    fullMarkdown += `**生成时间**: ${timestamp}\n\n`;
+                    if (datasourceName) {
+                        fullMarkdown += `**数据源**: ${datasourceName}\n\n`;
+                    }
+                    fullMarkdown += `**查询数量**: ${queryCount}\n\n`;
+                    fullMarkdown += `---\n\n`;
+
+                    // 添加索引建议
+                    if (this.analysisResult?.suggestions?.indexSuggestions && 
+                        this.analysisResult.suggestions.indexSuggestions.length > 0) {
+                        fullMarkdown += `## 索引建议\n\n`;
+                        this.analysisResult.suggestions.indexSuggestions.forEach(suggestion => {
+                            fullMarkdown += `- ${suggestion}\n`;
+                        });
+                        fullMarkdown += `\n`;
+                    }
+
+                    // 添加 AI 优化建议
+                    fullMarkdown += `## AI智能优化建议\n\n`;
+                    fullMarkdown += markdown;
+
+                    // 创建下载链接
+                    const blob = new Blob([fullMarkdown], { type: 'text/markdown;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${tableName}_优化建议_${new Date().toISOString().split('T')[0]}.md`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
                 }
             }
         }).mount('#app');

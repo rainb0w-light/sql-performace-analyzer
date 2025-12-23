@@ -21,17 +21,25 @@ public class PromptTemplateManagerService {
 
     public static final String TYPE_MYSQL = "MYSQL";
     public static final String TYPE_GOLDENDB = "GOLDENDB";
+    public static final String TYPE_TABLE_QUERY_ANALYSIS = "TABLE_QUERY_ANALYSIS";
 
     @PostConstruct
     public void initDefaultTemplates() {
-        if (repository.count() == 0) {
-            logger.info("初始化默认 Prompt 模板...");
-            
-            // 初始化 MySQL 模板
+        logger.info("检查并初始化默认 Prompt 模板...");
+        
+        // 检查并初始化 MySQL 模板
+        if (repository.findByTemplateType(TYPE_MYSQL).isEmpty()) {
             createDefaultTemplate(TYPE_MYSQL, "MySQL性能分析专家", getDefaultMysqlTemplate());
-            
-            // 初始化 GoldenDB 模板
+        }
+        
+        // 检查并初始化 GoldenDB 模板
+        if (repository.findByTemplateType(TYPE_GOLDENDB).isEmpty()) {
             createDefaultTemplate(TYPE_GOLDENDB, "GoldenDB性能分析专家", getDefaultGoldenDbTemplate());
+        }
+        
+        // 检查并初始化表查询分析模板
+        if (repository.findByTemplateType(TYPE_TABLE_QUERY_ANALYSIS).isEmpty()) {
+            createDefaultTemplate(TYPE_TABLE_QUERY_ANALYSIS, "表查询综合分析专家", getDefaultTableQueryAnalysisTemplate());
         }
     }
 
@@ -487,6 +495,156 @@ public class PromptTemplateManagerService {
             8. 对于复杂查询，提供分步骤的优化路径
             9. 特别关注数据倾斜和热点分片问题
             10. 考虑读写分离对一致性的影响
+            """;
+    }
+
+    private String getDefaultTableQueryAnalysisTemplate() {
+        return """
+            你是一位资深的数据库性能优化专家，拥有10年以上的数据库调优经验。请针对以下表的所有查询进行综合性能分析，并提供详细、可执行的优化建议。
+            
+            ## 表名
+            {table_name}
+            
+            ## 表结构信息
+            {table_structure}
+            
+            ## 所有SQL查询语句
+            {all_sqls}
+            
+            ## 所有执行计划
+            {all_execution_plans}
+            
+            ## 分析要求
+            
+            请从以下专业角度深入分析该表的所有查询性能：
+            
+            1. **查询综合分析**
+               
+               1.1 查询模式分析：
+               - 分析所有查询的访问模式（全表扫描、索引扫描、范围扫描等）
+               - 识别高频查询和低频查询
+               - 分析查询的WHERE条件模式（哪些列经常被查询）
+               - 识别查询的排序和分组模式
+               
+               1.2 索引使用情况分析：
+               - 分析哪些查询使用了索引，哪些没有
+               - 评估现有索引的利用率
+               - 识别索引冗余或缺失的情况
+               - 分析复合索引的设计是否合理
+               
+               1.3 执行计划分析：
+               - 分析每个查询的执行计划效率
+               - 识别慢查询及其原因
+               - 评估扫描行数和实际返回行数的比例
+               - 识别全表扫描的查询
+               
+               1.4 查询性能评估：
+               - 评估每个查询的性能等级（优秀/良好/需要优化/严重问题）
+               - 识别性能瓶颈
+               - 分析查询之间的性能差异
+               
+            2. **索引优化建议**
+               
+               2.1 缺失索引建议：
+               - 基于查询模式，建议创建哪些索引
+               - 提供具体的索引创建语句（CREATE INDEX）
+               - 说明索引设计理由（最左前缀原则、选择性考虑）
+               - 评估索引维护成本
+               
+               2.2 索引优化建议：
+               - 建议删除的冗余索引
+               - 建议合并的索引（多个单列索引合并为复合索引）
+               - 复合索引字段顺序优化建议
+               - 覆盖索引设计建议
+               
+               2.3 索引使用优化：
+               - 识别可以优化索引使用的查询
+               - 提供查询重写建议以更好地利用索引
+               
+            3. **SQL语句优化建议**
+               
+               3.1 查询重写建议：
+               - 提供优化后的SQL语句（前后对比）
+               - 说明重写的理由和预期效果
+               - 子查询优化为JOIN的示例
+               - WHERE条件优化建议
+               
+               3.2 查询逻辑优化：
+               - 避免SELECT *的建议
+               - 分页查询优化（避免深度分页）
+               - 批量操作优化建议
+               - 查询合并建议（多个查询合并为一个）
+               
+               3.3 查询模式优化：
+               - 识别可以优化的查询模式
+               - 提供查询缓存利用建议
+               - 提供查询结果预计算建议
+               
+            4. **表结构优化建议**
+               
+               4.1 字段类型优化：
+               - 字段类型优化建议（减少存储空间）
+               - 字段长度优化建议
+               
+               4.2 表设计优化：
+               - 行格式选择建议（COMPACT、DYNAMIC、COMPRESSED）
+               - 分区策略建议（如果适用）
+               - 表压缩建议（如果适用）
+               
+            5. **综合优化方案**
+               
+               5.1 优化优先级：
+               - 按影响范围和收益排序优化建议
+               - 识别高优先级优化项（影响多个查询的优化）
+               - 识别低风险高收益的优化项
+               
+               5.2 优化实施建议：
+               - 提供分阶段实施建议
+               - 评估优化方案的兼容性风险
+               - 提供回滚方案
+               
+               5.3 性能提升预期：
+               - 预估每个优化方案的性能提升
+               - 评估整体性能提升效果
+               
+            ## 输出格式要求
+            
+            请以结构化的Markdown格式输出分析结果，必须包含以下部分：
+            
+            ### 一、查询综合分析
+            - 查询模式分析
+            - 索引使用情况分析
+            - 执行计划分析
+            - 查询性能评估
+            
+            ### 二、索引优化建议
+            - 缺失索引建议（附具体SQL）
+            - 索引优化建议（删除冗余、合并索引等）
+            - 索引使用优化建议
+            
+            ### 三、SQL语句优化建议
+            - 查询重写方案（附前后对比）
+            - 查询逻辑优化建议
+            - 查询模式优化建议
+            
+            ### 四、表结构优化建议
+            - 字段类型优化建议
+            - 表设计优化建议
+            
+            ### 五、综合优化方案
+            - 优化优先级排序
+            - 优化实施建议
+            - 性能提升预期
+            
+            ## 注意事项
+            
+            1. 所有优化建议必须具体可执行，避免泛泛而谈
+            2. 提供的SQL语句必须语法正确，可直接使用
+            3. 优先考虑影响多个查询的优化方案（如创建复合索引）
+            4. 考虑生产环境的稳定性和兼容性
+            5. 优先考虑高收益、低风险的优化方案
+            6. 对于复杂优化，提供分步骤的优化路径
+            7. 分析时要综合考虑所有查询，避免优化一个查询而影响其他查询
             """;
     }
 }

@@ -1,5 +1,6 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
+import com.biz.sccba.sqlanalyzer.model.MapperParameter;
 import com.biz.sccba.sqlanalyzer.model.ParseResult;
 import com.biz.sccba.sqlanalyzer.service.MyBatisConfigurationParserService;
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -90,6 +92,118 @@ public class MyBatisController {
             logger.error("查询表SQL失败", e);
             return ResponseEntity.status(500)
                     .body(createErrorResponse("查询失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 获取所有Mapper参数
+     * GET /api/mybatis/parameters
+     */
+    @GetMapping("/parameters")
+    public ResponseEntity<?> getAllParameters() {
+        try {
+            // 注意：这里需要添加一个方法来获取所有参数
+            // 由于MapperParameterRepository继承自JpaRepository，可以直接使用findAll()
+            List<MapperParameter> parameters = myBatisConfigurationParserService.getAllMapperParameters();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("count", parameters.size());
+            response.put("parameters", parameters);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("获取Mapper参数列表失败", e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("获取参数列表失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 根据Mapper ID获取参数
+     * GET /api/mybatis/parameters/{mapperId}
+     */
+    @GetMapping("/parameters/{mapperId}")
+    public ResponseEntity<?> getParameter(@PathVariable String mapperId) {
+        try {
+            Map<String, Object> parameter = myBatisConfigurationParserService.getMapperParameter(mapperId);
+            
+            if (parameter == null) {
+                return ResponseEntity.status(404)
+                        .body(createErrorResponse("参数不存在"));
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("mapperId", mapperId);
+            response.put("parameter", parameter);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("获取Mapper参数失败: mapperId={}", mapperId, e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("获取参数失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 保存或更新Mapper参数
+     * POST /api/mybatis/parameters
+     */
+    @PostMapping("/parameters")
+    public ResponseEntity<?> saveParameter(@RequestBody Map<String, Object> request) {
+        try {
+            String mapperId = (String) request.get("mapperId");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parameters = (Map<String, Object>) request.get("parameters");
+            
+            if (mapperId == null || mapperId.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(createErrorResponse("mapperId不能为空"));
+            }
+            
+            if (parameters == null) {
+                return ResponseEntity.badRequest()
+                        .body(createErrorResponse("parameters不能为空"));
+            }
+            
+            logger.info("保存Mapper参数: mapperId={}", mapperId);
+            
+            MapperParameter saved = myBatisConfigurationParserService.saveMapperParameter(mapperId, parameters);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "参数保存成功");
+            response.put("mapperId", saved.getMapperId());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("保存Mapper参数失败", e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("保存参数失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 删除Mapper参数
+     * DELETE /api/mybatis/parameters/{mapperId}
+     */
+    @DeleteMapping("/parameters/{mapperId}")
+    public ResponseEntity<?> deleteParameter(@PathVariable String mapperId) {
+        try {
+            logger.info("删除Mapper参数: mapperId={}", mapperId);
+            
+            myBatisConfigurationParserService.deleteMapperParameter(mapperId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "参数删除成功");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("删除Mapper参数失败: mapperId={}", mapperId, e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("删除参数失败: " + e.getMessage()));
         }
     }
 

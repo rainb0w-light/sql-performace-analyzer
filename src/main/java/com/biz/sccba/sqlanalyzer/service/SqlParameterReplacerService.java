@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
 
 /**
  * SQL参数替换服务
- * 将MyBatis SQL中的占位符（如#{id}）替换为数据库中的实际样本值
  */
 @Service
 public class SqlParameterReplacerService {
@@ -33,8 +32,6 @@ public class SqlParameterReplacerService {
     @Autowired
     private ColumnStatisticsParserService columnStatisticsParserService;
 
-    // 匹配MyBatis占位符的正则表达式：#{paramName} 或 ${paramName}
-    private static final Pattern PARAM_PATTERN = Pattern.compile("#\\{([^}]+)\\}|\\$\\{([^}]+)\\}");
 
     /**
      * 替换SQL中的占位符为实际值
@@ -49,25 +46,45 @@ public class SqlParameterReplacerService {
         }
 
         try {
-            // 获取表结构
-            String testSql = "SELECT * FROM " + tableName + " LIMIT 1";
-            List<TableStructure> structures = sqlExecutionPlanService.getTableStructures(testSql, datasourceName);
-            
-            if (structures.isEmpty()) {
-                logger.warn("无法获取表结构: {}", tableName);
+            // 只支持?占位符
+            if (!sql.contains("?")) {
+                // 没有占位符，直接返回
                 return sql;
             }
+            
+            // 提取SQL中实际使用的列名
+            Set<String> columnNames = extractColumnNamesFromQuestionMarks(sql, tableName);
 
-            TableStructure tableStructure = structures.get(0);
+            if (columnNames.isEmpty()) {
+                logger.warn("无法从SQL中提取列名: {}", sql);
+                return sql;
+            }
             Map<String, TableStructure.ColumnInfo> columnMap = new HashMap<>();
-            if (tableStructure.getColumns() != null) {
-                for (TableStructure.ColumnInfo col : tableStructure.getColumns()) {
-                    columnMap.put(col.getColumnName().toLowerCase(), col);
+
+            try {
+                // 构建只查询指定列的SQL
+                String testSql = "SELECT * FROM " + tableName + " LIMIT 1";
+
+                List<TableStructure> structures = sqlExecutionPlanService.getTableStructures(testSql, datasourceName);
+
+                if (!structures.isEmpty()) {
+                    TableStructure tableStructure = structures.get(0);
+                    if (tableStructure.getColumns() != null) {
+                        for (TableStructure.ColumnInfo col : tableStructure.getColumns() ) {
+                            if(columnNames.contains(col.getColumnName())){
+                                columnMap.put(col.getColumnName().toLowerCase(), col);
+                            }
+                        }
+                    }
                 }
+            } catch (Exception e) {
+                logger.error("获取指定列的表结构失败: {}", e.getMessage());
             }
 
-            // 替换占位符
-            String replacedSql = replacePlaceholders(sql, columnMap, tableName, datasourceName);
+            // 只获取这些列的表结构信息
+
+            // 替换?占位符
+            String replacedSql = replaceQuestionMarkPlaceholders(sql, columnMap, tableName, datasourceName);
 
             logger.debug("SQL参数替换: {} -> {}", sql, replacedSql);
             return replacedSql;
@@ -80,188 +97,146 @@ public class SqlParameterReplacerService {
     }
 
     /**
-     * 替换占位符
+     * 替换?占位符
      */
-    private String replacePlaceholders(String sql, Map<String, TableStructure.ColumnInfo> columnMap,
-                                      String tableName, String datasourceName) {
-        Matcher matcher = PARAM_PATTERN.matcher(sql);
-        StringBuffer result = new StringBuffer();
-        
+    private String replaceQuestionMarkPlaceholders(String sql, Map<String, TableStructure.ColumnInfo> columnMap,
+                                                   String tableName, String datasourceName) {
         // 获取扩展样本数据（包含统计信息）
         Map<String, ColumnSampleData> extendedSampleData = getExtendedSampleData(tableName, datasourceName, columnMap);
-
-        while (matcher.find()) {
-            String paramName = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
-            String replacement = getReplacementValue(paramName, columnMap, extendedSampleData,
-                                                    tableName, datasourceName, sql);
-            
-            // 转义特殊字符，避免在replaceReplacement中使用$等特殊字符
-            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        
+        StringBuffer result = new StringBuffer(sql);
+        
+        // 1. 处理 BETWEEN ? AND ? 的情况（先处理，因为包含两个占位符）
+        Pattern betweenPattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s+(?:BETWEEN|between)\\s+\\?\\s+(?:AND|and)\\s+\\?",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher betweenMatcher = betweenPattern.matcher(result);
+        while (betweenMatcher.find()) {
+            String fullColumnName = betweenMatcher.group(1);
+            if (fullColumnName != null) {
+                // 提取列名（去掉表别名前缀）
+                String columnName = fullColumnName;
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                String lowerColumnName = columnName.toLowerCase();
+                
+                // 获取列信息和样本数据
+                TableStructure.ColumnInfo columnInfo = columnMap.get(lowerColumnName);
+                ColumnSampleData columnSamples = extendedSampleData.get(lowerColumnName);
+                
+                // 选择起始值和结束值
+                Object startValue = selectValueForQuestionMark(lowerColumnName, columnInfo, columnSamples, "BETWEEN_START");
+                Object endValue = selectValueForQuestionMark(lowerColumnName, columnInfo, columnSamples, "BETWEEN_END");
+                
+                // 如果找不到，使用默认值
+                if (startValue == null) {
+                    startValue = columnInfo != null ? getDefaultValueByType(columnInfo.getDataType()) : "1";
+                }
+                if (endValue == null) {
+                    endValue = columnInfo != null ? getDefaultValueByType(columnInfo.getDataType()) : "1";
+                }
+                
+                // 格式化值
+                String startReplacement = formatValue(startValue);
+                String endReplacement = formatValue(endValue);
+                
+                // 构建替换字符串
+                String replacement = fullColumnName + " BETWEEN " + startReplacement + " AND " + endReplacement;
+                result.replace(betweenMatcher.start(), betweenMatcher.end(), replacement);
+                
+                // 重置匹配器，因为字符串已改变
+                betweenMatcher = betweenPattern.matcher(result);
+            }
         }
-        matcher.appendTail(result);
-
+        
+        // 2. 处理 IN (?, ?, ?) 的情况
+        Pattern inPattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s+(?:IN|in)\\s*\\(([^)]+)\\)",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher inMatcher = inPattern.matcher(result);
+        while (inMatcher.find()) {
+            String fullColumnName = inMatcher.group(1);
+            String inClause = inMatcher.group(2);
+            if (fullColumnName != null && inClause != null && inClause.contains("?")) {
+                // 提取列名（去掉表别名前缀）
+                String columnName = fullColumnName;
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                String lowerColumnName = columnName.toLowerCase();
+                
+                // 获取列信息和样本数据
+                TableStructure.ColumnInfo columnInfo = columnMap.get(lowerColumnName);
+                ColumnSampleData columnSamples = extendedSampleData.get(lowerColumnName);
+                
+                // 为每个占位符选择值
+                StringBuilder newInClause = new StringBuilder();
+                int lastIndex = 0;
+                for (int i = 0; i < inClause.length(); i++) {
+                    if (inClause.charAt(i) == '?') {
+                        newInClause.append(inClause.substring(lastIndex, i));
+                        
+                        // 选择值
+                        Object value = selectValueForQuestionMark(lowerColumnName, columnInfo, columnSamples, "IN");
+                        if (value == null) {
+                            value = columnInfo != null ? getDefaultValueByType(columnInfo.getDataType()) : "1";
+                        }
+                        newInClause.append(formatValue(value));
+                        
+                        lastIndex = i + 1;
+                    }
+                }
+                newInClause.append(inClause.substring(lastIndex));
+                
+                // 替换整个IN子句（保留原始列名，可能包含表别名）
+                String replacement = fullColumnName + " IN (" + newInClause.toString() + ")";
+                result.replace(inMatcher.start(), inMatcher.end(), replacement);
+                
+                // 重置匹配器
+                inMatcher = inPattern.matcher(result);
+            }
+        }
+        
+        // 3. 处理列名 = ?, > ?, < ?, >= ?, <= ?, != ? 等情况
+        Pattern comparisonPattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s*([=<>!]+)\\s*\\?",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher comparisonMatcher = comparisonPattern.matcher(result);
+        while (comparisonMatcher.find()) {
+            String fullColumnName = comparisonMatcher.group(1);
+            String operator = comparisonMatcher.group(2);
+            if (fullColumnName != null && operator != null) {
+                // 提取列名（去掉表别名前缀）
+                String columnName = fullColumnName;
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                String lowerColumnName = columnName.toLowerCase();
+                
+                // 获取列信息和样本数据
+                TableStructure.ColumnInfo columnInfo = columnMap.get(lowerColumnName);
+                ColumnSampleData columnSamples = extendedSampleData.get(lowerColumnName);
+                
+                // 选择值
+                Object value = selectValueForQuestionMark(lowerColumnName, columnInfo, columnSamples, operator);
+                if (value == null) {
+                    value = columnInfo != null ? getDefaultValueByType(columnInfo.getDataType()) : "1";
+                }
+                
+                // 格式化值并替换（保留原始列名，可能包含表别名）
+                String replacement = formatValue(value);
+                result.replace(comparisonMatcher.end() - 1, comparisonMatcher.end(), replacement);
+                
+                // 重置匹配器
+                comparisonMatcher = comparisonPattern.matcher(result);
+            }
+        }
+        
         return result.toString();
-    }
-
-    /**
-     * 获取替换值
-     */
-    private String getReplacementValue(String paramName, Map<String, TableStructure.ColumnInfo> columnMap,
-                                      Map<String, ColumnSampleData> extendedSampleData,
-                                      String tableName, String datasourceName, String sql) {
-        // 提取列名（去掉可能的表别名前缀）
-        String columnName = paramName;
-        if (paramName.contains(".")) {
-            columnName = paramName.substring(paramName.lastIndexOf(".") + 1);
-        }
-        String lowerColumnName = columnName.toLowerCase();
-        
-        // 获取列信息
-        TableStructure.ColumnInfo columnInfo = columnMap.get(lowerColumnName);
-        if (columnInfo == null && paramName.contains(".")) {
-            String baseColumnName = paramName.substring(paramName.lastIndexOf(".") + 1);
-            columnInfo = columnMap.get(baseColumnName.toLowerCase());
-        }
-        
-        // 获取扩展样本数据
-        ColumnSampleData columnSamples = extendedSampleData.get(lowerColumnName);
-        if (columnSamples == null && paramName.contains(".")) {
-            columnSamples = extendedSampleData.get(columnName.toLowerCase());
-        }
-        
-        // 根据参数名和SQL上下文智能选择值
-        Object value = selectValueForParameter(paramName, columnName, columnInfo, columnSamples, sql);
-
-        // 如果还是找不到，使用默认值
-        if (value == null) {
-            if (columnInfo != null) {
-                value = getDefaultValueByType(columnInfo.getDataType());
-            } else {
-                value = "1";
-            }
-        }
-
-        // 根据数据类型格式化值
-        return formatValue(value);
-    }
-    
-    /**
-     * 根据参数名和SQL上下文智能选择值
-     */
-    private Object selectValueForParameter(String paramName, String columnName, 
-                                          TableStructure.ColumnInfo columnInfo,
-                                          ColumnSampleData columnSamples, String sql) {
-        // 1. 检查是否是范围查询参数
-        RangeQueryType rangeType = detectRangeQueryType(paramName, columnName, sql);
-        
-        if (rangeType != RangeQueryType.NONE && columnSamples != null) {
-            switch (rangeType) {
-                case START:
-                case MIN:
-                    return columnSamples.getMinValue();
-                case END:
-                case MAX:
-                    return columnSamples.getMaxValue();
-                case BETWEEN_START:
-                    // BETWEEN 的起始值，使用最小值或25分位数
-                    if (columnSamples.getPercentile25() != null) {
-                        return columnSamples.getPercentile25();
-                    }
-                    return columnSamples.getMinValue();
-                case BETWEEN_END:
-                    // BETWEEN 的结束值，使用最大值或75分位数
-                    if (columnSamples.getPercentile75() != null) {
-                        return columnSamples.getPercentile75();
-                    }
-                    return columnSamples.getMaxValue();
-                default:
-                    break;
-            }
-        }
-        
-        // 2. 尝试从扩展样本数据中获取随机样本
-        if (columnSamples != null && !columnSamples.getRandomSamples().isEmpty()) {
-            // 使用随机样本，增加多样性
-            List<Object> randomSamples = columnSamples.getRandomSamples();
-            return randomSamples.get(Math.abs(paramName.hashCode()) % randomSamples.size());
-        }
-        
-        // 3. 如果有中位数，使用中位数（更能代表数据分布）
-        if (columnSamples != null && columnSamples.getMedian() != null) {
-            return columnSamples.getMedian();
-        }
-        
-        return null;
-    }
-    
-    /**
-     * 检测范围查询类型
-     */
-    private RangeQueryType detectRangeQueryType(String paramName, String columnName, String sql) {
-        String lowerParamName = paramName.toLowerCase();
-        String lowerColumnName = columnName.toLowerCase();
-        String lowerSql = sql.toLowerCase();
-        
-        // 检查参数名模式
-        if (lowerParamName.contains("start") || lowerParamName.contains("begin") || 
-            lowerParamName.startsWith("min") || lowerParamName.endsWith("from")) {
-            // 检查是否在 BETWEEN 子句中
-            int paramIndex = lowerSql.indexOf("#{" + lowerParamName + "}");
-            if (paramIndex > 0) {
-                String beforeParam = lowerSql.substring(Math.max(0, paramIndex - 50), paramIndex);
-                if (beforeParam.contains("between")) {
-                    return RangeQueryType.BETWEEN_START;
-                }
-            }
-            return RangeQueryType.START;
-        }
-        
-        if (lowerParamName.contains("end") || lowerParamName.contains("finish") ||
-            lowerParamName.startsWith("max") || lowerParamName.endsWith("to")) {
-            // 检查是否在 BETWEEN 子句中
-            int paramIndex = lowerSql.indexOf("#{" + lowerParamName + "}");
-            if (paramIndex > 0) {
-                String beforeParam = lowerSql.substring(Math.max(0, paramIndex - 50), paramIndex);
-                if (beforeParam.contains("between")) {
-                    return RangeQueryType.BETWEEN_END;
-                }
-            }
-            return RangeQueryType.END;
-        }
-        
-        // 检查SQL上下文中的操作符
-        int paramIndex = lowerSql.indexOf("#{" + lowerParamName + "}");
-        if (paramIndex > 0) {
-            String context = lowerSql.substring(Math.max(0, paramIndex - 30), 
-                                               Math.min(lowerSql.length(), paramIndex + 50));
-            
-            // 检查是否在 BETWEEN 子句中
-            if (context.contains("between")) {
-                // 判断是 BETWEEN 的第一个还是第二个参数
-                String beforeBetween = lowerSql.substring(Math.max(0, paramIndex - 100), paramIndex);
-                int betweenIndex = beforeBetween.lastIndexOf("between");
-                if (betweenIndex >= 0) {
-                    String betweenAndContext = lowerSql.substring(betweenIndex, 
-                                                                 Math.min(lowerSql.length(), paramIndex + 50));
-                    int andIndex = betweenAndContext.indexOf("and");
-                    if (andIndex > 0 && paramIndex - betweenIndex < andIndex) {
-                        return RangeQueryType.BETWEEN_START;
-                    } else {
-                        return RangeQueryType.BETWEEN_END;
-                    }
-                }
-            }
-            
-            // 检查比较操作符
-            if (context.contains(">=") || context.contains("> ")) {
-                return RangeQueryType.MIN;
-            }
-            if (context.contains("<=") || context.contains("< ")) {
-                return RangeQueryType.MAX;
-            }
-        }
-        
-        return RangeQueryType.NONE;
     }
     
     /**
@@ -387,6 +362,7 @@ public class SqlParameterReplacerService {
             for (ColumnStatistics stat : statisticsList) {
                 statisticsMap.put(stat.getColumnName().toLowerCase(), stat);
             }
+
             
             // 对每个列，从统计信息中构建ColumnSampleData
             for (Map.Entry<String, TableStructure.ColumnInfo> entry : columnMap.entrySet()) {
@@ -394,7 +370,7 @@ public class SqlParameterReplacerService {
                 ColumnStatistics statistics = statisticsMap.get(columnName);
                 
                 if (statistics == null) {
-                    // 如果没有统计信息，尝试收集（可选，避免每次都收集）
+                    // 如果没有统计信息，跳过
                     logger.debug("列 {} 没有统计信息，跳过", columnName);
                     continue;
                 }
@@ -445,7 +421,7 @@ public class SqlParameterReplacerService {
                 }
             }
             
-            logger.debug("获取扩展样本数据完成: table={}, columns={}", tableName, extendedData.keySet());
+            logger.info("获取扩展样本数据完成: table={}, columns={}", tableName, extendedData.keySet());
             
         } catch (Exception e) {
             logger.warn("获取扩展样本数据失败: table={}, error={}", tableName, e.getMessage());
@@ -493,22 +469,117 @@ public class SqlParameterReplacerService {
         return a.toString().compareTo(b.toString());
     }
 
+
     /**
-     * 从SQL中提取所有占位符参数名
+     * 从SQL中提取?占位符前的列名
+     * @param sql SQL语句
+     * @param tableName 表名（用于处理表别名）
+     * @return 列名集合
      */
-    public Set<String> extractParameterNames(String sql) {
-        Set<String> paramNames = new HashSet<>();
+    private Set<String> extractColumnNamesFromQuestionMarks(String sql, String tableName) {
+        Set<String> columnNames = new HashSet<>();
         if (sql == null || sql.trim().isEmpty()) {
-            return paramNames;
+            return columnNames;
         }
-
-        Matcher matcher = PARAM_PATTERN.matcher(sql);
+        
+        String lowerSql = sql.toLowerCase();
+        
+        // 使用正则表达式匹配列名 = ? 的模式
+        // 匹配: column = ?, column >= ?, column <= ?, column != ?, column IN (?, ?, ?)
+        Pattern pattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s*[=<>!]+\\s*\\?|" +
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s+(?:IN|in)\\s*\\([^)]*\\?",
+            Pattern.CASE_INSENSITIVE
+        );
+        
+        Matcher matcher = pattern.matcher(sql);
         while (matcher.find()) {
-            String paramName = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
-            paramNames.add(paramName);
+            String columnName = matcher.group(1);
+            if (columnName == null) {
+                columnName = matcher.group(2);
+            }
+            if (columnName != null) {
+                // 去掉表别名前缀
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                columnNames.add(columnName.toLowerCase());
+            }
         }
-
-        return paramNames;
+        
+        // 处理 BETWEEN ? AND ? 的情况
+        Pattern betweenPattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s+(?:BETWEEN|between)\\s+\\?",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher betweenMatcher = betweenPattern.matcher(sql);
+        while (betweenMatcher.find()) {
+            String columnName = betweenMatcher.group(1);
+            if (columnName != null) {
+                // 去掉表别名前缀
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                columnNames.add(columnName.toLowerCase());
+            }
+        }
+        
+        return columnNames;
+    }
+    
+    /**
+     * 为?占位符选择值
+     */
+    private Object selectValueForQuestionMark(String columnName, TableStructure.ColumnInfo columnInfo,
+                                              ColumnSampleData columnSamples, String operator) {
+        // 检查是否是范围查询
+        RangeQueryType rangeType = RangeQueryType.NONE;
+        
+        if ("BETWEEN_START".equals(operator)) {
+            rangeType = RangeQueryType.BETWEEN_START;
+        } else if ("BETWEEN_END".equals(operator)) {
+            rangeType = RangeQueryType.BETWEEN_END;
+        } else if (operator != null) {
+            if (operator.contains(">")) {
+                rangeType = RangeQueryType.MIN;
+            } else if (operator.contains("<")) {
+                rangeType = RangeQueryType.MAX;
+            }
+        }
+        
+        if (rangeType != RangeQueryType.NONE && columnSamples != null) {
+            switch (rangeType) {
+                case MIN:
+                    return columnSamples.getMinValue();
+                case MAX:
+                    return columnSamples.getMaxValue();
+                case BETWEEN_START:
+                    if (columnSamples.getPercentile25() != null) {
+                        return columnSamples.getPercentile25();
+                    }
+                    return columnSamples.getMinValue();
+                case BETWEEN_END:
+                    if (columnSamples.getPercentile75() != null) {
+                        return columnSamples.getPercentile75();
+                    }
+                    return columnSamples.getMaxValue();
+                default:
+                    break;
+            }
+        }
+        
+        // 尝试从扩展样本数据中获取随机样本
+        if (columnSamples != null && !columnSamples.getRandomSamples().isEmpty()) {
+            List<Object> randomSamples = columnSamples.getRandomSamples();
+            return randomSamples.get(Math.abs(columnName.hashCode()) % randomSamples.size());
+        }
+        
+        // 如果有中位数，使用中位数
+        if (columnSamples != null && columnSamples.getMedian() != null) {
+            return columnSamples.getMedian();
+        }
+        
+        return null;
     }
 
     /**

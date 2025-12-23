@@ -63,11 +63,11 @@ public class ColumnStatisticsCollectorService {
             // 构建ANALYZE TABLE语句
             String analyzeSql = buildAnalyzeTableSql(tableName, columns, bucketCount);
             
-            // 执行ANALYZE TABLE
+            // 执行ANALYZE TABLE并解析返回结果
             logger.info("执行ANALYZE TABLE: {}", analyzeSql);
             try {
-                jdbcTemplate.execute(analyzeSql);
-                logger.info("ANALYZE TABLE执行成功");
+                List<Map<String, Object>> analyzeResults = jdbcTemplate.queryForList(analyzeSql);
+                parseAnalyzeTableResults(analyzeResults, tableName, columns);
             } catch (DataAccessException e) {
                 logger.warn("ANALYZE TABLE执行失败（可能MySQL版本不支持或表不存在）: {}", e.getMessage());
                 // 继续尝试从information_schema获取已有统计信息
@@ -98,6 +98,48 @@ public class ColumnStatisticsCollectorService {
             logger.error("收集表统计信息失败", e);
             throw new RuntimeException("收集表统计信息失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 解析ANALYZE TABLE的返回结果，提取错误信息
+     * ANALYZE TABLE返回的结果集包含：Table, Op, Msg_type, Msg_text
+     */
+    private void parseAnalyzeTableResults(List<Map<String, Object>> results, String tableName, List<String> columns) {
+        if (results == null || results.isEmpty()) {
+            logger.info("ANALYZE TABLE未返回结果");
+            return;
+        }
+
+        for (Map<String, Object> row : results) {
+            String msgType = getStringValue(row, "Msg_type");
+            String msgText = getStringValue(row, "Msg_text");
+            String op = getStringValue(row, "Op");
+            
+            if ("error".equalsIgnoreCase(msgType)) {
+                logger.warn("ANALYZE TABLE执行错误: table={}, op={}, msg={}", tableName, op, msgText);
+                
+                // 尝试从错误信息中提取列名
+                if (msgText != null && msgText.contains("column")) {
+                    // 例如："The column 'id' is covered by a single-part unique index."
+                    logger.info("列统计信息收集失败，原因: {}", msgText);
+                }
+            } else if ("note".equalsIgnoreCase(msgType)) {
+                logger.info("ANALYZE TABLE提示: table={}, op={}, msg={}", tableName, op, msgText);
+            } else if ("status".equalsIgnoreCase(msgType)) {
+                logger.debug("ANALYZE TABLE状态: table={}, op={}, msg={}", tableName, op, msgText);
+            }
+        }
+    }
+
+    /**
+     * 安全获取Map中的字符串值
+     */
+    private String getStringValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) {
+            return null;
+        }
+        return value.toString();
     }
 
     /**

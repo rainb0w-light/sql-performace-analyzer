@@ -26,7 +26,7 @@
                 AND status = #{status}
             </if>
             <if test="createTime != null">
-                AND create_time >= #{createTime}
+                AND createTime >= #{createTime}
             </if>
         </where>
         ORDER BY id DESC

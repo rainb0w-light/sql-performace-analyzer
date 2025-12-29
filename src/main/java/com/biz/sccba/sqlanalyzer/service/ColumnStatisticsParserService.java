@@ -1,18 +1,22 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.ColumnStatistics;
+import com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 列统计信息解析服务
- * 解析从information_schema.column_statistics获取的JSON格式直方图数据
+ * 直接从MySQL的information_schema.COLUMN_STATISTICS读取并解析JSON格式直方图数据
  */
 @Service
 public class ColumnStatisticsParserService {
@@ -20,65 +24,144 @@ public class ColumnStatisticsParserService {
     private static final Logger logger = LoggerFactory.getLogger(ColumnStatisticsParserService.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    @Autowired
+    private DataSourceManagerService dataSourceManagerService;
 
     /**
-     * 解析直方图JSON数据
+     * 从MySQL的information_schema.COLUMN_STATISTICS读取并解析统计信息
+     * 
+     * @param datasourceName 数据源名称
+     * @param databaseName 数据库名
+     * @param tableName 表名
+     * @param columnName 列名
+     * @return 解析后的ColumnStatisticsDTO对象，如果不存在则返回null
+     */
+    public ColumnStatisticsDTO getStatisticsFromMysql(String datasourceName, String databaseName,
+                                                       String tableName, String columnName) {
+        try {
+            JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
+            
+            String sql = """
+                SELECT HISTOGRAM
+                FROM information_schema.COLUMN_STATISTICS
+                WHERE SCHEMA_NAME = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?
+                """;
+            
+            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, databaseName, tableName, columnName);
+            
+            if (results.isEmpty()) {
+                logger.debug("未找到列统计信息: schema={}, table={}, column={}", databaseName, tableName, columnName);
+                return null;
+            }
+            
+            String histogramJson = (String) results.get(0).get("HISTOGRAM");
+            if (histogramJson == null || histogramJson.trim().isEmpty()) {
+                logger.debug("列 {} 没有直方图数据", columnName);
+                return null;
+            }
+            
+            return parseHistogramJson(histogramJson, datasourceName, databaseName, tableName, columnName);
+            
+        } catch (DataAccessException e) {
+            logger.warn("查询information_schema.COLUMN_STATISTICS失败: {}", e.getMessage());
+            return null;
+        } catch (Exception e) {
+            logger.error("从MySQL读取统计信息失败: table={}, column={}, error={}", 
+                        tableName, columnName, e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * 从MySQL获取指定表的所有列的统计信息
+     */
+    public List<ColumnStatisticsDTO> getStatisticsFromMysql(String datasourceName, String databaseName,
+                                                              String tableName) {
+        List<ColumnStatisticsDTO> result = new ArrayList<>();
+        
+        try {
+            JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
+            
+            String sql = """
+                SELECT COLUMN_NAME, HISTOGRAM
+                FROM information_schema.COLUMN_STATISTICS
+                WHERE SCHEMA_NAME = ? AND TABLE_NAME = ?
+                """;
+            
+            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, databaseName, tableName);
+            
+            for (Map<String, Object> row : results) {
+                String columnName = (String) row.get("COLUMN_NAME");
+                String histogramJson = (String) row.get("HISTOGRAM");
+                
+                if (histogramJson != null && !histogramJson.trim().isEmpty()) {
+                    ColumnStatisticsDTO dto = parseHistogramJson(histogramJson, datasourceName, databaseName, tableName, columnName);
+                    if (dto != null) {
+                        result.add(dto);
+                    }
+                }
+            }
+            
+        } catch (DataAccessException e) {
+            logger.warn("查询information_schema.COLUMN_STATISTICS失败: {}", e.getMessage());
+        } catch (Exception e) {
+            logger.error("从MySQL读取统计信息失败: table={}, error={}", tableName, e.getMessage(), e);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 解析直方图JSON数据为DTO
      * 
      * @param histogramJson 直方图JSON字符串
      * @param datasourceName 数据源名称
      * @param databaseName 数据库名
      * @param tableName 表名
      * @param columnName 列名
-     * @return 解析后的ColumnStatistics对象
+     * @return 解析后的ColumnStatisticsDTO对象
      */
-    public ColumnStatistics parseHistogramJson(String histogramJson, String datasourceName,
-                                                String databaseName, String tableName, String columnName) {
+    public ColumnStatisticsDTO parseHistogramJson(String histogramJson, String datasourceName,
+                                                  String databaseName, String tableName, String columnName) {
         try {
             JsonNode rootNode = objectMapper.readTree(histogramJson);
             
-            ColumnStatistics statistics = new ColumnStatistics();
-            statistics.setDatasourceName(datasourceName);
-            statistics.setDatabaseName(databaseName);
-            statistics.setTableName(tableName);
-            statistics.setColumnName(columnName);
-            statistics.setRawJsonData(histogramJson);
+            ColumnStatisticsDTO dto = new ColumnStatisticsDTO(datasourceName, databaseName, tableName, columnName);
 
             // 解析直方图类型
             if (rootNode.has("histogram-type")) {
-                statistics.setHistogramType(rootNode.get("histogram-type").asText());
+                dto.setHistogramType(rootNode.get("histogram-type").asText());
             }
 
             // 解析桶数量
             if (rootNode.has("number-of-buckets-specified")) {
-                statistics.setBucketCount(rootNode.get("number-of-buckets-specified").asInt());
+                dto.setBucketCount(rootNode.get("number-of-buckets-specified").asInt());
             }
 
             // 解析数据统计信息
             String dataType = null;
             if (rootNode.has("data-type")) {
                 dataType = rootNode.get("data-type").asText();
-                // 可以存储数据类型信息
             }
 
             // 解析直方图桶数据
             if (rootNode.has("buckets")) {
                 JsonNode bucketsNode = rootNode.get("buckets");
-                statistics.setHistogramData(bucketsNode.toString());
+                dto.setHistogramData(bucketsNode.toString());
                 
                 // 从桶中提取最小值和最大值
-                parseBucketData(bucketsNode, statistics, dataType);
+                parseBucketData(bucketsNode, dto, dataType);
             }
 
             // 解析采样值
             List<Object> sampleValues = extractSampleValues(rootNode);
-            if (!sampleValues.isEmpty()) {
-                statistics.setSampleValues(objectMapper.writeValueAsString(sampleValues));
-            }
+            dto.setSampleValues(sampleValues);
 
             logger.debug("解析列统计信息成功: table={}, column={}, type={}, buckets={}", 
-                        tableName, columnName, statistics.getHistogramType(), statistics.getBucketCount());
+                        tableName, columnName, dto.getHistogramType(), dto.getBucketCount());
 
-            return statistics;
+            return dto;
 
         } catch (Exception e) {
             logger.error("解析直方图JSON失败: table={}, column={}, error={}", 
@@ -86,6 +169,7 @@ public class ColumnStatisticsParserService {
             return null;
         }
     }
+    
 
     /**
      * 解析桶数据，提取最小值和最大值
@@ -93,7 +177,7 @@ public class ColumnStatisticsParserService {
      * 1. 对象格式：{"lower-bound": "...", "upper-bound": "...", "value": "..."}
      * 2. 数组格式：["value", cumulative_frequency] 或 [value, cumulative_frequency]
      */
-    private void parseBucketData(JsonNode bucketsNode, ColumnStatistics statistics, String dataType) {
+    private void parseBucketData(JsonNode bucketsNode, ColumnStatisticsDTO dto, String dataType) {
         if (!bucketsNode.isArray() || bucketsNode.size() == 0) {
             return;
         }
@@ -104,14 +188,11 @@ public class ColumnStatisticsParserService {
             // 判断桶的格式：数组格式还是对象格式
             if (firstBucket.isArray()) {
                 // 数组格式：[value, cumulative_frequency]
-                parseArrayFormatBuckets(bucketsNode, statistics, dataType);
+                parseArrayFormatBuckets(bucketsNode, dto, dataType);
             } else if (firstBucket.isObject()) {
                 // 对象格式：{"lower-bound": "...", "upper-bound": "...", "value": "..."}
-                parseObjectFormatBuckets(bucketsNode, statistics);
+                parseObjectFormatBuckets(bucketsNode, dto);
             }
-
-            // 计算不同值数量（从桶的数量估算）
-            statistics.setDistinctCount((long) bucketsNode.size());
 
         } catch (Exception e) {
             logger.warn("解析桶数据失败: {}", e.getMessage(), e);
@@ -123,7 +204,7 @@ public class ColumnStatisticsParserService {
      * 格式：[value, cumulative_frequency]
      * 例如：["base64:type254:QWxpY2UgU21pdGg=", 0.2] 或 [25, 0.2]
      */
-    private void parseArrayFormatBuckets(JsonNode bucketsNode, ColumnStatistics statistics, String dataType) {
+    private void parseArrayFormatBuckets(JsonNode bucketsNode, ColumnStatisticsDTO dto, String dataType) {
         try {
             // 第一个桶的最小值
             JsonNode firstBucket = bucketsNode.get(0);
@@ -131,7 +212,7 @@ public class ColumnStatisticsParserService {
                 JsonNode valueNode = firstBucket.get(0);
                 String minValue = extractValueFromNode(valueNode, dataType);
                 if (minValue != null) {
-                    statistics.setMinValue(minValue);
+                    dto.setMinValue(minValue);
                 }
             }
 
@@ -141,7 +222,7 @@ public class ColumnStatisticsParserService {
                 JsonNode valueNode = lastBucket.get(0);
                 String maxValue = extractValueFromNode(valueNode, dataType);
                 if (maxValue != null) {
-                    statistics.setMaxValue(maxValue);
+                    dto.setMaxValue(maxValue);
                 }
             }
         } catch (Exception e) {
@@ -153,27 +234,27 @@ public class ColumnStatisticsParserService {
      * 解析对象格式的桶数据
      * 格式：{"lower-bound": "...", "upper-bound": "...", "value": "..."}
      */
-    private void parseObjectFormatBuckets(JsonNode bucketsNode, ColumnStatistics statistics) {
+    private void parseObjectFormatBuckets(JsonNode bucketsNode, ColumnStatisticsDTO dto) {
         try {
             // 第一个桶的最小值
             JsonNode firstBucket = bucketsNode.get(0);
             if (firstBucket.has("lower-bound")) {
                 String lowerBound = firstBucket.get("lower-bound").asText();
-                statistics.setMinValue(lowerBound);
+                dto.setMinValue(lowerBound);
             } else if (firstBucket.has("value")) {
                 // 对于singleton类型，使用value
                 String value = firstBucket.get("value").asText();
-                statistics.setMinValue(value);
+                dto.setMinValue(value);
             }
 
             // 最后一个桶的最大值
             JsonNode lastBucket = bucketsNode.get(bucketsNode.size() - 1);
             if (lastBucket.has("upper-bound")) {
                 String upperBound = lastBucket.get("upper-bound").asText();
-                statistics.setMaxValue(upperBound);
+                dto.setMaxValue(upperBound);
             } else if (lastBucket.has("value")) {
                 String value = lastBucket.get("value").asText();
-                statistics.setMaxValue(value);
+                dto.setMaxValue(value);
             }
         } catch (Exception e) {
             logger.warn("解析对象格式桶数据失败: {}", e.getMessage());
@@ -318,48 +399,25 @@ public class ColumnStatisticsParserService {
     }
 
     /**
-     * 从ColumnStatistics对象中获取采样值列表
+     * 从ColumnStatisticsDTO对象中获取采样值列表
      */
-    public List<Object> getSampleValues(ColumnStatistics statistics) {
-        if (statistics.getSampleValues() == null || statistics.getSampleValues().trim().isEmpty()) {
+    public List<Object> getSampleValues(ColumnStatisticsDTO dto) {
+        if (dto == null || dto.getSampleValues() == null) {
             return new ArrayList<>();
         }
-
-        try {
-            JsonNode jsonNode = objectMapper.readTree(statistics.getSampleValues());
-            List<Object> values = new ArrayList<>();
-            
-            if (jsonNode.isArray()) {
-                for (JsonNode node : jsonNode) {
-                    if (node.isTextual()) {
-                        values.add(node.asText());
-                    } else if (node.isNumber()) {
-                        values.add(node.asDouble());
-                    } else if (node.isBoolean()) {
-                        values.add(node.asBoolean());
-                    } else {
-                        values.add(node.toString());
-                    }
-                }
-            }
-            
-            return values;
-        } catch (Exception e) {
-            logger.warn("解析采样值JSON失败: {}", e.getMessage());
-            return new ArrayList<>();
-        }
+        return dto.getSampleValues();
     }
 
     /**
-     * 从ColumnStatistics对象中获取直方图桶数据
+     * 从ColumnStatisticsDTO对象中获取直方图桶数据
      */
-    public JsonNode getHistogramBuckets(ColumnStatistics statistics) {
-        if (statistics.getHistogramData() == null || statistics.getHistogramData().trim().isEmpty()) {
+    public JsonNode getHistogramBuckets(ColumnStatisticsDTO dto) {
+        if (dto == null || dto.getHistogramData() == null || dto.getHistogramData().trim().isEmpty()) {
             return null;
         }
 
         try {
-            return objectMapper.readTree(statistics.getHistogramData());
+            return objectMapper.readTree(dto.getHistogramData());
         } catch (Exception e) {
             logger.warn("解析直方图数据失败: {}", e.getMessage());
             return null;

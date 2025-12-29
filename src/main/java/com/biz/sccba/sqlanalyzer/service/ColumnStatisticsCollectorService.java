@@ -1,24 +1,20 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.ColumnStatistics;
-import com.biz.sccba.sqlanalyzer.repository.ColumnStatisticsRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 列统计信息收集服务
- * 使用ANALYZE TABLE收集直方图数据，并解析information_schema.column_statistics
+ * 列统计信息分析服务
+ * 使用ANALYZE TABLE命令更新MySQL的直方图统计信息
+ * 不再持久化到H2数据库，直接使用MySQL的information_schema.COLUMN_STATISTICS
  */
 @Service
 public class ColumnStatisticsCollectorService {
@@ -28,28 +24,24 @@ public class ColumnStatisticsCollectorService {
     @Autowired
     private DataSourceManagerService dataSourceManagerService;
 
-    @Autowired
-    private ColumnStatisticsRepository columnStatisticsRepository;
-
-    @Autowired
-    private ColumnStatisticsParserService parserService;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     /**
-     * 收集指定表的所有列的统计信息
+     * 执行ANALYZE TABLE更新指定表的列统计信息
      * 
      * @param tableName 表名
      * @param datasourceName 数据源名称
-     * @param columns 要收集的列名列表（如果为null或空，则收集所有列）
+     * @param columns 要分析的列名列表（如果为null或空，则分析所有列）
      * @param bucketCount 直方图桶数量（默认100）
-     * @return 收集到的统计信息列表
+     * @return 执行结果信息
      */
-    @Transactional
-    public List<ColumnStatistics> collectTableStatistics(String tableName, String datasourceName, 
-                                                          List<String> columns, Integer bucketCount) {
-        logger.info("开始收集表统计信息: table={}, datasource={}, columns={}, buckets={}", 
+    public AnalyzeTableResult analyzeTable(String tableName, String datasourceName, 
+                                          List<String> columns, Integer bucketCount) {
+        logger.info("开始执行ANALYZE TABLE: table={}, datasource={}, columns={}, buckets={}", 
                     tableName, datasourceName, columns, bucketCount);
+
+        AnalyzeTableResult result = new AnalyzeTableResult();
+        result.setTableName(tableName);
+        result.setDatasourceName(datasourceName);
+        result.setSuccess(false);
 
         try {
             JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
@@ -67,36 +59,71 @@ public class ColumnStatisticsCollectorService {
             logger.info("执行ANALYZE TABLE: {}", analyzeSql);
             try {
                 List<Map<String, Object>> analyzeResults = jdbcTemplate.queryForList(analyzeSql);
-                parseAnalyzeTableResults(analyzeResults, tableName, columns);
+                parseAnalyzeTableResults(analyzeResults, tableName, columns, result);
+                result.setSuccess(true);
             } catch (DataAccessException e) {
                 logger.warn("ANALYZE TABLE执行失败（可能MySQL版本不支持或表不存在）: {}", e.getMessage());
-                // 继续尝试从information_schema获取已有统计信息
+                result.setErrorMessage(e.getMessage());
             }
 
-            // 从information_schema.column_statistics获取统计信息
-            List<ColumnStatistics> statistics = fetchColumnStatisticsFromInformationSchema(
-                tableName, datasourceName, databaseName, jdbcTemplate, columns);
-
-            // 保存到H2数据库
-            for (ColumnStatistics stat : statistics) {
-                // 检查是否已存在
-                columnStatisticsRepository
-                    .findByDatasourceNameAndTableNameAndColumnName(
-                        stat.getDatasourceName(), stat.getTableName(), stat.getColumnName())
-                    .ifPresent(existing -> {
-                        stat.setId(existing.getId());
-                        stat.setCreatedAt(existing.getCreatedAt());
-                    });
-                
-                columnStatisticsRepository.save(stat);
-            }
-
-            logger.info("收集完成，共收集 {} 个列的统计信息", statistics.size());
-            return statistics;
+            logger.info("ANALYZE TABLE执行完成: table={}, success={}", tableName, result.isSuccess());
+            return result;
 
         } catch (Exception e) {
-            logger.error("收集表统计信息失败", e);
-            throw new RuntimeException("收集表统计信息失败: " + e.getMessage(), e);
+            logger.error("执行ANALYZE TABLE失败", e);
+            result.setErrorMessage(e.getMessage());
+            return result;
+        }
+    }
+    
+    /**
+     * ANALYZE TABLE执行结果
+     */
+    public static class AnalyzeTableResult {
+        private String tableName;
+        private String datasourceName;
+        private boolean success;
+        private String errorMessage;
+        private List<String> messages = new ArrayList<>();
+        
+        public String getTableName() {
+            return tableName;
+        }
+        
+        public void setTableName(String tableName) {
+            this.tableName = tableName;
+        }
+        
+        public String getDatasourceName() {
+            return datasourceName;
+        }
+        
+        public void setDatasourceName(String datasourceName) {
+            this.datasourceName = datasourceName;
+        }
+        
+        public boolean isSuccess() {
+            return success;
+        }
+        
+        public void setSuccess(boolean success) {
+            this.success = success;
+        }
+        
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+        
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
+        
+        public List<String> getMessages() {
+            return messages;
+        }
+        
+        public void setMessages(List<String> messages) {
+            this.messages = messages;
         }
     }
 
@@ -104,7 +131,8 @@ public class ColumnStatisticsCollectorService {
      * 解析ANALYZE TABLE的返回结果，提取错误信息
      * ANALYZE TABLE返回的结果集包含：Table, Op, Msg_type, Msg_text
      */
-    private void parseAnalyzeTableResults(List<Map<String, Object>> results, String tableName, List<String> columns) {
+    private void parseAnalyzeTableResults(List<Map<String, Object>> results, String tableName, 
+                                         List<String> columns, AnalyzeTableResult result) {
         if (results == null || results.isEmpty()) {
             logger.info("ANALYZE TABLE未返回结果");
             return;
@@ -115,13 +143,15 @@ public class ColumnStatisticsCollectorService {
             String msgText = getStringValue(row, "Msg_text");
             String op = getStringValue(row, "Op");
             
+            if (msgText != null) {
+                result.getMessages().add(msgText);
+            }
+            
             if ("error".equalsIgnoreCase(msgType)) {
                 logger.warn("ANALYZE TABLE执行错误: table={}, op={}, msg={}", tableName, op, msgText);
-                
-                // 尝试从错误信息中提取列名
-                if (msgText != null && msgText.contains("column")) {
-                    // 例如："The column 'id' is covered by a single-part unique index."
-                    logger.info("列统计信息收集失败，原因: {}", msgText);
+                result.setSuccess(false);
+                if (result.getErrorMessage() == null) {
+                    result.setErrorMessage(msgText);
                 }
             } else if ("note".equalsIgnoreCase(msgType)) {
                 logger.info("ANALYZE TABLE提示: table={}, op={}, msg={}", tableName, op, msgText);
@@ -166,59 +196,6 @@ public class ColumnStatisticsCollectorService {
         return sql.toString();
     }
 
-    /**
-     * 从information_schema.column_statistics获取列统计信息
-     */
-    private List<ColumnStatistics> fetchColumnStatisticsFromInformationSchema(
-            String tableName, String datasourceName, String databaseName,
-            JdbcTemplate jdbcTemplate, List<String> columns) {
-        
-        List<ColumnStatistics> statistics = new ArrayList<>();
-
-        try {
-            // 查询information_schema.column_statistics
-            String sql = """
-                SELECT 
-                    SCHEMA_NAME,
-                    TABLE_NAME,
-                    COLUMN_NAME,
-                    HISTOGRAM
-                FROM information_schema.COLUMN_STATISTICS
-                WHERE SCHEMA_NAME = ? AND TABLE_NAME = ?
-                """;
-
-            List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, databaseName, tableName);
-
-            for (Map<String, Object> row : results) {
-                String columnName = (String) row.get("COLUMN_NAME");
-                
-                // 如果指定了列列表，只处理指定的列
-                if (columns != null && !columns.isEmpty() && !columns.contains(columnName)) {
-                    continue;
-                }
-
-                String histogramJson = (String) row.get("HISTOGRAM");
-                if (histogramJson == null || histogramJson.trim().isEmpty()) {
-                    logger.debug("列 {} 没有直方图数据", columnName);
-                    continue;
-                }
-
-                // 使用解析服务解析JSON数据
-                ColumnStatistics stat = parserService.parseHistogramJson(
-                    histogramJson, datasourceName, databaseName, tableName, columnName);
-                
-                if (stat != null) {
-                    statistics.add(stat);
-                }
-            }
-
-        } catch (DataAccessException e) {
-            logger.warn("查询information_schema.column_statistics失败: {}", e.getMessage());
-            // 如果表不存在或MySQL版本不支持，返回空列表
-        }
-
-        return statistics;
-    }
 
     /**
      * 获取表的所有列名
@@ -269,23 +246,27 @@ public class ColumnStatisticsCollectorService {
     }
 
     /**
-     * 批量收集多个表的统计信息
+     * 批量执行ANALYZE TABLE更新多个表的统计信息
      */
-    @Transactional
-    public List<ColumnStatistics> collectMultipleTablesStatistics(
+    public List<AnalyzeTableResult> analyzeMultipleTables(
             List<String> tableNames, String datasourceName, Integer bucketCount) {
-        List<ColumnStatistics> allStatistics = new ArrayList<>();
+        List<AnalyzeTableResult> results = new ArrayList<>();
         
         for (String tableName : tableNames) {
             try {
-                List<ColumnStatistics> stats = collectTableStatistics(
-                    tableName, datasourceName, null, bucketCount);
-                allStatistics.addAll(stats);
+                AnalyzeTableResult result = analyzeTable(tableName, datasourceName, null, bucketCount);
+                results.add(result);
             } catch (Exception e) {
-                logger.error("收集表 {} 的统计信息失败", tableName, e);
+                logger.error("执行表 {} 的ANALYZE TABLE失败", tableName, e);
+                AnalyzeTableResult errorResult = new AnalyzeTableResult();
+                errorResult.setTableName(tableName);
+                errorResult.setDatasourceName(datasourceName);
+                errorResult.setSuccess(false);
+                errorResult.setErrorMessage(e.getMessage());
+                results.add(errorResult);
             }
         }
         
-        return allStatistics;
+        return results;
     }
 }

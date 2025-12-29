@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SQL Agent 智能分析 - 基于 AI 的 SQL 性能智能分析">
+    <title>SQL Agent 智能分析 | SQL 性能分析工具</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="libs/vue/vue.global.js"></script>
+    <script src="libs/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+
+        /* 导航栏样式 */
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            text-decoration: none;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .navbar-brand:hover {
+            opacity: 0.9;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 8px;
+            list-style: none;
+        }
+
+        .navbar-item {
+            position: relative;
+        }
+
+        .navbar-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            color: rgba(255, 255, 255, 0.9);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .navbar-link:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+        .navbar-link.active {
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* 面包屑导航 */
+        .breadcrumb {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .breadcrumb-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .breadcrumb-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .breadcrumb-link {
+            color: #667eea;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .breadcrumb-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .breadcrumb-separator {
+            color: #999;
+        }
+
+        .breadcrumb-current {
+            color: #333;
+            font-weight: 500;
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content-wrapper {
+            padding: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-section {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+            padding: 12px 24px;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .results-section {
+            margin-top: 40px;
+            display: none;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .results-header h2 {
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .result-card {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .result-content {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .result-content h1,
+        .result-content h2,
+        .result-content h3 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .result-content h1 {
+            font-size: 1.8em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .result-content h2 {
+            font-size: 1.5em;
+            color: #667eea;
+        }
+
+        .result-content h3 {
+            font-size: 1.2em;
+            color: #764ba2;
+        }
+
+        .result-content pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-content code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .result-content pre code {
+            background: transparent;
+            padding: 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #3c3;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+
+        .mapper-results {
+            margin-top: 20px;
+        }
+
+        .mapper-summary {
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+
+        .sql-result-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .sql-result-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .sql-original {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        .risk-low {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .risk-medium {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .risk-high {
+            background: #ffe0b2;
+            color: #d84315;
+        }
+
+        .risk-critical {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .info-section {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .info-section h4 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 16px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .info-item {
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            color: #333;
+            font-size: 14px;
+        }
+
+        .scenario-card {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+        }
+
+        .scenario-card h5 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+
+        .comparison-detail {
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .comparison-matched {
+            border-left: 4px solid #4caf50;
+        }
+
+        .comparison-unmatched {
+            border-left: 4px solid #f44336;
+        }
+
+        .collapsible {
+            cursor: pointer;
+            padding: 12px;
+            background: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s;
+        }
+
+        .collapsible:hover {
+            background: #ebebeb;
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            margin-top: -10px;
+            margin-bottom: 10px;
+        }
+
+        .collapsible-content.active {
+            display: block;
+        }
+
+        .toggle-icon {
+            transition: transform 0.3s;
+        }
+
+        .toggle-icon.active {
+            transform: rotate(180deg);
+        }
+
+        .code-block {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            border-left: 4px solid #667eea;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .recommendation-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .recommendation-list li {
+            padding: 10px;
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+
+        .recommendation-list li::before {
+            content: "💡 ";
+            margin-right: 8px;
+        }
+
+        .processing-time {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #1976d2;
+            margin-left: 10px;
+        }
+
+        .histogram-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .histogram-table th,
+        .histogram-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .histogram-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .histogram-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
+        }
+
+        .download-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">
+                <span>📊</span>
+                <span>SQL 性能分析工具</span>
+            </a>
+            <ul class="navbar-menu">
+                <li class="navbar-item">
+                    <a href="/index.html" class="navbar-link">
+                        🏠 SQL 分析
+                    </a>
+                </li>
+                <li class="navbar-item">
+                    <a href="/sql-agent-analysis.html" class="navbar-link active">
+                        🤖 Agent 分析
+                    </a>
+                </li>
+                <li class="navbar-item">
+                    <a href="/table-analysis.html" class="navbar-link">
+                        📋 表分析
+                    </a>
+                </li>
+                <li class="navbar-item">
+                    <a href="/prompt-management.html" class="navbar-link">
+                        ⚙️ 模板管理
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 面包屑导航 -->
+    <div class="breadcrumb">
+        <div class="breadcrumb-container">
+            <div class="breadcrumb-item">
+                <a href="/" class="breadcrumb-link">首页</a>
+            </div>
+            <span class="breadcrumb-separator">/</span>
+            <div class="breadcrumb-item">
+                <span class="breadcrumb-current">SQL Agent 智能分析</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="main-content">
+        <div id="app">
+            <div class="container">
+                <div class="header">
+                    <h1>🤖 SQL Agent 智能分析</h1>
+                    <p>基于链式工作流的 SQL 性能智能分析系统</p>
+                </div>
+
+                <div class="content-wrapper">
+
+                <div class="tabs">
+                    <button class="tab" :class="{active: activeTab === 'single'}" @click="activeTab = 'single'">
+                        单条 SQL 分析
+                    </button>
+                    <button class="tab" :class="{active: activeTab === 'mapper'}" @click="activeTab = 'mapper'">
+                        Mapper XML 批量分析
+                    </button>
+                </div>
+
+                <!-- 单条 SQL 分析 -->
+                <div class="tab-content" :class="{active: activeTab === 'single'}">
+                    <div class="form-section">
+                        <label>SQL 语句</label>
+                        <textarea v-model="singleSql" rows="8" placeholder="输入 SQL 语句，例如：SELECT * FROM users WHERE age > ? AND city = ?"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-section">
+                            <label>数据源</label>
+                            <select v-model="singleDatasource">
+                                <option value="">选择数据源</option>
+                                <option v-for="ds in datasources" :key="ds.name" :value="ds.name">
+                                    {{ ds.name }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-section">
+                            <label>LLM 模型</label>
+                            <select v-model="singleLlm">
+                                <option value="">选择 LLM 模型</option>
+                                <option v-for="llm in llms" :key="llm.name" :value="llm.name">
+                                    {{ llm.name }} ({{ llm.model }})
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn-primary" @click="analyzeSingleSql" :disabled="loading || !singleSql || !singleDatasource || !singleLlm">
+                            {{ loading ? '分析中...' : '开始分析' }}
+                        </button>
+                        <button class="btn-secondary" @click="clearSingleForm">
+                            清空
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mapper XML 批量分析 -->
+                <div class="tab-content" :class="{active: activeTab === 'mapper'}">
+                    <div class="form-section">
+                        <label>Mapper XML 内容</label>
+                        <textarea v-model="mapperXml" rows="12" placeholder="粘贴 Mapper XML 文件内容"></textarea>
+                    </div>
+
+                    <div class="form-section">
+                        <label>Namespace</label>
+                        <input type="text" v-model="mapperNamespace" placeholder="例如：com.example.mapper.UserMapper">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-section">
+                            <label>数据源</label>
+                            <select v-model="mapperDatasource">
+                                <option value="">选择数据源</option>
+                                <option v-for="ds in datasources" :key="ds.name" :value="ds.name">
+                                    {{ ds.name }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-section">
+                            <label>LLM 模型</label>
+                            <select v-model="mapperLlm">
+                                <option value="">选择 LLM 模型</option>
+                                <option v-for="llm in llms" :key="llm.name" :value="llm.name">
+                                    {{ llm.name }} ({{ llm.model }})
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn-primary" @click="analyzeMapper" :disabled="loading || !mapperXml || !mapperNamespace || !mapperDatasource || !mapperLlm">
+                            {{ loading ? '分析中...' : '批量分析' }}
+                        </button>
+                        <button class="btn-secondary" @click="clearMapperForm">
+                            清空
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 加载状态 -->
+                <div v-if="loading" class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在执行 AI 分析，请稍候...</p>
+                </div>
+
+                <!-- 错误信息 -->
+                <div v-if="errorMessage" class="error-message">
+                    {{ errorMessage }}
+                </div>
+
+                <!-- 单条 SQL 分析结果 -->
+                <div v-if="singleResult && !loading" class="results-section active">
+                    <div class="results-header">
+                        <h2>
+                            分析结果
+                            <span :class="'risk-badge risk-' + (singleResult.finalRiskLevel || 'medium').toLowerCase()">
+                                {{ singleResult.finalRiskLevel || 'N/A' }}
+                            </span>
+                            <span class="processing-time" v-if="singleResult.processingTimeMs">
+                                ⏱️ {{ (singleResult.processingTimeMs / 1000).toFixed(2) }}s
+                            </span>
+                        </h2>
+                        <button class="download-btn" @click="downloadMarkdownReport(singleResult, false)">
+                            📥 下载 Markdown 报告
+                        </button>
+                    </div>
+                    
+                    <!-- 原始 SQL -->
+                    <div class="info-section">
+                        <h4>📝 原始 SQL</h4>
+                        <div class="code-block">{{ singleResult.originalSql }}</div>
+                    </div>
+
+                    <!-- 直方图数据 -->
+                    <div class="collapsible" @click="toggleCollapse('single-histogram')">
+                        <span><strong>📊 直方图数据</strong> ({{ singleResult.histogramData ? singleResult.histogramData.length : 0 }} 列)</span>
+                        <span class="toggle-icon" :class="{active: isCollapsed('single-histogram')}">▼</span>
+                    </div>
+                    <div class="collapsible-content" :class="{active: isCollapsed('single-histogram')}">
+                        <table class="histogram-table" v-if="singleResult.histogramData && singleResult.histogramData.length > 0">
+                            <thead>
+                                <tr>
+                                    <th>表名</th>
+                                    <th>列名</th>
+                                    <th>类型</th>
+                                    <th>桶数</th>
+                                    <th>最小值</th>
+                                    <th>最大值</th>
+                                    <th>采样数</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(hist, hIdx) in singleResult.histogramData" :key="hIdx">
+                                    <td>{{ hist.tableName }}</td>
+                                    <td>{{ hist.columnName }}</td>
+                                    <td>{{ hist.histogramType }}</td>
+                                    <td>{{ hist.bucketCount }}</td>
+                                    <td>{{ hist.minValue }}</td>
+                                    <td>{{ hist.maxValue }}</td>
+                                    <td>{{ hist.sampleCount }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p v-else style="color: #999;">无直方图数据</p>
+                    </div>
+
+                    <!-- Stage 1: LLM 预测结果 -->
+                    <div class="collapsible" @click="toggleCollapse('single-predictor')">
+                        <span><strong>🤖 Stage 1: LLM 预测结果</strong></span>
+                        <span class="toggle-icon" :class="{active: isCollapsed('single-predictor')}">▼</span>
+                    </div>
+                    <div class="collapsible-content" :class="{active: isCollapsed('single-predictor')}">
+                        <div v-if="singleResult.predictorResult" class="info-section">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">风险等级</div>
+                                    <div class="info-value">
+                                        <span :class="'risk-badge risk-' + (singleResult.predictorResult.riskLevel || 'medium').toLowerCase()">
+                                            {{ singleResult.predictorResult.riskLevel }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">预估扫描行数</div>
+                                    <div class="info-value">{{ singleResult.predictorResult.estimatedRowsExamined || 'N/A' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">预期索引使用</div>
+                                    <div class="info-value">{{ singleResult.predictorResult.expectedIndexUsage ? '✅ 是' : '❌ 否' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">预期索引名</div>
+                                    <div class="info-value">{{ singleResult.predictorResult.expectedIndexName || '无' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">预期访问类型</div>
+                                    <div class="info-value">{{ singleResult.predictorResult.expectedAccessType || 'N/A' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">预估查询成本</div>
+                                    <div class="info-value">{{ singleResult.predictorResult.estimatedQueryCost || 'N/A' }}</div>
+                                </div>
+                            </div>
+                            <div class="info-item" style="margin-top: 10px;">
+                                <div class="info-label">推理过程</div>
+                                <div class="info-value">{{ singleResult.predictorResult.reasoning }}</div>
+                            </div>
+                            <div v-if="singleResult.predictorResult.recommendations && singleResult.predictorResult.recommendations.length > 0" style="margin-top: 15px;">
+                                <h5 style="color: #667eea; margin-bottom: 10px;">初步建议</h5>
+                                <ul class="recommendation-list">
+                                    <li v-for="(rec, rIdx) in singleResult.predictorResult.recommendations" :key="rIdx">{{ rec }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stage 2: LLM 生成的多场景测试 -->
+                    <div class="collapsible" @click="toggleCollapse('single-filling')">
+                        <span><strong>🎯 Stage 2: LLM 生成的多场景测试</strong> ({{ singleResult.fillingResult ? singleResult.fillingResult.scenarios.length : 0 }} 个场景)</span>
+                        <span class="toggle-icon" :class="{active: isCollapsed('single-filling')}">▼</span>
+                    </div>
+                    <div class="collapsible-content" :class="{active: isCollapsed('single-filling')}">
+                        <div v-if="singleResult.fillingResult">
+                            <div class="info-item" style="margin-bottom: 15px;">
+                                <div class="info-label">LLM 推理过程</div>
+                                <div class="info-value">{{ singleResult.fillingResult.reasoning }}</div>
+                            </div>
+                            <div v-for="(scenario, sIdx) in singleResult.fillingResult.scenarios" :key="sIdx" class="scenario-card">
+                                <h5>{{ sIdx + 1 }}. {{ scenario.scenarioName }}</h5>
+                                <p style="color: #666; font-size: 13px; margin-bottom: 10px;">{{ scenario.description }}</p>
+                                <div class="info-label">填充后的 SQL:</div>
+                                <div class="code-block" style="margin-top: 5px;">{{ scenario.filledSql }}</div>
+                                <div class="info-label" style="margin-top: 10px;">使用的参数:</div>
+                                <div class="info-value">{{ JSON.stringify(scenario.parameters, null, 2) }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stage 3: 场景验证结果 -->
+                    <div class="collapsible" @click="toggleCollapse('single-verification')">
+                        <span><strong>✅ Stage 3: 场景验证结果</strong> ({{ singleResult.scenarioVerifications ? singleResult.scenarioVerifications.length : 0 }} 个场景)</span>
+                        <span class="toggle-icon" :class="{active: isCollapsed('single-verification')}">▼</span>
+                    </div>
+                    <div class="collapsible-content" :class="{active: isCollapsed('single-verification')}">
+                        <div v-if="singleResult.scenarioVerifications && singleResult.scenarioVerifications.length > 0">
+                            <div v-for="(verification, vIdx) in singleResult.scenarioVerifications" :key="vIdx" class="scenario-card">
+                                <h5>{{ vIdx + 1 }}. {{ verification.scenarioName }}</h5>
+                                <div v-if="verification.executionPlan && verification.executionPlan.queryBlock">
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <div class="info-label">访问类型</div>
+                                            <div class="info-value">{{ verification.executionPlan.queryBlock.table.accessType }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">使用索引</div>
+                                            <div class="info-value">{{ verification.executionPlan.queryBlock.table.key || '无' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">实际扫描行数</div>
+                                            <div class="info-value">{{ verification.executionPlan.queryBlock.table.rowsExaminedPerScan }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">查询成本</div>
+                                            <div class="info-value">{{ verification.executionPlan.queryBlock.costInfo.queryCost }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <p v-else style="color: #999;">无验证结果</p>
+                    </div>
+
+                    <!-- 验证对比分析 -->
+                    <div class="collapsible" @click="toggleCollapse('single-comparison')">
+                        <span><strong>🔍 验证对比分析</strong></span>
+                        <span class="toggle-icon" :class="{active: isCollapsed('single-comparison')}">▼</span>
+                    </div>
+                    <div class="collapsible-content" :class="{active: isCollapsed('single-comparison')}">
+                        <div v-if="singleResult.verificationComparison" class="info-section">
+                            <div class="info-item" style="margin-bottom: 15px;">
+                                <div class="info-label">对比结果</div>
+                                <div class="info-value">
+                                    <span v-if="singleResult.verificationComparison.matched" style="color: #4caf50; font-weight: 600;">✅ 预测一致</span>
+                                    <span v-else style="color: #f44336; font-weight: 600;">⚠️ 预测存在偏差</span>
+                                    <span :class="'risk-badge risk-' + (singleResult.verificationComparison.deviationSeverity || 'medium').toLowerCase()" style="margin-left: 10px;">
+                                        {{ singleResult.verificationComparison.deviationSeverity }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="info-item" style="margin-bottom: 15px;">
+                                <div class="info-label">总结</div>
+                                <div class="info-value">{{ singleResult.verificationComparison.summary }}</div>
+                            </div>
+                            <h5 style="color: #667eea; margin-bottom: 10px;">详细对比</h5>
+                            <div v-for="(detail, key) in singleResult.verificationComparison.details" :key="key" 
+                                 class="comparison-detail" 
+                                 :class="detail.matched ? 'comparison-matched' : 'comparison-unmatched'">
+                                <div style="font-weight: 600; margin-bottom: 5px;">{{ detail.metric }}</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 13px;">
+                                    <div>
+                                        <span style="color: #666;">预测值:</span>
+                                        <span style="font-weight: 600; margin-left: 5px;">{{ detail.predictedValue }}</span>
+                                    </div>
+                                    <div>
+                                        <span style="color: #666;">实际值:</span>
+                                        <span style="font-weight: 600; margin-left: 5px;">{{ detail.actualValue }}</span>
+                                    </div>
+                                    <div>
+                                        <span style="color: #666;">偏差:</span>
+                                        <span style="font-weight: 600; margin-left: 5px;">{{ detail.deviation }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LLM 修正结果 -->
+                    <div v-if="singleResult.refinementApplied" class="collapsible" @click="toggleCollapse('single-refinement')">
+                        <span><strong>🔄 LLM 修正结果</strong></span>
+                        <span class="toggle-icon" :class="{active: isCollapsed('single-refinement')}">▼</span>
+                    </div>
+                    <div v-if="singleResult.refinementApplied" class="collapsible-content" :class="{active: isCollapsed('single-refinement')}">
+                        <div v-if="singleResult.refinedResult" class="info-section">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">修正后风险等级</div>
+                                    <div class="info-value">
+                                        <span :class="'risk-badge risk-' + (singleResult.refinedResult.riskLevel || 'medium').toLowerCase()">
+                                            {{ singleResult.refinedResult.riskLevel }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">修正后扫描行数</div>
+                                    <div class="info-value">{{ singleResult.refinedResult.estimatedRowsExamined || 'N/A' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">修正后索引使用</div>
+                                    <div class="info-value">{{ singleResult.refinedResult.expectedIndexUsage ? '✅ 是' : '❌ 否' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">修正后索引名</div>
+                                    <div class="info-value">{{ singleResult.refinedResult.expectedIndexName || '无' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">修正后访问类型</div>
+                                    <div class="info-value">{{ singleResult.refinedResult.expectedAccessType || 'N/A' }}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">修正后查询成本</div>
+                                    <div class="info-value">{{ singleResult.refinedResult.estimatedQueryCost || 'N/A' }}</div>
+                                </div>
+                            </div>
+                            <div class="info-item" style="margin-top: 10px;">
+                                <div class="info-label">修正推理</div>
+                                <div class="info-value">{{ singleResult.refinedResult.reasoning }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最终建议 -->
+                    <div class="info-section" v-if="singleResult.recommendations && singleResult.recommendations.length > 0">
+                        <h4>💡 最终优化建议</h4>
+                        <ul class="recommendation-list">
+                            <li v-for="(rec, rIdx) in singleResult.recommendations" :key="rIdx">{{ rec }}</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Mapper 批量分析结果 -->
+                <div v-if="mapperResult && !loading" class="results-section active">
+                    <div class="results-header">
+                        <h2>批量分析结果</h2>
+                        <button class="download-btn" @click="downloadMarkdownReport(mapperResult, true)">
+                            📥 下载 Markdown 报告
+                        </button>
+                    </div>
+                    <div class="mapper-summary">
+                        <strong>Namespace:</strong> {{ mapperResult.mapperNamespace }}<br>
+                        <strong>总结:</strong> {{ mapperResult.overallSummary || '已完成批量分析' }}
+                    </div>
+                    <div class="mapper-results">
+                        <div v-for="(result, index) in mapperResult.results" :key="index" class="sql-result-item">
+                            <h3>
+                                SQL #{{ index + 1 }}
+                                <span :class="'risk-badge risk-' + (result.finalRiskLevel || 'medium').toLowerCase()">
+                                    {{ result.finalRiskLevel || 'N/A' }}
+                                </span>
+                                <span class="processing-time" v-if="result.processingTimeMs">
+                                    ⏱️ {{ (result.processingTimeMs / 1000).toFixed(2) }}s
+                                </span>
+                            </h3>
+                            
+                            <!-- 原始 SQL -->
+                            <div class="info-section">
+                                <h4>📝 原始 SQL</h4>
+                                <div class="code-block">{{ result.originalSql }}</div>
+                            </div>
+
+                            <!-- 直方图数据 -->
+                            <div class="collapsible" @click="toggleCollapse('histogram-' + index)">
+                                <span><strong>📊 直方图数据</strong> ({{ result.histogramData ? result.histogramData.length : 0 }} 列)</span>
+                                <span class="toggle-icon" :class="{active: isCollapsed('histogram-' + index)}">▼</span>
+                            </div>
+                            <div class="collapsible-content" :class="{active: isCollapsed('histogram-' + index)}">
+                                <table class="histogram-table" v-if="result.histogramData && result.histogramData.length > 0">
+                                    <thead>
+                                        <tr>
+                                            <th>表名</th>
+                                            <th>列名</th>
+                                            <th>类型</th>
+                                            <th>桶数</th>
+                                            <th>最小值</th>
+                                            <th>最大值</th>
+                                            <th>采样数</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(hist, hIdx) in result.histogramData" :key="hIdx">
+                                            <td>{{ hist.tableName }}</td>
+                                            <td>{{ hist.columnName }}</td>
+                                            <td>{{ hist.histogramType }}</td>
+                                            <td>{{ hist.bucketCount }}</td>
+                                            <td>{{ hist.minValue }}</td>
+                                            <td>{{ hist.maxValue }}</td>
+                                            <td>{{ hist.sampleCount }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p v-else style="color: #999;">无直方图数据</p>
+                            </div>
+
+                            <!-- Stage 1: LLM 预测结果 -->
+                            <div class="collapsible" @click="toggleCollapse('predictor-' + index)">
+                                <span><strong>🤖 Stage 1: LLM 预测结果</strong></span>
+                                <span class="toggle-icon" :class="{active: isCollapsed('predictor-' + index)}">▼</span>
+                            </div>
+                            <div class="collapsible-content" :class="{active: isCollapsed('predictor-' + index)}">
+                                <div v-if="result.predictorResult" class="info-section">
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <div class="info-label">风险等级</div>
+                                            <div class="info-value">
+                                                <span :class="'risk-badge risk-' + (result.predictorResult.riskLevel || 'medium').toLowerCase()">
+                                                    {{ result.predictorResult.riskLevel }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">预估扫描行数</div>
+                                            <div class="info-value">{{ result.predictorResult.estimatedRowsExamined || 'N/A' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">预期索引使用</div>
+                                            <div class="info-value">{{ result.predictorResult.expectedIndexUsage ? '✅ 是' : '❌ 否' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">预期索引名</div>
+                                            <div class="info-value">{{ result.predictorResult.expectedIndexName || '无' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">预期访问类型</div>
+                                            <div class="info-value">{{ result.predictorResult.expectedAccessType || 'N/A' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">预估查询成本</div>
+                                            <div class="info-value">{{ result.predictorResult.estimatedQueryCost || 'N/A' }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="info-item" style="margin-top: 10px;">
+                                        <div class="info-label">推理过程</div>
+                                        <div class="info-value">{{ result.predictorResult.reasoning }}</div>
+                                    </div>
+                                    <div v-if="result.predictorResult.recommendations && result.predictorResult.recommendations.length > 0" style="margin-top: 15px;">
+                                        <h5 style="color: #667eea; margin-bottom: 10px;">初步建议</h5>
+                                        <ul class="recommendation-list">
+                                            <li v-for="(rec, rIdx) in result.predictorResult.recommendations" :key="rIdx">{{ rec }}</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Stage 2: LLM 生成的多场景测试 -->
+                            <div class="collapsible" @click="toggleCollapse('filling-' + index)">
+                                <span><strong>🎯 Stage 2: LLM 生成的多场景测试</strong> ({{ result.fillingResult ? result.fillingResult.scenarios.length : 0 }} 个场景)</span>
+                                <span class="toggle-icon" :class="{active: isCollapsed('filling-' + index)}">▼</span>
+                            </div>
+                            <div class="collapsible-content" :class="{active: isCollapsed('filling-' + index)}">
+                                <div v-if="result.fillingResult">
+                                    <div class="info-item" style="margin-bottom: 15px;">
+                                        <div class="info-label">LLM 推理过程</div>
+                                        <div class="info-value">{{ result.fillingResult.reasoning }}</div>
+                                    </div>
+                                    <div v-for="(scenario, sIdx) in result.fillingResult.scenarios" :key="sIdx" class="scenario-card">
+                                        <h5>{{ sIdx + 1 }}. {{ scenario.scenarioName }}</h5>
+                                        <p style="color: #666; font-size: 13px; margin-bottom: 10px;">{{ scenario.description }}</p>
+                                        <div class="info-label">填充后的 SQL:</div>
+                                        <div class="code-block" style="margin-top: 5px;">{{ scenario.filledSql }}</div>
+                                        <div class="info-label" style="margin-top: 10px;">使用的参数:</div>
+                                        <div class="info-value">{{ JSON.stringify(scenario.parameters, null, 2) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Stage 3: 场景验证结果 -->
+                            <div class="collapsible" @click="toggleCollapse('verification-' + index)">
+                                <span><strong>✅ Stage 3: 场景验证结果</strong> ({{ result.scenarioVerifications ? result.scenarioVerifications.length : 0 }} 个场景)</span>
+                                <span class="toggle-icon" :class="{active: isCollapsed('verification-' + index)}">▼</span>
+                            </div>
+                            <div class="collapsible-content" :class="{active: isCollapsed('verification-' + index)}">
+                                <div v-if="result.scenarioVerifications && result.scenarioVerifications.length > 0">
+                                    <div v-for="(verification, vIdx) in result.scenarioVerifications" :key="vIdx" class="scenario-card">
+                                        <h5>{{ vIdx + 1 }}. {{ verification.scenarioName }}</h5>
+                                        <div v-if="verification.executionPlan && verification.executionPlan.queryBlock">
+                                            <div class="info-grid">
+                                                <div class="info-item">
+                                                    <div class="info-label">访问类型</div>
+                                                    <div class="info-value">{{ verification.executionPlan.queryBlock.table.accessType }}</div>
+                                                </div>
+                                                <div class="info-item">
+                                                    <div class="info-label">使用索引</div>
+                                                    <div class="info-value">{{ verification.executionPlan.queryBlock.table.key || '无' }}</div>
+                                                </div>
+                                                <div class="info-item">
+                                                    <div class="info-label">实际扫描行数</div>
+                                                    <div class="info-value">{{ verification.executionPlan.queryBlock.table.rowsExaminedPerScan }}</div>
+                                                </div>
+                                                <div class="info-item">
+                                                    <div class="info-label">查询成本</div>
+                                                    <div class="info-value">{{ verification.executionPlan.queryBlock.costInfo.queryCost }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p v-else style="color: #999;">无验证结果</p>
+                            </div>
+
+                            <!-- 验证对比分析 -->
+                            <div class="collapsible" @click="toggleCollapse('comparison-' + index)">
+                                <span><strong>🔍 验证对比分析</strong></span>
+                                <span class="toggle-icon" :class="{active: isCollapsed('comparison-' + index)}">▼</span>
+                            </div>
+                            <div class="collapsible-content" :class="{active: isCollapsed('comparison-' + index)}">
+                                <div v-if="result.verificationComparison" class="info-section">
+                                    <div class="info-item" style="margin-bottom: 15px;">
+                                        <div class="info-label">对比结果</div>
+                                        <div class="info-value">
+                                            <span v-if="result.verificationComparison.matched" style="color: #4caf50; font-weight: 600;">✅ 预测一致</span>
+                                            <span v-else style="color: #f44336; font-weight: 600;">⚠️ 预测存在偏差</span>
+                                            <span :class="'risk-badge risk-' + (result.verificationComparison.deviationSeverity || 'medium').toLowerCase()" style="margin-left: 10px;">
+                                                {{ result.verificationComparison.deviationSeverity }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="info-item" style="margin-bottom: 15px;">
+                                        <div class="info-label">总结</div>
+                                        <div class="info-value">{{ result.verificationComparison.summary }}</div>
+                                    </div>
+                                    <h5 style="color: #667eea; margin-bottom: 10px;">详细对比</h5>
+                                    <div v-for="(detail, key) in result.verificationComparison.details" :key="key" 
+                                         class="comparison-detail" 
+                                         :class="detail.matched ? 'comparison-matched' : 'comparison-unmatched'">
+                                        <div style="font-weight: 600; margin-bottom: 5px;">{{ detail.metric }}</div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 13px;">
+                                            <div>
+                                                <span style="color: #666;">预测值:</span>
+                                                <span style="font-weight: 600; margin-left: 5px;">{{ detail.predictedValue }}</span>
+                                            </div>
+                                            <div>
+                                                <span style="color: #666;">实际值:</span>
+                                                <span style="font-weight: 600; margin-left: 5px;">{{ detail.actualValue }}</span>
+                                            </div>
+                                            <div>
+                                                <span style="color: #666;">偏差:</span>
+                                                <span style="font-weight: 600; margin-left: 5px;">{{ detail.deviation }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- LLM 修正结果 -->
+                            <div v-if="result.refinementApplied" class="collapsible" @click="toggleCollapse('refinement-' + index)">
+                                <span><strong>🔄 LLM 修正结果</strong></span>
+                                <span class="toggle-icon" :class="{active: isCollapsed('refinement-' + index)}">▼</span>
+                            </div>
+                            <div v-if="result.refinementApplied" class="collapsible-content" :class="{active: isCollapsed('refinement-' + index)}">
+                                <div v-if="result.refinedResult" class="info-section">
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <div class="info-label">修正后风险等级</div>
+                                            <div class="info-value">
+                                                <span :class="'risk-badge risk-' + (result.refinedResult.riskLevel || 'medium').toLowerCase()">
+                                                    {{ result.refinedResult.riskLevel }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">修正后扫描行数</div>
+                                            <div class="info-value">{{ result.refinedResult.estimatedRowsExamined || 'N/A' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">修正后索引使用</div>
+                                            <div class="info-value">{{ result.refinedResult.expectedIndexUsage ? '✅ 是' : '❌ 否' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">修正后索引名</div>
+                                            <div class="info-value">{{ result.refinedResult.expectedIndexName || '无' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">修正后访问类型</div>
+                                            <div class="info-value">{{ result.refinedResult.expectedAccessType || 'N/A' }}</div>
+                                        </div>
+                                        <div class="info-item">
+                                            <div class="info-label">修正后查询成本</div>
+                                            <div class="info-value">{{ result.refinedResult.estimatedQueryCost || 'N/A' }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="info-item" style="margin-top: 10px;">
+                                        <div class="info-label">修正推理</div>
+                                        <div class="info-value">{{ result.refinedResult.reasoning }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 最终建议 -->
+                            <div class="info-section" v-if="result.recommendations && result.recommendations.length > 0">
+                                <h4>💡 最终优化建议</h4>
+                                <ul class="recommendation-list">
+                                    <li v-for="(rec, rIdx) in result.recommendations" :key="rIdx">{{ rec }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    activeTab: 'single',
+                    loading: false,
+                    errorMessage: '',
+                    
+                    // 单条 SQL
+                    singleSql: '',
+                    singleDatasource: '',
+                    singleLlm: '',
+                    singleResult: null,
+                    
+                    // Mapper XML
+                    mapperXml: '',
+                    mapperNamespace: '',
+                    mapperDatasource: '',
+                    mapperLlm: '',
+                    mapperResult: null,
+                    
+                    // 配置
+                    datasources: [],
+                    llms: [],
+                    
+                    // 折叠状态
+                    collapsedSections: {}
+                };
+            },
+            mounted() {
+                this.loadDatasources();
+                this.loadLlms();
+            },
+            methods: {
+                async loadDatasources() {
+                    try {
+                        const response = await fetch('/api/sql/datasources');
+                        this.datasources = await response.json();
+                    } catch (error) {
+                        console.error('加载数据源失败:', error);
+                    }
+                },
+                async loadLlms() {
+                    try {
+                        const response = await fetch('/api/sql/llms');
+                        this.llms = await response.json();
+                    } catch (error) {
+                        console.error('加载 LLM 列表失败:', error);
+                    }
+                },
+                async analyzeSingleSql() {
+                    this.loading = true;
+                    this.errorMessage = '';
+                    this.singleResult = null;
+                    
+                    try {
+                        const response = await fetch('/api/sql-agent/analyze', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                sql: this.singleSql,
+                                datasourceName: this.singleDatasource,
+                                llmName: this.singleLlm
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(errorText || '分析失败');
+                        }
+                        
+                        this.singleResult = await response.json();
+                    } catch (error) {
+                        this.errorMessage = '分析失败: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                async analyzeMapper() {
+                    this.loading = true;
+                    this.errorMessage = '';
+                    this.mapperResult = null;
+                    
+                    try {
+                        const response = await fetch('/api/sql-agent/analyze-mapper', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                xmlContent: this.mapperXml,
+                                namespace: this.mapperNamespace,
+                                datasourceName: this.mapperDatasource,
+                                llmName: this.mapperLlm
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(errorText || '分析失败');
+                        }
+                        
+                        this.mapperResult = await response.json();
+                    } catch (error) {
+                        this.errorMessage = '分析失败: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                clearSingleForm() {
+                    this.singleSql = '';
+                    this.singleDatasource = '';
+                    this.singleLlm = '';
+                    this.singleResult = null;
+                    this.errorMessage = '';
+                },
+                clearMapperForm() {
+                    this.mapperXml = '';
+                    this.mapperNamespace = '';
+                    this.mapperDatasource = '';
+                    this.mapperLlm = '';
+                    this.mapperResult = null;
+                    this.errorMessage = '';
+                },
+                renderMarkdown(text) {
+                    if (!text) return '';
+                    return marked.parse(text);
+                },
+                toggleCollapse(sectionId) {
+                    this.collapsedSections[sectionId] = !this.collapsedSections[sectionId];
+                },
+                isCollapsed(sectionId) {
+                    return this.collapsedSections[sectionId] || false;
+                },
+                downloadMarkdownReport(data, isMapper) {
+                    let markdown = '';
+                    
+                    if (isMapper) {
+                        // Mapper 批量分析报告
+                        markdown = this.generateMapperMarkdownReport(data);
+                    } else {
+                        // 单条 SQL 分析报告
+                        markdown = this.generateSingleMarkdownReport(data);
+                    }
+                    
+                    // 创建 Blob 并下载
+                    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    
+                    // 生成文件名
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+                    link.download = isMapper ? 
+                        `SQL批量分析报告_${data.mapperNamespace}_${timestamp}.md` : 
+                        `SQL分析报告_${timestamp}.md`;
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                },
+                generateSingleMarkdownReport(result) {
+                    let md = '# SQL 性能分析报告\n\n';
+                    md += `> 生成时间：${new Date().toLocaleString('zh-CN')}\n\n`;
+                    
+                    // 基本信息
+                    md += '## 📊 基本信息\n\n';
+                    md += `- **最终风险等级**：\`${result.finalRiskLevel || 'N/A'}\`\n`;
+                    md += `- **处理时间**：${result.processingTimeMs ? (result.processingTimeMs / 1000).toFixed(2) + 's' : 'N/A'}\n\n`;
+                    
+                    // 原始 SQL
+                    md += '## 📝 原始 SQL\n\n';
+                    md += '```sql\n' + result.originalSql + '\n```\n\n';
+                    
+                    // 直方图数据
+                    if (result.histogramData && result.histogramData.length > 0) {
+                        md += '## 📊 直方图数据\n\n';
+                        md += '| 表名 | 列名 | 类型 | 桶数 | 最小值 | 最大值 | 采样数 |\n';
+                        md += '|------|------|------|------|--------|--------|--------|\n';
+                        result.histogramData.forEach(hist => {
+                            md += `| ${hist.tableName} | ${hist.columnName} | ${hist.histogramType} | ${hist.bucketCount} | ${hist.minValue} | ${hist.maxValue} | ${hist.sampleCount} |\n`;
+                        });
+                        md += '\n';
+                    }
+                    
+                    // Stage 1: LLM 预测结果
+                    if (result.predictorResult) {
+                        md += '## 🤖 Stage 1: LLM 预测结果\n\n';
+                        md += '### 预测指标\n\n';
+                        md += `- **风险等级**：\`${result.predictorResult.riskLevel}\`\n`;
+                        md += `- **预估扫描行数**：${result.predictorResult.estimatedRowsExamined || 'N/A'}\n`;
+                        md += `- **预期索引使用**：${result.predictorResult.expectedIndexUsage ? '✅ 是' : '❌ 否'}\n`;
+                        md += `- **预期索引名**：${result.predictorResult.expectedIndexName || '无'}\n`;
+                        md += `- **预期访问类型**：${result.predictorResult.expectedAccessType || 'N/A'}\n`;
+                        md += `- **预估查询成本**：${result.predictorResult.estimatedQueryCost || 'N/A'}\n\n`;
+                        
+                        md += '### 推理过程\n\n';
+                        md += result.predictorResult.reasoning + '\n\n';
+                        
+                        if (result.predictorResult.recommendations && result.predictorResult.recommendations.length > 0) {
+                            md += '### 初步建议\n\n';
+                            result.predictorResult.recommendations.forEach((rec, idx) => {
+                                md += `${idx + 1}. ${rec}\n`;
+                            });
+                            md += '\n';
+                        }
+                    }
+                    
+                    // Stage 2: LLM 生成的多场景测试
+                    if (result.fillingResult && result.fillingResult.scenarios) {
+                        md += '## 🎯 Stage 2: LLM 生成的多场景测试\n\n';
+                        md += '### LLM 推理过程\n\n';
+                        md += result.fillingResult.reasoning + '\n\n';
+                        
+                        md += '### 测试场景\n\n';
+                        result.fillingResult.scenarios.forEach((scenario, idx) => {
+                            md += `#### 场景 ${idx + 1}: ${scenario.scenarioName}\n\n`;
+                            md += `**描述**：${scenario.description}\n\n`;
+                            md += '**填充后的 SQL**：\n\n';
+                            md += '```sql\n' + scenario.filledSql + '\n```\n\n';
+                            md += '**使用的参数**：\n\n';
+                            md += '```json\n' + JSON.stringify(scenario.parameters, null, 2) + '\n```\n\n';
+                        });
+                    }
+                    
+                    // Stage 3: 场景验证结果
+                    if (result.scenarioVerifications && result.scenarioVerifications.length > 0) {
+                        md += '## ✅ Stage 3: 场景验证结果\n\n';
+                        result.scenarioVerifications.forEach((verification, idx) => {
+                            md += `### 场景 ${idx + 1}: ${verification.scenarioName}\n\n`;
+                            if (verification.executionPlan && verification.executionPlan.queryBlock) {
+                                const table = verification.executionPlan.queryBlock.table;
+                                const cost = verification.executionPlan.queryBlock.costInfo;
+                                md += `- **访问类型**：${table.accessType}\n`;
+                                md += `- **使用索引**：${table.key || '无'}\n`;
+                                md += `- **实际扫描行数**：${table.rowsExaminedPerScan}\n`;
+                                md += `- **查询成本**：${cost.queryCost}\n\n`;
+                            }
+                        });
+                    }
+                    
+                    // 验证对比分析
+                    if (result.verificationComparison) {
+                        md += '## 🔍 验证对比分析\n\n';
+                        md += `**对比结果**：${result.verificationComparison.matched ? '✅ 预测一致' : '⚠️ 预测存在偏差'}\n\n`;
+                        md += `**偏差严重程度**：\`${result.verificationComparison.deviationSeverity}\`\n\n`;
+                        md += `**总结**：${result.verificationComparison.summary}\n\n`;
+                        
+                        if (result.verificationComparison.details) {
+                            md += '### 详细对比\n\n';
+                            md += '| 指标 | 预测值 | 实际值 | 偏差 | 状态 |\n';
+                            md += '|------|--------|--------|------|------|\n';
+                            for (const [key, detail] of Object.entries(result.verificationComparison.details)) {
+                                const status = detail.matched ? '✅' : '❌';
+                                md += `| ${detail.metric} | ${detail.predictedValue} | ${detail.actualValue} | ${detail.deviation} | ${status} |\n`;
+                            }
+                            md += '\n';
+                        }
+                    }
+                    
+                    // LLM 修正结果
+                    if (result.refinementApplied && result.refinedResult) {
+                        md += '## 🔄 LLM 修正结果\n\n';
+                        md += '### 修正后指标\n\n';
+                        md += `- **修正后风险等级**：\`${result.refinedResult.riskLevel}\`\n`;
+                        md += `- **修正后扫描行数**：${result.refinedResult.estimatedRowsExamined || 'N/A'}\n`;
+                        md += `- **修正后索引使用**：${result.refinedResult.expectedIndexUsage ? '✅ 是' : '❌ 否'}\n`;
+                        md += `- **修正后索引名**：${result.refinedResult.expectedIndexName || '无'}\n`;
+                        md += `- **修正后访问类型**：${result.refinedResult.expectedAccessType || 'N/A'}\n`;
+                        md += `- **修正后查询成本**：${result.refinedResult.estimatedQueryCost || 'N/A'}\n\n`;
+                        
+                        md += '### 修正推理\n\n';
+                        md += result.refinedResult.reasoning + '\n\n';
+                    }
+                    
+                    // 最终优化建议
+                    if (result.recommendations && result.recommendations.length > 0) {
+                        md += '## 💡 最终优化建议\n\n';
+                        result.recommendations.forEach((rec, idx) => {
+                            md += `${idx + 1}. ${rec}\n`;
+                        });
+                        md += '\n';
+                    }
+                    
+                    md += '---\n\n';
+                    md += '*本报告由 SQL Agent 智能分析系统自动生成*\n';
+                    
+                    return md;
+                },
+                generateMapperMarkdownReport(mapperResult) {
+                    let md = '# Mapper XML 批量分析报告\n\n';
+                    md += `> 生成时间：${new Date().toLocaleString('zh-CN')}\n\n`;
+                    
+                    // Mapper 基本信息
+                    md += '## 📋 基本信息\n\n';
+                    md += `- **Namespace**：\`${mapperResult.mapperNamespace}\`\n`;
+                    md += `- **SQL 数量**：${mapperResult.results ? mapperResult.results.length : 0}\n`;
+                    md += `- **总结**：${mapperResult.overallSummary || '已完成批量分析'}\n\n`;
+                    
+                    // 统计信息
+                    if (mapperResult.results && mapperResult.results.length > 0) {
+                        const riskCounts = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };
+                        mapperResult.results.forEach(r => {
+                            if (r.finalRiskLevel) {
+                                riskCounts[r.finalRiskLevel] = (riskCounts[r.finalRiskLevel] || 0) + 1;
+                            }
+                        });
+                        
+                        md += '## 📊 风险等级分布\n\n';
+                        md += `- 🟢 **LOW（低风险）**：${riskCounts.LOW} 条\n`;
+                        md += `- 🟡 **MEDIUM（中等风险）**：${riskCounts.MEDIUM} 条\n`;
+                        md += `- 🟠 **HIGH（高风险）**：${riskCounts.HIGH} 条\n`;
+                        md += `- 🔴 **CRITICAL（严重风险）**：${riskCounts.CRITICAL} 条\n\n`;
+                    }
+                    
+                    // 每条 SQL 的详细分析
+                    if (mapperResult.results && mapperResult.results.length > 0) {
+                        md += '## 📝 详细分析\n\n';
+                        
+                        mapperResult.results.forEach((result, index) => {
+                            md += `### SQL #${index + 1}\n\n`;
+                            md += `**风险等级**：\`${result.finalRiskLevel || 'N/A'}\` | `;
+                            md += `**处理时间**：${result.processingTimeMs ? (result.processingTimeMs / 1000).toFixed(2) + 's' : 'N/A'}\n\n`;
+                            
+                            // 使用 generateSingleMarkdownReport 的部分逻辑
+                            md += '#### 原始 SQL\n\n';
+                            md += '```sql\n' + result.originalSql + '\n```\n\n';
+                            
+                            // LLM 预测
+                            if (result.predictorResult) {
+                                md += '#### LLM 预测结果\n\n';
+                                md += `- **风险等级**：\`${result.predictorResult.riskLevel}\`\n`;
+                                md += `- **预估扫描行数**：${result.predictorResult.estimatedRowsExamined || 'N/A'}\n`;
+                                md += `- **预期索引使用**：${result.predictorResult.expectedIndexUsage ? '✅ 是' : '❌ 否'}\n`;
+                                md += `- **预期索引名**：${result.predictorResult.expectedIndexName || '无'}\n\n`;
+                            }
+                            
+                            // 验证结果摘要
+                            if (result.scenarioVerifications && result.scenarioVerifications.length > 0) {
+                                md += `#### 验证结果（${result.scenarioVerifications.length} 个场景）\n\n`;
+                                result.scenarioVerifications.forEach((v, vIdx) => {
+                                    if (v.executionPlan && v.executionPlan.queryBlock) {
+                                        const table = v.executionPlan.queryBlock.table;
+                                        md += `- **${v.scenarioName}**：访问类型=${table.accessType}，索引=${table.key || '无'}，扫描行数=${table.rowsExaminedPerScan}\n`;
+                                    }
+                                });
+                                md += '\n';
+                            }
+                            
+                            // 最终建议
+                            if (result.recommendations && result.recommendations.length > 0) {
+                                md += '#### 优化建议\n\n';
+                                result.recommendations.forEach((rec, rIdx) => {
+                                    md += `${rIdx + 1}. ${rec}\n`;
+                                });
+                                md += '\n';
+                            }
+                            
+                            md += '---\n\n';
+                        });
+                    }
+                    
+                    md += '*本报告由 SQL Agent 智能分析系统自动生成*\n';
+                    
+                    return md;
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
+

@@ -18,6 +18,9 @@ public class SqlExecutionPlanService {
     @Autowired
     private DataSourceManagerService dataSourceManagerService;
 
+    @Autowired
+    private ColumnStatisticsParserService columnStatisticsParserService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -287,6 +290,100 @@ public class SqlExecutionPlanService {
         }
         
         return "test_db"; // 默认值
+    }
+
+    /**
+     * 获取SQL中WHERE条件涉及的列的直方图数据
+     * @param sql SQL语句
+     * @param datasourceName 数据源名称
+     * @return 直方图数据列表
+     */
+    public List<com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO> getHistogramDataForSql(String sql, String datasourceName) {
+        List<com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO> histograms = new ArrayList<>();
+        
+        try {
+            // 提取表名
+            List<String> tableNames = parseTableNames(sql);
+            if (tableNames.isEmpty()) {
+                return histograms;
+            }
+            
+            // 提取WHERE子句中的列名
+            Set<String> whereColumns = extractWhereColumns(sql);
+            if (whereColumns.isEmpty()) {
+                return histograms;
+            }
+            
+            String databaseName = extractDatabaseName(datasourceName);
+            
+            // 为每个表和列获取直方图数据
+            for (String tableName : tableNames) {
+                for (String columnName : whereColumns) {
+                    com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO stats = 
+                        columnStatisticsParserService.getStatisticsFromMysql(
+                            datasourceName, databaseName, tableName, columnName);
+                    
+                    if (stats != null) {
+                        histograms.add(stats);
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            // 如果获取失败，返回空列表
+            System.err.println("获取直方图数据失败: " + e.getMessage());
+        }
+        
+        return histograms;
+    }
+    
+    /**
+     * 从SQL WHERE子句中提取列名
+     * @param sql SQL语句
+     * @return 列名集合
+     */
+    private Set<String> extractWhereColumns(String sql) {
+        Set<String> columns = new HashSet<>();
+        if (sql == null || sql.trim().isEmpty()) {
+            return columns;
+        }
+        
+        // 移除注释
+        String cleanSql = sql.replaceAll("--.*", "").replaceAll("/\\*.*?\\*/", "");
+        
+        // 提取WHERE子句
+        Pattern wherePattern = Pattern.compile(
+            "(?i)WHERE\\s+(.+?)(?:GROUP BY|ORDER BY|LIMIT|HAVING|$)",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+        );
+        
+        Matcher whereMatcher = wherePattern.matcher(cleanSql);
+        if (!whereMatcher.find()) {
+            return columns;
+        }
+        
+        String whereClause = whereMatcher.group(1);
+        
+        // 匹配各种WHERE条件中的列名
+        // 支持：column = ?, column > ?, column BETWEEN ? AND ?, column IN (?, ?), column LIKE ?
+        Pattern columnPattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s*(?:[=<>!]+|(?:LIKE|IN|BETWEEN|NOT IN|NOT LIKE))\\s*[\\?'\"(]",
+            Pattern.CASE_INSENSITIVE
+        );
+        
+        Matcher columnMatcher = columnPattern.matcher(whereClause);
+        while (columnMatcher.find()) {
+            String columnName = columnMatcher.group(1);
+            if (columnName != null) {
+                // 去掉表别名前缀
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                columns.add(columnName.toLowerCase());
+            }
+        }
+        
+        return columns;
     }
 }
 

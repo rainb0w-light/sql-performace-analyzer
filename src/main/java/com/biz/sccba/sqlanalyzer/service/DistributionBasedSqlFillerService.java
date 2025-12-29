@@ -1,7 +1,6 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.ColumnStatistics;
-import com.biz.sccba.sqlanalyzer.repository.ColumnStatisticsRepository;
+import com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +13,7 @@ import java.util.regex.Pattern;
 
 /**
  * 基于数据分布的SQL填充服务
- * 使用收集的列统计信息，针对性地填充SQL参数，生成不同场景的SQL
+ * 直接从MySQL的information_schema.COLUMN_STATISTICS读取统计信息，针对性地填充SQL参数，生成不同场景的SQL
  */
 @Service
 public class DistributionBasedSqlFillerService {
@@ -22,13 +21,13 @@ public class DistributionBasedSqlFillerService {
     private static final Logger logger = LoggerFactory.getLogger(DistributionBasedSqlFillerService.class);
 
     @Autowired
-    private ColumnStatisticsRepository columnStatisticsRepository;
-
-    @Autowired
     private ColumnStatisticsParserService parserService;
 
     @Autowired
     private SqlExecutionPlanService sqlExecutionPlanService;
+    
+    @Autowired
+    private DataSourceManagerService dataSourceManagerService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -57,15 +56,16 @@ public class DistributionBasedSqlFillerService {
                 return scenarios;
             }
 
-            // 为每个表收集列统计信息
-            Map<String, Map<String, ColumnStatistics>> tableColumnStats = new HashMap<>();
+            // 为每个表从MySQL读取列统计信息
+            String databaseName = extractDatabaseName(datasourceName);
+            Map<String, Map<String, ColumnStatisticsDTO>> tableColumnStats = new HashMap<>();
             for (String tableName : tableNames) {
-                List<ColumnStatistics> stats = columnStatisticsRepository
-                    .findByDatasourceNameAndTableName(datasourceName, tableName);
+                List<ColumnStatisticsDTO> stats = parserService.getStatisticsFromMysql(
+                    datasourceName, databaseName, tableName);
                 
-                Map<String, ColumnStatistics> columnMap = new HashMap<>();
-                for (ColumnStatistics stat : stats) {
-                    columnMap.put(stat.getColumnName().toLowerCase(), stat);
+                Map<String, ColumnStatisticsDTO> columnMap = new HashMap<>();
+                for (ColumnStatisticsDTO dto : stats) {
+                    columnMap.put(dto.getColumnName().toLowerCase(), dto);
                 }
                 tableColumnStats.put(tableName.toLowerCase(), columnMap);
             }
@@ -86,21 +86,21 @@ public class DistributionBasedSqlFillerService {
      * 生成多个场景
      */
     private List<SqlScenario> generateScenarios(String sql, Set<String> paramNames,
-                                                Map<String, Map<String, ColumnStatistics>> tableColumnStats) {
+                                                Map<String, Map<String, ColumnStatisticsDTO>> tableColumnStats) {
         List<SqlScenario> scenarios = new ArrayList<>();
 
         // 场景1：最小值场景
         scenarios.add(createScenario(sql, paramNames, tableColumnStats, "最小值场景", 
-            (stat) -> stat.getMinValue()));
+            (dto) -> dto.getMinValue()));
 
         // 场景2：最大值场景
         scenarios.add(createScenario(sql, paramNames, tableColumnStats, "最大值场景", 
-            (stat) -> stat.getMaxValue()));
+            (dto) -> dto.getMaxValue()));
 
         // 场景3：中位数场景（从采样值中取中间值）
         scenarios.add(createScenario(sql, paramNames, tableColumnStats, "中位数场景", 
-            (stat) -> {
-                List<Object> samples = parserService.getSampleValues(stat);
+            (dto) -> {
+                List<Object> samples = parserService.getSampleValues(dto);
                 if (!samples.isEmpty()) {
                     return samples.get(samples.size() / 2).toString();
                 }
@@ -117,8 +117,8 @@ public class DistributionBasedSqlFillerService {
             final int index = i;
             scenarios.add(createScenario(sql, paramNames, tableColumnStats, 
                 "随机采样场景" + (i + 1), 
-                (stat) -> {
-                    List<Object> samples = parserService.getSampleValues(stat);
+                (dto) -> {
+                    List<Object> samples = parserService.getSampleValues(dto);
                     if (!samples.isEmpty()) {
                         int sampleIndex = (index * samples.size()) / 4;
                         if (sampleIndex >= samples.size()) {
@@ -140,7 +140,7 @@ public class DistributionBasedSqlFillerService {
      * 创建场景
      */
     private SqlScenario createScenario(String sql, Set<String> paramNames,
-                                       Map<String, Map<String, ColumnStatistics>> tableColumnStats,
+                                       Map<String, Map<String, ColumnStatisticsDTO>> tableColumnStats,
                                        String scenarioName,
                                        ValueExtractor extractor) {
         SqlScenario scenario = new SqlScenario();
@@ -160,10 +160,10 @@ public class DistributionBasedSqlFillerService {
      * 创建分位数场景
      */
     private SqlScenario createPercentileScenario(String sql, Set<String> paramNames,
-                                                  Map<String, Map<String, ColumnStatistics>> tableColumnStats,
+                                                  Map<String, Map<String, ColumnStatisticsDTO>> tableColumnStats,
                                                   String scenarioName, double percentile) {
-        return createScenario(sql, paramNames, tableColumnStats, scenarioName, (stat) -> {
-            List<Object> samples = parserService.getSampleValues(stat);
+        return createScenario(sql, paramNames, tableColumnStats, scenarioName, (dto) -> {
+            List<Object> samples = parserService.getSampleValues(dto);
             if (!samples.isEmpty()) {
                 int index = (int) (samples.size() * percentile);
                 if (index >= samples.size()) {
@@ -179,7 +179,7 @@ public class DistributionBasedSqlFillerService {
      * 使用统计信息填充SQL
      */
     private String fillSqlWithStatistics(String sql, Set<String> paramNames,
-                                         Map<String, Map<String, ColumnStatistics>> tableColumnStats,
+                                         Map<String, Map<String, ColumnStatisticsDTO>> tableColumnStats,
                                          ValueExtractor extractor,
                                          Map<String, Object> sampleValues) {
         Matcher matcher = PARAM_PATTERN.matcher(sql);
@@ -200,7 +200,7 @@ public class DistributionBasedSqlFillerService {
      * 从统计信息中获取替换值
      */
     private String getReplacementFromStatistics(String paramName,
-                                                 Map<String, Map<String, ColumnStatistics>> tableColumnStats,
+                                                 Map<String, Map<String, ColumnStatisticsDTO>> tableColumnStats,
                                                  ValueExtractor extractor,
                                                  Map<String, Object> sampleValues) {
         // 提取列名（去掉可能的表别名前缀）
@@ -211,15 +211,15 @@ public class DistributionBasedSqlFillerService {
         String lowerColumnName = columnName.toLowerCase();
 
         // 在所有表的列统计信息中查找
-        ColumnStatistics stat = null;
-        for (Map<String, ColumnStatistics> columnMap : tableColumnStats.values()) {
-            stat = columnMap.get(lowerColumnName);
-            if (stat != null) {
+        ColumnStatisticsDTO dto = null;
+        for (Map<String, ColumnStatisticsDTO> columnMap : tableColumnStats.values()) {
+            dto = columnMap.get(lowerColumnName);
+            if (dto != null) {
                 break;
             }
         }
 
-        if (stat == null) {
+        if (dto == null) {
             // 如果找不到统计信息，使用默认值
             String defaultValue = "1";
             sampleValues.put(paramName, defaultValue);
@@ -227,13 +227,47 @@ public class DistributionBasedSqlFillerService {
         }
 
         // 使用提取器获取值
-        String value = extractor.extract(stat);
+        String value = extractor.extract(dto);
         if (value == null) {
             value = "1"; // 默认值
         }
 
         sampleValues.put(paramName, value);
         return formatValue(value);
+    }
+    
+    /**
+     * 从数据源配置中提取数据库名称
+     */
+    private String extractDatabaseName(String datasourceName) {
+        try {
+            DataSourceManagerService.DataSourceInfo info =
+                dataSourceManagerService.getAllDataSources().stream()
+                    .filter(ds -> ds.getName().equals(datasourceName) || 
+                            (datasourceName == null && ds.getName() != null))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (info != null && info.getUrl() != null) {
+                String url = info.getUrl();
+                // jdbc:mysql://localhost:3306/test_db?...
+                if (url.contains("/")) {
+                    String[] parts = url.split("/");
+                    if (parts.length > 1) {
+                        String dbPart = parts[parts.length - 1];
+                        // 移除查询参数
+                        if (dbPart.contains("?")) {
+                            dbPart = dbPart.substring(0, dbPart.indexOf("?"));
+                        }
+                        return dbPart;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("提取数据库名失败: {}", e.getMessage());
+        }
+        
+        return "test_db"; // 默认值
     }
 
     /**
@@ -278,7 +312,7 @@ public class DistributionBasedSqlFillerService {
      */
     @FunctionalInterface
     private interface ValueExtractor {
-        String extract(ColumnStatistics stat);
+        String extract(ColumnStatisticsDTO dto);
     }
 
     /**

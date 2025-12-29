@@ -22,24 +22,34 @@ public class Order {
     private String orderNumber;
 
     /**
-     * 订单总金额
-     */
-    private BigDecimal totalAmount;
-
-    /**
-     * 创建时间
-     */
-    private LocalDateTime createTime;
-
-    /**
      * 用户ID
      */
     private Long userId;
 
     /**
+     * 订单总金额
+     */
+    private BigDecimal totalAmount;
+
+    /**
      * 订单状态
      */
     private String status;
+
+    /**
+     * 收货地址
+     */
+    private String shippingAddress;
+
+    /**
+     * 创建时间
+     */
+    private LocalDateTime createdAt;
+
+    /**
+     * 更新时间
+     */
+    private LocalDateTime updatedAt;
 
     /**
      * 订单项列表（关联查询使用）

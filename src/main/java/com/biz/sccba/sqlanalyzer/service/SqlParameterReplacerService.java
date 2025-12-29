@@ -1,8 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.ColumnStatistics;
 import com.biz.sccba.sqlanalyzer.model.TableStructure;
-import com.biz.sccba.sqlanalyzer.repository.ColumnStatisticsRepository;
+import com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,13 +23,10 @@ public class SqlParameterReplacerService {
     private SqlExecutionPlanService sqlExecutionPlanService;
 
     @Autowired
-    private ColumnStatisticsCollectorService columnStatisticsCollectorService;
-
-    @Autowired
-    private ColumnStatisticsRepository columnStatisticsRepository;
-
-    @Autowired
     private ColumnStatisticsParserService columnStatisticsParserService;
+    
+    @Autowired
+    private DataSourceManagerService dataSourceManagerService;
 
 
     /**
@@ -200,7 +196,176 @@ public class SqlParameterReplacerService {
             }
         }
         
-        // 3. 处理列名 = ?, > ?, < ?, >= ?, <= ?, != ? 等情况
+        // 3. 处理列名 LIKE ? 的情况
+        Pattern likePattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s+(?:LIKE|like)\\s+\\?",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher likeMatcher = likePattern.matcher(result);
+        while (likeMatcher.find()) {
+            String fullColumnName = likeMatcher.group(1);
+            if (fullColumnName != null) {
+                // 提取列名（去掉表别名前缀）
+                String columnName = fullColumnName;
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                String lowerColumnName = columnName.toLowerCase();
+                
+                // 获取列信息和样本数据
+                TableStructure.ColumnInfo columnInfo = columnMap.get(lowerColumnName);
+                ColumnSampleData columnSamples = extendedSampleData.get(lowerColumnName);
+                
+                // 选择值（对于LIKE，通常使用字符串值）
+                Object value = selectValueForQuestionMark(lowerColumnName, columnInfo, columnSamples, "LIKE");
+                if (value == null) {
+                    // 如果没有找到，使用默认字符串值
+                    value = columnInfo != null ? getDefaultValueByType(columnInfo.getDataType()) : "test";
+                }
+                
+                // 对于LIKE，如果值是字符串，添加通配符（如果还没有）
+                String likeValue = formatValueForLike(value);
+                
+                // 替换占位符
+                result.replace(likeMatcher.end() - 1, likeMatcher.end(), likeValue);
+                
+                // 重置匹配器
+                likeMatcher = likePattern.matcher(result);
+            }
+        }
+        
+        // 4. 处理函数调用中的占位符，如 substr(1,3,?), concat(?, %), A = substr(1,3,?), A LIKE concat(?, %)
+        // 匹配模式：列名 操作符 函数名(参数包含?)
+        Pattern functionPattern = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s*([=<>!]+|(?:LIKE|like))\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\?\\)",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher functionMatcher = functionPattern.matcher(result);
+        while (functionMatcher.find()) {
+            String fullColumnName = functionMatcher.group(1);
+            String functionName = functionMatcher.group(3);
+            String beforeQuestion = functionMatcher.group(4);
+            
+            if (fullColumnName != null && functionName != null) {
+                // 提取列名（去掉表别名前缀）
+                String columnName = fullColumnName;
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                String lowerColumnName = columnName.toLowerCase();
+                
+                // 获取列信息和样本数据
+                TableStructure.ColumnInfo columnInfo = columnMap.get(lowerColumnName);
+                ColumnSampleData columnSamples = extendedSampleData.get(lowerColumnName);
+                
+                // 选择值
+                Object value = selectValueForQuestionMark(lowerColumnName, columnInfo, columnSamples, "FUNCTION");
+                if (value == null) {
+                    value = columnInfo != null ? getDefaultValueByType(columnInfo.getDataType()) : "1";
+                }
+                
+                // 格式化值
+                String formattedValue = formatValue(value);
+                
+                // 构建替换后的函数调用
+                String newFunctionCall = functionName + "(" + 
+                    (beforeQuestion != null ? beforeQuestion : "") + 
+                    formattedValue + ")";
+                
+                // 替换整个函数调用部分（从函数名开始到结束）
+                int startPos = result.indexOf(functionName + "(", functionMatcher.start());
+                if (startPos >= 0) {
+                    // 找到匹配的右括号
+                    int parenCount = 0;
+                    int endPos = startPos;
+                    for (int i = startPos; i < result.length(); i++) {
+                        char c = result.charAt(i);
+                        if (c == '(') parenCount++;
+                        if (c == ')') {
+                            parenCount--;
+                            if (parenCount == 0) {
+                                endPos = i + 1;
+                                break;
+                            }
+                        }
+                    }
+                    if (endPos > startPos) {
+                        // 替换函数调用
+                        result.replace(startPos, endPos, newFunctionCall);
+                        // 重置匹配器
+                        functionMatcher = functionPattern.matcher(result);
+                    }
+                }
+            }
+        }
+        
+        // 4.1 处理函数调用中 ? 后面还有参数的情况，如 concat(?, %)
+        Pattern functionPattern2 = Pattern.compile(
+            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s*([=<>!]+|(?:LIKE|like))\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(([^)]*)\\?([^)]*)\\)",
+            Pattern.CASE_INSENSITIVE
+        );
+        Matcher functionMatcher2 = functionPattern2.matcher(result);
+        while (functionMatcher2.find()) {
+            String fullColumnName = functionMatcher2.group(1);
+            String functionName = functionMatcher2.group(3);
+            String beforeQuestion = functionMatcher2.group(4);
+            String afterQuestion = functionMatcher2.group(5);
+            
+            if (fullColumnName != null && functionName != null && afterQuestion != null && !afterQuestion.trim().isEmpty()) {
+                // 提取列名（去掉表别名前缀）
+                String columnName = fullColumnName;
+                if (columnName.contains(".")) {
+                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
+                }
+                String lowerColumnName = columnName.toLowerCase();
+                
+                // 获取列信息和样本数据
+                TableStructure.ColumnInfo columnInfo = columnMap.get(lowerColumnName);
+                ColumnSampleData columnSamples = extendedSampleData.get(lowerColumnName);
+                
+                // 选择值
+                Object value = selectValueForQuestionMark(lowerColumnName, columnInfo, columnSamples, "FUNCTION");
+                if (value == null) {
+                    value = columnInfo != null ? getDefaultValueByType(columnInfo.getDataType()) : "1";
+                }
+                
+                // 格式化值
+                String formattedValue = formatValue(value);
+                
+                // 构建替换后的函数调用
+                String newFunctionCall = functionName + "(" + 
+                    (beforeQuestion != null ? beforeQuestion : "") + 
+                    formattedValue + 
+                    afterQuestion + ")";
+                
+                // 替换整个函数调用部分（从函数名开始到结束）
+                int startPos = result.indexOf(functionName + "(", functionMatcher2.start());
+                if (startPos >= 0) {
+                    // 找到匹配的右括号
+                    int parenCount = 0;
+                    int endPos = startPos;
+                    for (int i = startPos; i < result.length(); i++) {
+                        char c = result.charAt(i);
+                        if (c == '(') parenCount++;
+                        if (c == ')') {
+                            parenCount--;
+                            if (parenCount == 0) {
+                                endPos = i + 1;
+                                break;
+                            }
+                        }
+                    }
+                    if (endPos > startPos) {
+                        // 替换函数调用
+                        result.replace(startPos, endPos, newFunctionCall);
+                        // 重置匹配器
+                        functionMatcher2 = functionPattern2.matcher(result);
+                    }
+                }
+            }
+        }
+        
+        // 5. 处理列名 = ?, > ?, < ?, >= ?, <= ?, != ? 等情况
         Pattern comparisonPattern = Pattern.compile(
             "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s*([=<>!]+)\\s*\\?",
             Pattern.CASE_INSENSITIVE
@@ -343,33 +508,64 @@ public class SqlParameterReplacerService {
         strValue = strValue.replace("'", "''");
         return "'" + strValue + "'";
     }
+    
+    /**
+     * 格式化值为LIKE操作符使用的字符串（添加通配符）
+     */
+    private String formatValueForLike(Object value) {
+        if (value == null) {
+            return "'%'";
+        }
+
+        // 转换为字符串
+        String strValue = value.toString();
+        
+        // 如果已经是特殊值，直接返回
+        if (strValue.equals("CURRENT_TIMESTAMP") || 
+            strValue.startsWith("NOW()") ||
+            strValue.equals("CURRENT_DATE")) {
+            return strValue;
+        }
+        
+        // 如果已经包含通配符，直接格式化
+        if (strValue.contains("%") || strValue.contains("_")) {
+            strValue = strValue.replace("'", "''");
+            return "'" + strValue + "'";
+        }
+        
+        // 否则添加通配符（前后都加，实现模糊匹配）
+        strValue = strValue.replace("'", "''");
+        return "'%" + strValue + "%'";
+    }
 
     /**
      * 获取扩展样本数据（包含统计信息和多个样本）
-     * 使用ColumnStatisticsCollectorService收集的统计信息
+     * 直接从MySQL的information_schema.COLUMN_STATISTICS读取统计信息
      */
     private Map<String, ColumnSampleData> getExtendedSampleData(String tableName, String datasourceName,
                                                                 Map<String, TableStructure.ColumnInfo> columnMap) {
         Map<String, ColumnSampleData> extendedData = new HashMap<>();
         
         try {
-            // 从数据库查询已保存的列统计信息
-            List<ColumnStatistics> statisticsList = columnStatisticsRepository
-                .findByDatasourceNameAndTableName(datasourceName, tableName);
+            String databaseName = extractDatabaseName(datasourceName);
+            
+            // 从MySQL直接读取列统计信息
+            List<ColumnStatisticsDTO> statisticsList = columnStatisticsParserService
+                .getStatisticsFromMysql(datasourceName, databaseName, tableName);
             
             // 将统计信息转换为Map，方便查找
-            Map<String, ColumnStatistics> statisticsMap = new HashMap<>();
-            for (ColumnStatistics stat : statisticsList) {
-                statisticsMap.put(stat.getColumnName().toLowerCase(), stat);
+            Map<String, ColumnStatisticsDTO> statisticsMap = new HashMap<>();
+            for (ColumnStatisticsDTO dto : statisticsList) {
+                statisticsMap.put(dto.getColumnName().toLowerCase(), dto);
             }
 
             
             // 对每个列，从统计信息中构建ColumnSampleData
             for (Map.Entry<String, TableStructure.ColumnInfo> entry : columnMap.entrySet()) {
                 String columnName = entry.getKey();
-                ColumnStatistics statistics = statisticsMap.get(columnName);
+                ColumnStatisticsDTO dto = statisticsMap.get(columnName);
                 
-                if (statistics == null) {
+                if (dto == null) {
                     // 如果没有统计信息，跳过
                     logger.debug("列 {} 没有统计信息，跳过", columnName);
                     continue;
@@ -377,17 +573,17 @@ public class SqlParameterReplacerService {
                 
                 ColumnSampleData sampleData = new ColumnSampleData();
                 
-                // 从ColumnStatistics中提取数据
+                // 从DTO中提取数据
                 // 最小值和最大值（需要转换为Object类型）
-                if (statistics.getMinValue() != null) {
-                    sampleData.setMinValue(parseValue(statistics.getMinValue()));
+                if (dto.getMinValue() != null) {
+                    sampleData.setMinValue(parseValue(dto.getMinValue()));
                 }
-                if (statistics.getMaxValue() != null) {
-                    sampleData.setMaxValue(parseValue(statistics.getMaxValue()));
+                if (dto.getMaxValue() != null) {
+                    sampleData.setMaxValue(parseValue(dto.getMaxValue()));
                 }
                 
                 // 从采样值中获取随机样本
-                List<Object> sampleValues = columnStatisticsParserService.getSampleValues(statistics);
+                List<Object> sampleValues = columnStatisticsParserService.getSampleValues(dto);
                 if (!sampleValues.isEmpty()) {
                     sampleData.setRandomSamples(sampleValues);
                     
@@ -428,6 +624,40 @@ public class SqlParameterReplacerService {
         }
         
         return extendedData;
+    }
+    
+    /**
+     * 从数据源配置中提取数据库名称
+     */
+    private String extractDatabaseName(String datasourceName) {
+        try {
+            DataSourceManagerService.DataSourceInfo info =
+                dataSourceManagerService.getAllDataSources().stream()
+                    .filter(ds -> ds.getName().equals(datasourceName) || 
+                            (datasourceName == null && ds.getName() != null))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (info != null && info.getUrl() != null) {
+                String url = info.getUrl();
+                // jdbc:mysql://localhost:3306/test_db?...
+                if (url.contains("/")) {
+                    String[] parts = url.split("/");
+                    if (parts.length > 1) {
+                        String dbPart = parts[parts.length - 1];
+                        // 移除查询参数
+                        if (dbPart.contains("?")) {
+                            dbPart = dbPart.substring(0, dbPart.indexOf("?"));
+                        }
+                        return dbPart;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("提取数据库名失败: {}", e.getMessage());
+        }
+        
+        return "test_db"; // 默认值
     }
     
     /**
@@ -565,6 +795,38 @@ public class SqlParameterReplacerService {
                     return columnSamples.getMaxValue();
                 default:
                     break;
+            }
+        }
+        
+        // 对于LIKE操作符，优先使用字符串类型的样本值
+        if ("LIKE".equals(operator) && columnSamples != null) {
+            // 优先从随机样本中选择字符串值
+            if (!columnSamples.getRandomSamples().isEmpty()) {
+                for (Object sample : columnSamples.getRandomSamples()) {
+                    if (sample instanceof String) {
+                        return sample;
+                    }
+                }
+                // 如果没有字符串样本，使用第一个样本并转换为字符串
+                Object sample = columnSamples.getRandomSamples().get(0);
+                return sample != null ? sample.toString() : "test";
+            }
+            // 如果有中位数，转换为字符串
+            if (columnSamples.getMedian() != null) {
+                return columnSamples.getMedian().toString();
+            }
+        }
+        
+        // 对于函数调用，使用合适的值类型
+        if ("FUNCTION".equals(operator) && columnSamples != null) {
+            // 优先使用随机样本
+            if (!columnSamples.getRandomSamples().isEmpty()) {
+                List<Object> randomSamples = columnSamples.getRandomSamples();
+                return randomSamples.get(Math.abs(columnName.hashCode()) % randomSamples.size());
+            }
+            // 如果有中位数，使用中位数
+            if (columnSamples.getMedian() != null) {
+                return columnSamples.getMedian();
             }
         }
         

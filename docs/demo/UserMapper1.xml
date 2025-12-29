@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.mapper.UserMapper">
+
+
+    <!-- 根据用户名或邮箱查询（choose） -->
+    <select id="selectByUsernameOrEmail" resultType="com.example.model.User">
+        SELECT * FROM users
+                WHERE username = #{username}
+                AND email = #{email}
+    </select>
+
+    <!-- ResultMap定义 -->
+    <resultMap id="userWithOrdersMap" type="com.example.model.User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="email" column="email"/>
+        <result property="status" column="status"/>
+        <collection property="orders" ofType="com.example.model.Order">
+            <id property="id" column="order_id"/>
+            <result property="orderNumber" column="order_number"/>
+            <result property="totalAmount" column="total_amount"/>
+            <result property="createdAt" column="order_created_at"/>
+        </collection>
+    </resultMap>
+
+    <resultMap id="userOrderDetailsMap" type="com.example.model.User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="email" column="email"/>
+        <collection property="orders" ofType="com.example.model.Order">
+            <id property="id" column="order_id"/>
+            <result property="orderNumber" column="order_number"/>
+            <result property="totalAmount" column="total_amount"/>
+            <collection property="items" ofType="com.example.model.OrderItem">
+                <id property="id" column="item_id"/>
+                <result property="productName" column="product_name"/>
+                <result property="quantity" column="quantity"/>
+                <result property="unitPrice" column="unit_price"/>
+                <result property="subtotal" column="subtotal"/>
+            </collection>
+        </collection>
+    </resultMap>
+
+</mapper>

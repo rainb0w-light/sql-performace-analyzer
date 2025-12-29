@@ -26,9 +26,19 @@ public class User {
     private String email;
 
     /**
-     * 密码
+     * 密码哈希
      */
-    private String password;
+    private String passwordHash;
+
+    /**
+     * 全名
+     */
+    private String fullName;
+
+    /**
+     * 年龄
+     */
+    private Integer age;
 
     /**
      * 状态
@@ -38,12 +48,12 @@ public class User {
     /**
      * 创建时间
      */
-    private LocalDateTime createTime;
+    private LocalDateTime createdAt;
 
     /**
      * 更新时间
      */
-    private LocalDateTime updateTime;
+    private LocalDateTime updatedAt;
 
     /**
      * 订单列表（关联查询使用）

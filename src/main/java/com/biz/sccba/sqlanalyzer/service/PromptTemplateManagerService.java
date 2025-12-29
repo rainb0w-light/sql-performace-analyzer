@@ -22,6 +22,12 @@ public class PromptTemplateManagerService {
     public static final String TYPE_MYSQL = "MYSQL";
     public static final String TYPE_GOLDENDB = "GOLDENDB";
     public static final String TYPE_TABLE_QUERY_ANALYSIS = "TABLE_QUERY_ANALYSIS";
+    public static final String TYPE_SQL_AGENT_DISTRIBUTION = "SQL_AGENT_DISTRIBUTION";
+    public static final String TYPE_SQL_AGENT_PLAN_EVALUATION = "SQL_AGENT_PLAN_EVALUATION";
+    public static final String TYPE_SQL_RISK_ASSESSMENT = "SQL_RISK_ASSESSMENT";
+    public static final String TYPE_SQL_RISK_COMPARISON = "SQL_RISK_COMPARISON";
+    public static final String TYPE_SQL_RISK_REFINEMENT = "SQL_RISK_REFINEMENT";
+    public static final String TYPE_SQL_PARAMETER_FILLING = "SQL_PARAMETER_FILLING";
 
     @PostConstruct
     public void initDefaultTemplates() {
@@ -40,6 +46,36 @@ public class PromptTemplateManagerService {
         // 检查并初始化表查询分析模板
         if (repository.findByTemplateType(TYPE_TABLE_QUERY_ANALYSIS).isEmpty()) {
             createDefaultTemplate(TYPE_TABLE_QUERY_ANALYSIS, "表查询综合分析专家", getDefaultTableQueryAnalysisTemplate());
+        }
+
+        // 检查并初始化 SQL Agent 分布分析模板
+        if (repository.findByTemplateType(TYPE_SQL_AGENT_DISTRIBUTION).isEmpty()) {
+            createDefaultTemplate(TYPE_SQL_AGENT_DISTRIBUTION, "SQL Agent 数据分布分析专家", getDefaultSqlAgentDistributionTemplate());
+        }
+
+        // 检查并初始化 SQL Agent 执行计划评估模板
+        if (repository.findByTemplateType(TYPE_SQL_AGENT_PLAN_EVALUATION).isEmpty()) {
+            createDefaultTemplate(TYPE_SQL_AGENT_PLAN_EVALUATION, "SQL Agent 执行计划评估专家", getDefaultSqlAgentPlanEvaluationTemplate());
+        }
+
+        // 检查并初始化 SQL 风险评估模板
+        if (repository.findByTemplateType(TYPE_SQL_RISK_ASSESSMENT).isEmpty()) {
+            createDefaultTemplate(TYPE_SQL_RISK_ASSESSMENT, "SQL 风险评估 DBA 专家", getDefaultSqlRiskAssessmentTemplate());
+        }
+
+        // 检查并初始化 SQL 风险对比模板
+        if (repository.findByTemplateType(TYPE_SQL_RISK_COMPARISON).isEmpty()) {
+            createDefaultTemplate(TYPE_SQL_RISK_COMPARISON, "SQL 风险对比分析专家", getDefaultSqlRiskComparisonTemplate());
+        }
+
+        // 检查并初始化 SQL 风险修正模板
+        if (repository.findByTemplateType(TYPE_SQL_RISK_REFINEMENT).isEmpty()) {
+            createDefaultTemplate(TYPE_SQL_RISK_REFINEMENT, "SQL 风险修正专家", getDefaultSqlRiskRefinementTemplate());
+        }
+
+        // 检查并初始化 SQL 参数填充模板
+        if (repository.findByTemplateType(TYPE_SQL_PARAMETER_FILLING).isEmpty()) {
+            createDefaultTemplate(TYPE_SQL_PARAMETER_FILLING, "SQL 参数填充专家", getDefaultSqlParameterFillingTemplate());
         }
     }
 
@@ -645,6 +681,331 @@ public class PromptTemplateManagerService {
             5. 优先考虑高收益、低风险的优化方案
             6. 对于复杂优化，提供分步骤的优化路径
             7. 分析时要综合考虑所有查询，避免优化一个查询而影响其他查询
+            """;
+    }
+
+    private String getDefaultSqlAgentDistributionTemplate() {
+        return """
+            你是一位资深的MySQL数据库专家。请根据以下提供的表统计信息和直方图数据，解读数据分布，并分析特定SQL在当前数据分布下的执行效率，特别是范围查询。
+            
+            ## SQL语句（带参数占位符）
+            {sql}
+            
+            ## 表统计信息
+            {table_statistics}
+            
+            ## 任务要求：
+            1. **解读数据分布**：根据直方图（Histogram）和统计信息，详细描述相关列的数据分布特征（如：数据倾斜、值的范围、高频值等）。
+            2. **分析预测效率**：分析SQL中WHERE条件涉及的列。在当前数据分布下，如果该SQL执行，其效率如何？特别是如果是范围查询（RANGE），预估其扫描行数和索引效率。
+            3. **识别瓶颈**：是否可能出现全表扫描？数据分布是否会导致现有的索引失效？
+            
+            ## 输出格式：
+            请直接给出分析内容，使用Markdown格式。
+            """;
+    }
+
+    private String getDefaultSqlAgentPlanEvaluationTemplate() {
+        return """
+            你是一位MySQL性能调优专家。请根据以下实例化的SQL及其对应的EXPLAIN执行计划，判定执行效率并评估添加索引的可行性。
+            
+            ## 实例化SQL
+            {instantiated_sql}
+            
+            ## 执行计划 (EXPLAIN)
+            {execution_plan}
+            
+            ## 任务要求：
+            1. **判定执行计划效率**：分析访问类型（type）、扫描行数（rows）、使用的索引（key）等关键指标。
+            2. **评估性能瓶颈**：是否使用了文件排序（filesort）、临时表（temporary）？是否为全表扫描？
+            3. **索引可行性建议**：
+               - 如果当前没有使用索引或索引效率低下，请明确建议应该在哪些列上添加索引。
+               - 考虑复合索引的最佳顺序。
+               - 分析添加索引对写入性能的潜在影响。
+            
+            ## 输出格式：
+            请提供专业的分析报告，使用Markdown格式。包含：[核心瓶颈]、[执行效率判定]、[索引优化建议]。
+            """;
+    }
+
+    private String getDefaultSqlRiskAssessmentTemplate() {
+        return """
+            你是一位拥有20年经验的资深MySQL DBA专家。请根据以下SQL语句、表结构信息（包括索引）和列的直方图统计数据，预测该SQL的执行风险和性能表现。
+            
+            ## SQL语句
+            {sql}
+            
+            ## 表结构和索引信息
+            {table_structure}
+            
+            ## 列直方图统计数据
+            {histogram_data}
+            
+            ## 任务要求：
+            
+            请基于表结构（包括现有索引）、直方图数据分析并预测以下内容：
+            
+            1. **风险等级评估**：
+               - **重点关注表中已有的索引**，判断查询是否能有效利用这些索引
+               - 综合考虑数据分布、预期扫描行数、索引使用情况，评估风险等级
+               - 风险等级必须为以下之一：LOW（低风险）、MEDIUM（中等风险）、HIGH（高风险）、CRITICAL（严重风险）
+               - 扫描行数 < 100 且使用索引 → LOW
+               - 扫描行数 100-1000 且使用索引 → MEDIUM
+               - 扫描行数 > 1000 或未使用索引 → HIGH
+               - 全表扫描且数据量大 → CRITICAL
+            
+            2. **性能指标预测**：
+               - **estimatedRowsExamined**: 预估需要扫描的行数（基于表结构、索引信息、直方图分布和WHERE条件）
+               - **expectedIndexUsage**: 预期是否会使用索引（true/false，**请仔细检查表中已有的索引**）
+               - **expectedIndexName**: 预期使用的索引名称（**必须从表结构中的实际索引中选择，如果没有合适的索引则为null**）
+               - **expectedAccessType**: 预期的访问类型（ALL, index, range, ref, eq_ref, const，**基于索引情况判断**）
+               - **estimatedQueryCost**: 预估的查询成本（1-10000）
+            
+            3. **测试参数建议**：
+               - 基于直方图数据，建议具体的测试参数值
+               - 参数应该覆盖典型场景（如：最小值、最大值、中位数、高频值）
+               - 格式：{"param_name": "value"} 或 {"column_name": "value"}
+            
+            4. **预测理由**：
+               - **详细说明为什么选择或不选择某个索引**
+               - 基于表结构、现有索引和直方图的数据分布特征进行分析
+               - 说明WHERE条件对索引选择和数据分布的影响
+               - 如果有索引但预测不会使用，必须说明原因
+            
+            5. **优化建议**：
+               - 提供至少3条具体的优化建议
+               - 每条建议应该可执行且有针对性
+               - **如果现有索引不合适，建议创建新的索引或修改现有索引**
+            
+            ## 输出格式（必须严格遵守JSON格式）：
+            
+            请以JSON格式输出，必须包含以下字段：
+            
+            JSON结构示例：
+            - riskLevel: 字符串，值为 LOW, MEDIUM, HIGH, CRITICAL 之一
+            - estimatedRowsExamined: 数字，预估扫描行数
+            - expectedIndexUsage: 布尔值，true 或 false
+            - expectedIndexName: 字符串，索引名称或 null
+            - expectedAccessType: 字符串，ALL, index, range, ref, eq_ref, const 之一
+            - estimatedQueryCost: 数字，查询成本
+            - suggestedParameters: 对象，键值对表示参数名和建议值
+            - reasoning: 字符串，详细的预测理由
+            - recommendations: 数组，包含优化建议字符串
+            
+            **重要提示**：
+            - 必须返回有效的JSON格式，不要包含其他文本
+            - 所有字段都必须填写，不能省略
+            - riskLevel 必须是四个值之一：LOW, MEDIUM, HIGH, CRITICAL
+            - expectedAccessType 必须是标准的MySQL访问类型
+            """;
+    }
+
+    private String getDefaultSqlRiskComparisonTemplate() {
+        return """
+            你是一位资深的MySQL DBA专家。请对比LLM预测的SQL执行情况与实际EXPLAIN结果，判断是否需要修正预测。
+            
+            ## 预测结果
+            {prediction}
+            
+            ## 实际EXPLAIN结果
+            {actual_explain}
+            
+            ## 任务要求：
+            
+            请对比以下关键指标：
+            
+            1. **扫描行数对比**：
+               - 预测的 estimatedRowsExamined vs 实际的 rows_examined_per_scan
+               - 如果偏差超过50%或偏差绝对值超过1000行，视为需要修正
+            
+            2. **索引使用对比**：
+               - 预测的 expectedIndexUsage vs 实际是否使用索引（key字段）
+               - 如果预测使用索引但实际未使用，或相反，视为需要修正
+            
+            3. **访问类型对比**：
+               - 预测的 expectedAccessType vs 实际的 access_type
+               - 如果预测为高效访问（ref, eq_ref, const）但实际为低效访问（ALL, index），视为需要修正
+            
+            4. **风险等级评估**：
+               - 如果实际扫描行数显示为全表扫描（type=ALL）但预测为低风险，视为需要修正
+               - 如果实际使用了索引但预测为高风险，可能需要修正
+            
+            ## 输出格式（必须严格遵守JSON格式）：
+            
+            请以JSON格式输出判断结果：
+            
+            JSON结构说明：
+            - needsRefinement: 布尔值，true 表示需要修正，false 表示不需要
+            - deviationSeverity: 字符串，NONE, MINOR, MODERATE, SEVERE 之一
+            - deviations: 数组，每个元素包含 metric（指标名称）, predicted（预测值）, actual（实际值）, severity（严重程度）
+            - reason: 字符串，是否需要修正的理由
+            
+            **重要提示**：
+            - 必须返回有效的JSON格式
+            - needsRefinement 为 true 表示需要修正，false 表示不需要
+            - deviationSeverity 必须是：NONE, MINOR, MODERATE, SEVERE 之一
+            """;
+    }
+
+    private String getDefaultSqlRiskRefinementTemplate() {
+        return """
+            你是一位资深的MySQL DBA专家。基于原始预测和实际EXPLAIN结果的差异，请修正SQL风险评估。
+            
+            ## 原始预测
+            {original_prediction}
+            
+            ## 实际EXPLAIN结果
+            {actual_explain}
+            
+            ## 偏差说明
+            {deviation_details}
+            
+            ## 列直方图统计数据（参考）
+            {histogram_data}
+            
+            ## 任务要求：
+            
+            请基于实际执行计划修正预测，重点关注：
+            
+            1. **风险等级修正**：
+               - 根据实际的访问类型和扫描行数重新评估风险等级
+               - 必须使用：LOW, MEDIUM, HIGH, CRITICAL 之一
+            
+            2. **性能指标修正**：
+               - 使用实际EXPLAIN的数据更新预测值
+               - estimatedRowsExamined 应接近实际的 rows_examined_per_scan
+               - expectedIndexUsage 应匹配实际是否使用索引
+               - expectedAccessType 应匹配实际的 access_type
+            
+            3. **原因分析**：
+               - 解释为什么原始预测与实际结果有偏差
+               - 分析直方图数据与实际执行计划的关系
+               - 说明修正的依据
+            
+            4. **优化建议更新**：
+               - 基于实际执行计划提供更准确的优化建议
+               - 建议应该针对实际发现的问题
+            
+            ## 输出格式（必须严格遵守JSON格式）：
+            
+            JSON结构说明：
+            - riskLevel: 字符串，LOW, MEDIUM, HIGH, CRITICAL 之一
+            - estimatedRowsExamined: 数字
+            - expectedIndexUsage: 布尔值
+            - expectedIndexName: 字符串或null
+            - expectedAccessType: 字符串
+            - estimatedQueryCost: 数字
+            - suggestedParameters: 对象，参数键值对
+            - reasoning: 字符串，修正后的理由，说明为什么与原始预测不同
+            - recommendations: 数组，基于实际执行计划的优化建议
+            
+            **重要提示**：
+            - 必须返回有效的JSON格式
+            - 所有字段格式与原始预测相同
+            - reasoning 字段应该解释修正的原因
+            - 优先使用实际EXPLAIN的数据而不是预测数据
+            """;
+    }
+
+    private String getDefaultSqlParameterFillingTemplate() {
+        return """
+            你是一位资深的 SQL 测试专家和数据库性能分析师。请根据以下 SQL 模板、表结构信息（包括索引）和列的直方图数据，生成多个测试场景的 SQL 语句。
+            
+            ## SQL 模板
+            {sql}
+            
+            ## 表结构和索引信息
+            {table_structure}
+            
+            ## 列直方图数据
+            {histogram_data}
+            
+            ## 任务要求
+            
+            请分析 SQL 模板和直方图数据，生成 3-5 个不同测试场景的 SQL 语句：
+            
+            ### 1. 识别 SQL 占位符
+            - 识别 SQL 中的占位符：? （问号）、:paramName （冒号参数）、#{paramName} （MyBatis 参数）
+            - 根据 WHERE 条件和直方图数据，推断每个占位符对应的列名
+            - 如果无法确定对应关系，按照出现顺序匹配
+            
+            ### 2. 场景设计原则
+            
+            基于直方图数据的分布特征，为以下场景生成合适的参数值：
+            
+            **场景 1: 最小值场景（边界测试）**
+            - 使用列的最小值或接近最小值
+            - 目的：测试下边界的执行计划
+            - 适用于测试范围查询的起始边界
+            
+            **场景 2: 最大值场景（边界测试）**
+            - 使用列的最大值或接近最大值
+            - 目的：测试上边界的执行计划
+            - 适用于测试范围查询的结束边界
+            
+            **场景 3: 典型值场景（常规测试）**
+            - 使用中位数或高频值（基于直方图的桶分布）
+            - 目的：测试最常见数据的执行计划
+            - 适用于评估日常查询性能
+            
+            **场景 4: 稀疏值场景（特殊情况）**（可选）
+            - 使用稀疏分布区域的值
+            - 目的：测试索引选择性高的情况
+            - 适用于评估选择性查询
+            
+            **场景 5: 边界值场景（索引失效测试）**（可选）
+            - 使用可能触发全表扫描的参数值
+            - 例如：范围过大、选择性低的值
+            - 目的：识别潜在的性能风险
+            
+            ### 3. 参数选择指导
+            
+            - **数值类型**：直接使用直方图中的 minValue、maxValue、中位数或采样值
+            - **字符串类型**：使用采样值中的实际字符串
+            - **日期时间**：根据 minValue 和 maxValue 推算合理的日期
+            - **多个参数**：确保参数之间的逻辑关系合理（如 start_date < end_date）
+            
+            ### 4. SQL 生成规则
+            
+            - 将占位符替换为实际的参数值
+            - 数值类型：直接替换（如 age > 25）
+            - 字符串类型：加单引号（如 name = 'Alice'）
+            - NULL 值：使用 NULL 关键字
+            - 确保生成的 SQL 语法正确，可以直接执行
+            
+            ## 输出格式（必须严格遵守 JSON 格式）
+            
+            请以 JSON 格式输出，JSON 结构说明：
+            - originalSql: 原始 SQL 模板字符串
+            - scenarios: 场景数组，每个场景包含：
+              - scenarioName: 场景名称（如"最小值场景"）
+              - filledSql: 填充好的完整 SQL 语句
+              - parameters: 参数对象，键为参数名，值为参数值
+              - description: 场景描述，说明为什么选择这些参数
+            - reasoning: 整体推理过程，解释参数选择的依据
+            
+            示例说明：
+            对于 SQL "SELECT * FROM users WHERE age > ? AND city = ?"
+            可以生成三个场景：
+            1. 最小值场景：age=18, city='Beijing'
+            2. 最大值场景：age=65, city='Shanghai'  
+            3. 典型值场景：age=35, city='Guangzhou'
+            
+            ## 重要提示
+            
+            1. **必须返回有效的 JSON 格式**，不要包含其他文本
+            2. **scenarios 数组必须包含 3-5 个场景**
+            3. **每个场景的 filledSql 必须是完整的、可执行的 SQL 语句**
+            4. **parameters 对象的 key 应该是列名或参数名**
+            5. **如果 SQL 没有占位符（已经是完整 SQL），也要生成场景，通过修改 WHERE 条件值来创建不同场景**
+            6. **确保参数值的类型正确**：数字用数字，字符串用字符串，不要全部用字符串
+            7. **reasoning 字段要解释参数选择的依据和测试目的**
+            
+            ## 特殊情况处理
+            
+            - 如果没有直方图数据：使用合理的默认值，并在 reasoning 中说明
+            - 如果 SQL 没有占位符：基于 WHERE 条件创建不同的测试场景
+            - 如果直方图数据不完整：使用已有的信息推断合理的参数值
+            - 如果无法生成多个场景：至少生成一个典型场景
             """;
     }
 }

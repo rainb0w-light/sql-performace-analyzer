@@ -6,8 +6,8 @@ USE test_db;
 -- 创建用户表（demo表）
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
-    email VARCHAR(100) NOT NULL UNIQUE COMMENT '邮箱',
+    username VARCHAR(50) NOT NULL  COMMENT '用户名',
+    email VARCHAR(100) NOT NULL  COMMENT '邮箱',
     password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
     full_name VARCHAR(100) COMMENT '全名',
     age INT COMMENT '年龄',
@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS orders (
     shipping_address TEXT COMMENT '收货地址',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_user_id (user_id),
     INDEX idx_order_number (order_number),
     INDEX idx_status (status),
@@ -46,7 +45,6 @@ CREATE TABLE IF NOT EXISTS order_items (
     unit_price DECIMAL(10, 2) NOT NULL COMMENT '单价',
     subtotal DECIMAL(10, 2) NOT NULL COMMENT '小计',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     INDEX idx_order_id (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单项表';
 

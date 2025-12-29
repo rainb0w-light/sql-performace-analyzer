@@ -68,15 +68,15 @@ public class TableQueryAnalysisService {
                 result.setTableStructure(tableStructure);
             }
 
-            // 2.5. 统一收集表的所有列的统计信息（避免在变量替换时反复收集）
+            // 2.5. 统一执行ANALYZE TABLE更新表的统计信息（可选，如果需要更新统计信息）
             if (tableStructure != null && tableStructure.getColumns() != null && !tableStructure.getColumns().isEmpty()) {
                 try {
                     List<String> allColumnNames = new ArrayList<>();
                     for (TableStructure.ColumnInfo col : tableStructure.getColumns()) {
                         allColumnNames.add(col.getColumnName());
                     }
-                    logger.info("统一收集表 {} 的所有列统计信息，共 {} 列", tableName, allColumnNames.size());
-                    columnStatisticsCollectorService.collectTableStatistics(tableName, datasourceName, allColumnNames, null);
+                    logger.info("执行ANALYZE TABLE更新表 {} 的统计信息，共 {} 列", tableName, allColumnNames.size());
+                    columnStatisticsCollectorService.analyzeTable(tableName, datasourceName, allColumnNames, null);
                     logger.info("列统计信息收集完成");
                 } catch (Exception e) {
                     logger.warn("收集表列统计信息失败，将继续使用已有统计信息: {}", e.getMessage());

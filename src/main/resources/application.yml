@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 18881
   # 静态资源路径配置
   servlet:
     context-path: /
@@ -7,6 +7,13 @@ server:
 spring:
   application:
     name: sql-performance-analyzer
+  
+  # 禁用DevTools自动重启功能
+  devtools:
+    restart:
+      enabled: false
+    livereload:
+      enabled: false
   
   # H2 数据源（用于缓存SQL分析结果，JPA使用）
   # 使用TCP服务器模式，支持多客户端访问
@@ -31,11 +38,11 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
-#  # H2 控制台（可选，用于调试）
-#  h2:
-#    console:
-#      enabled: true
-#      path: /h2-console
+  
+  # H2 控制台（明确禁用）
+  h2:
+    console:
+      enabled: false
   
   # 多数据源配置（用于SQL分析，通过自定义配置类管理）
   datasources:
@@ -84,6 +91,11 @@ spring:
 
 logging:
   level:
-    root: INFO
+    root: DEBUG
     com.example.sqlanalyzer: DEBUG
+    jdk.internal.httpclient: INFO
+    sun.rmi: INFO
+    com.zaxxer: INFO
+    javax: INFO
+
 

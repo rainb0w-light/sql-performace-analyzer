@@ -1,5 +1,8 @@
-package com.biz.sccba.sqlanalyzer.model;
+package com.biz.sccba.sqlanalyzer.model.response;
 
+import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
+import com.biz.sccba.sqlanalyzer.model.SqlFillingResult;
+import com.biz.sccba.sqlanalyzer.model.SqlRiskPrediction;
 import lombok.Data;
 
 import java.util.List;
@@ -132,7 +135,6 @@ public class SqlRiskAssessmentResponse {
         private String deviation;       // 偏差描述
     }
 }
-
 
 
 

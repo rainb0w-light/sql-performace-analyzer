@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.SqlAnalysisResponse;
 import com.biz.sccba.sqlanalyzer.model.SqlAnalysisCache;
+import com.biz.sccba.sqlanalyzer.model.response.SqlAnalysisResponse;
 import com.biz.sccba.sqlanalyzer.repository.SqlAnalysisCacheRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;

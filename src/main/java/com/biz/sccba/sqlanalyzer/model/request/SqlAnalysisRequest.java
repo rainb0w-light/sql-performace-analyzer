@@ -1,7 +1,10 @@
-package com.biz.sccba.sqlanalyzer.model;
+package com.biz.sccba.sqlanalyzer.model.request;
 
 import lombok.Data;
 
+/**
+ * SQL 分析请求
+ */
 @Data
 public class SqlAnalysisRequest {
     /**
@@ -24,3 +27,6 @@ public class SqlAnalysisRequest {
      */
     private String llmName;
 }
+
+
+

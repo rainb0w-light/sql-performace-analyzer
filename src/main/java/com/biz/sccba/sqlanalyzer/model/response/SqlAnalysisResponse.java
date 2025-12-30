@@ -1,8 +1,13 @@
-package com.biz.sccba.sqlanalyzer.model;
+package com.biz.sccba.sqlanalyzer.model.response;
 
+import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
+import com.biz.sccba.sqlanalyzer.model.TableStructure;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
+/**
+ * SQL 分析响应
+ */
 public class SqlAnalysisResponse {
     @JsonProperty("sql")
     private String sql;
@@ -82,4 +87,6 @@ public class SqlAnalysisResponse {
         this.goldenDbAnalysisResult = goldenDbAnalysisResult;
     }
 }
+
+
 

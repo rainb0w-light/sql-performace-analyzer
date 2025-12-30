@@ -1,9 +1,13 @@
-package com.biz.sccba.sqlanalyzer.model;
+package com.biz.sccba.sqlanalyzer.model.response;
 
+import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
 import lombok.Data;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * SQL Agent 分析响应
+ */
 @Data
 public class SqlAgentResponse {
     private String originalSql;
@@ -34,4 +38,6 @@ public class SqlAgentResponse {
         private String evaluation;
     }
 }
+
+
 

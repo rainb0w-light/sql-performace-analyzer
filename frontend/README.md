@@ -1,68 +1,73 @@
 # SQL 性能分析工具 - 前端
 
-简单的 Vue 3 前端页面，用于 SQL 性能分析。
+基于 Vite + Vue 3 + Element Plus 的前端应用。
 
-## 功能特性
+## 技术栈
 
-- ✅ 输入 SQL 语句
-- ✅ 调用后端 API 进行分析
-- ✅ Markdown 格式报告展示
-- ✅ 导出 PDF 功能
+- **构建工具**: Vite 5.x
+- **框架**: Vue 3 (Composition API)
+- **UI 组件库**: Element Plus 2.x
+- **路由**: Vue Router 4.x
+- **Markdown**: marked
+- **PDF 导出**: html2pdf.js
 
-## 使用方法
+## 开发
 
-### 方式一：直接打开 HTML 文件
-
-1. 确保后端服务已启动（默认运行在 `http://localhost:8080`）
-2. 直接用浏览器打开 `index.html` 文件
-
-### 方式二：使用简单的 HTTP 服务器
-
-由于浏览器的 CORS 限制，建议使用本地服务器：
+### 安装依赖
 
 ```bash
-# 使用 Python 3
 cd frontend
-python -m http.server 8000
-
-# 或使用 Node.js http-server
-npx http-server -p 8000
-
-# 或使用 PHP
-php -S localhost:8000
+npm install
 ```
 
-然后在浏览器中访问 `http://localhost:8000`
+### 启动开发服务器
 
-## 配置
-
-如果需要修改后端 API 地址，编辑 `index.html` 中的 `apiUrl` 变量：
-
-```javascript
-apiUrl: 'http://localhost:8080/api/sql/analyze'
+```bash
+npm run dev
 ```
 
-## 依赖说明
+开发服务器将在 `http://localhost:3000` 启动，并自动代理 API 请求到后端服务器（`http://localhost:8080`）。
 
-所有依赖都通过 CDN 加载，无需安装：
+### 构建生产版本
 
-- **Vue 3**: 前端框架
-- **Marked**: Markdown 解析和渲染
-- **html2pdf.js**: PDF 导出功能
+```bash
+npm run build
+```
 
-## 浏览器兼容性
+构建产物将输出到 `../src/main/resources/static/` 目录，供 Spring Boot 使用。
 
-- Chrome/Edge (推荐)
-- Firefox
-- Safari
+## 项目结构
+
+```
+frontend/
+├── src/
+│   ├── main.js              # 应用入口
+│   ├── App.vue              # 根组件
+│   ├── router/              # 路由配置
+│   ├── components/          # 组件
+│   │   ├── common/          # 公共组件
+│   │   ├── sql-analysis/    # SQL 分析组件
+│   │   ├── table-analysis/  # 表分析组件
+│   │   ├── sql-agent/       # SQL Agent 组件
+│   │   └── prompt-management/ # Prompt 管理组件
+│   ├── views/               # 页面视图
+│   ├── api/                 # API 封装
+│   ├── utils/               # 工具函数
+│   └── styles/              # 样式文件
+├── public/                  # 静态资源
+├── package.json
+└── vite.config.js
+```
+
+## 功能模块
+
+1. **SQL 分析**: 单条 SQL 性能分析
+2. **表分析**: 表结构分析和查询优化建议
+3. **SQL Agent 分析**: 基于 AI 的智能 SQL 分析
+4. **Prompt 管理**: Prompt 模板管理
 
 ## 注意事项
 
-1. 如果遇到 CORS 错误，需要配置后端允许跨域请求
-2. PDF 导出功能需要浏览器支持 Canvas API
-3. 建议使用现代浏览器以获得最佳体验
-
-
-
-
-
+1. 确保后端服务运行在 `http://localhost:8080`
+2. 开发时使用 Vite 代理解决 CORS 问题
+3. 构建后的文件会自动部署到 Spring Boot static 目录

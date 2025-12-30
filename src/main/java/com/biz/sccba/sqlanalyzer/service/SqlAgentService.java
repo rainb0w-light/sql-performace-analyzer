@@ -2,6 +2,8 @@ package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.model.*;
 import com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO;
+import com.biz.sccba.sqlanalyzer.model.request.SqlAgentRequest;
+import com.biz.sccba.sqlanalyzer.model.response.SqlRiskAssessmentResponse;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;

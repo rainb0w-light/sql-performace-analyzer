@@ -1,9 +1,9 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
-import com.biz.sccba.sqlanalyzer.model.MapperSqlAgentRequest;
-import com.biz.sccba.sqlanalyzer.model.MapperSqlAgentResponse;
-import com.biz.sccba.sqlanalyzer.model.SqlAgentRequest;
-import com.biz.sccba.sqlanalyzer.model.SqlRiskAssessmentResponse;
+import com.biz.sccba.sqlanalyzer.model.request.MapperSqlAgentRequest;
+import com.biz.sccba.sqlanalyzer.model.request.SqlAgentRequest;
+import com.biz.sccba.sqlanalyzer.model.response.MapperSqlAgentResponse;
+import com.biz.sccba.sqlanalyzer.model.response.SqlRiskAssessmentResponse;
 import com.biz.sccba.sqlanalyzer.service.MapperSqlAgentService;
 import com.biz.sccba.sqlanalyzer.service.SqlAgentService;
 import org.slf4j.Logger;

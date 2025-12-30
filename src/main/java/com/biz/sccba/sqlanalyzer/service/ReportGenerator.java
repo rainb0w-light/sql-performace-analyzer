@@ -1,8 +1,8 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
-import com.biz.sccba.sqlanalyzer.model.SqlAnalysisResponse;
 import com.biz.sccba.sqlanalyzer.model.TableStructure;
+import com.biz.sccba.sqlanalyzer.model.response.SqlAnalysisResponse;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

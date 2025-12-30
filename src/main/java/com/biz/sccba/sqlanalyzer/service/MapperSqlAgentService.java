@@ -1,7 +1,10 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.model.*;
-import com.biz.sccba.sqlanalyzer.service.agent.*;
+import com.biz.sccba.sqlanalyzer.model.request.SqlAgentRequest;
+import com.biz.sccba.sqlanalyzer.model.response.MapperSqlAgentResponse;
+import com.biz.sccba.sqlanalyzer.model.response.SqlAgentResponse;
+import com.biz.sccba.sqlanalyzer.model.response.SqlRiskAssessmentResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,8 +40,6 @@ public class MapperSqlAgentService {
     @Autowired
     private DataSourceManagerService dataSourceManagerService;
 
-    @Autowired
-    private DistributionBasedSqlFillerService sqlFillerService;
 
     @Autowired
     private SqlAgentService sqlAgentService;

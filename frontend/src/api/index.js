@@ -67,6 +67,24 @@ export async function uploadMapperXml(data) {
   })
 }
 
+// 获取所有命名空间
+export async function getNamespaces() {
+  const data = await request('/mybatis/namespaces')
+  return data.namespaces || []
+}
+
+// 根据命名空间获取查询列表
+export async function getQueriesByNamespace(namespace) {
+  const data = await request(`/mybatis/queries/namespace/${encodeURIComponent(namespace)}`)
+  return data.queries || []
+}
+
+// 根据命名空间获取参数列表
+export async function getParametersByNamespace(namespace) {
+  const data = await request(`/mybatis/parameters/namespace/${encodeURIComponent(namespace)}`)
+  return data.parameters || []
+}
+
 // 参数管理
 export async function getParameters() {
   const data = await request('/mybatis/parameters')
@@ -83,6 +101,52 @@ export async function saveParameter(data) {
 export async function deleteParameter(mapperId) {
   return request(`/mybatis/parameters/${encodeURIComponent(mapperId)}`, {
     method: 'DELETE'
+  })
+}
+
+// 更新SQL查询
+export async function updateQuery(id, data) {
+  return request(`/mybatis/queries/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+// 删除SQL查询
+export async function deleteQuery(id) {
+  return request(`/mybatis/queries/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+// 批量删除SQL查询
+export async function deleteQueries(ids) {
+  return request('/mybatis/queries', {
+    method: 'DELETE',
+    body: JSON.stringify(ids)
+  })
+}
+
+// 更新Mapper参数
+export async function updateParameter(id, data) {
+  return request(`/mybatis/parameters/id/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+// 删除Mapper参数（根据ID）
+export async function deleteParameterById(id) {
+  return request(`/mybatis/parameters/id/${id}`, {
+    method: 'DELETE'
+  })
+}
+
+// 批量删除Mapper参数
+export async function deleteParameters(ids) {
+  return request('/mybatis/parameters/batch', {
+    method: 'DELETE',
+    body: JSON.stringify(ids)
   })
 }
 

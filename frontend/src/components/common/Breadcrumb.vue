@@ -26,8 +26,7 @@ const breadcrumbItems = computed(() => {
   background: white;
   border-bottom: 1px solid #e0e0e0;
   padding: 12px 20px;
-  max-width: 1400px;
-  margin: 0 auto;
+
 }
 </style>
 

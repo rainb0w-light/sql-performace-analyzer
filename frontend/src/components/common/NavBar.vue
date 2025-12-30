@@ -48,6 +48,7 @@ const activeIndex = computed(() => route.path)
   top: 0;
   z-index: 100;
   border: none;
+
 }
 
 .navbar :deep(.el-menu-item) {

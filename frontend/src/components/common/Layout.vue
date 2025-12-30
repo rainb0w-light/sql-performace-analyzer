@@ -24,9 +24,9 @@ import Breadcrumb from './Breadcrumb.vue'
   flex-direction: column;
 }
 
-.main-content {
-  flex: 1;
-  max-width: 1400px;
+ .main-content {
+  //flex: 1;
+  //max-width: 1400px;
   margin: 0 auto;
   padding: 30px 20px;
   width: 100%;

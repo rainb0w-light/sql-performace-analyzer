@@ -23,7 +23,7 @@ public class TableAnalysisController {
     private TableQueryAnalysisService tableQueryAnalysisService;
 
     /**
-     * 分析指定表的所有查询
+     * 执行 ANALYZE TABLE 更新表的统计信息
      * GET /api/analysis/table/{tableName}
      */
     @GetMapping("/table/{tableName}")
@@ -32,7 +32,7 @@ public class TableAnalysisController {
             @RequestParam(required = false) String datasourceName) {
         
         try {
-            logger.info("收到表分析请求: tableName={}, datasourceName={}", tableName, datasourceName);
+            logger.info("收到 ANALYZE TABLE 请求: tableName={}, datasourceName={}", tableName, datasourceName);
 
             TableQueryAnalysisService.TableAnalysisResult result = 
                     tableQueryAnalysisService.analyzeTable(tableName, datasourceName);
@@ -42,17 +42,22 @@ public class TableAnalysisController {
             response.put("message", result.getMessage());
             response.put("tableName", result.getTableName());
             response.put("datasourceName", result.getDatasourceName());
-            response.put("queryCount", result.getQueryCount());
-            response.put("tableStructure", result.getTableStructure());
-            response.put("queryAnalyses", result.getQueryAnalyses());
-            response.put("suggestions", result.getSuggestions());
+            
+            // 添加 ANALYZE TABLE 详细结果
+            if (result.getAnalyzeTableResult() != null) {
+                Map<String, Object> analyzeResult = new HashMap<>();
+                analyzeResult.put("success", result.getAnalyzeTableResult().isSuccess());
+                analyzeResult.put("errorMessage", result.getAnalyzeTableResult().getErrorMessage());
+                analyzeResult.put("messages", result.getAnalyzeTableResult().getMessages());
+                response.put("analyzeTableResult", analyzeResult);
+            }
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("表分析失败", e);
+            logger.error("执行 ANALYZE TABLE 失败", e);
             return ResponseEntity.status(500)
-                    .body(createErrorResponse("分析失败: " + e.getMessage()));
+                    .body(createErrorResponse("执行失败: " + e.getMessage()));
         }
     }
 

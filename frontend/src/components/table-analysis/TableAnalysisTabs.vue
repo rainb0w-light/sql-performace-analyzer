@@ -6,9 +6,6 @@
     <el-tab-pane label="表分析" name="analyze">
       <slot name="analyze" />
     </el-tab-pane>
-    <el-tab-pane label="参数管理" name="parameters">
-      <slot name="parameters" />
-    </el-tab-pane>
   </el-tabs>
 </template>
 

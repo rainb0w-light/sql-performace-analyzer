@@ -3,7 +3,7 @@
     <el-card style="margin-bottom: 20px">
       <template #header>
         <div class="card-header">
-          <span>分析指定表的所有查询</span>
+          <span>执行 ANALYZE TABLE</span>
         </div>
       </template>
 
@@ -38,7 +38,7 @@
             :loading="analyzing"
             :disabled="!form.tableName.trim()"
           >
-            {{ analyzing ? '分析中...' : '开始分析' }}
+            {{ analyzing ? '执行中...' : '执行 ANALYZE TABLE' }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -51,20 +51,61 @@
         show-icon
         style="margin-top: 20px"
       />
+
+      <el-alert
+        v-if="successMessage"
+        :title="successMessage"
+        type="success"
+        :closable="false"
+        show-icon
+        style="margin-top: 20px"
+      />
     </el-card>
 
-    <AnalysisResultCard v-if="analysisResult" :result="analysisResult" />
+    <!-- ANALYZE TABLE 详细结果 -->
+    <el-card v-if="analyzeTableResult" style="margin-top: 20px">
+      <template #header>
+        <div class="card-header">
+          <span>ANALYZE TABLE 执行详情</span>
+        </div>
+      </template>
+
+      <div v-if="analyzeTableResult.messages && analyzeTableResult.messages.length > 0">
+        <h4 style="margin-bottom: 15px">执行消息：</h4>
+        <el-scrollbar height="400px">
+          <div v-for="(msg, index) in analyzeTableResult.messages" :key="index" class="message-item">
+            <el-tag
+              :type="getMessageType(msg)"
+              size="small"
+              style="margin-right: 10px; min-width: 60px"
+            >
+              {{ getMessageTypeLabel(msg) }}
+            </el-tag>
+            <span>{{ msg }}</span>
+          </div>
+        </el-scrollbar>
+      </div>
+
+      <el-alert
+        v-if="analyzeTableResult.errorMessage"
+        :title="analyzeTableResult.errorMessage"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin-top: 15px"
+      />
+    </el-card>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getDatasources, analyzeTable } from '@/api'
-import AnalysisResultCard from './AnalysisResultCard.vue'
 
 const analyzing = ref(false)
 const error = ref(null)
-const analysisResult = ref(null)
+const successMessage = ref(null)
+const analyzeTableResult = ref(null)
 const datasources = ref([])
 
 const form = reactive({
@@ -95,20 +136,56 @@ async function handleAnalyze() {
 
   analyzing.value = true
   error.value = null
-  analysisResult.value = null
+  successMessage.value = null
+  analyzeTableResult.value = null
 
   try {
     const data = await analyzeTable(form.tableName.trim(), form.datasource)
     if (!data.success) {
-      throw new Error(data.message || '分析失败')
+      throw new Error(data.message || '执行失败')
     }
-    analysisResult.value = data
+    successMessage.value = data.message || 'ANALYZE TABLE 执行成功'
+    
+    // 保存详细结果
+    if (data.analyzeTableResult) {
+      analyzeTableResult.value = data.analyzeTableResult
+    }
   } catch (err) {
-    error.value = err.message || '分析失败，请检查网络连接或稍后重试'
-    console.error('分析错误:', err)
+    error.value = err.message || '执行失败，请检查网络连接或稍后重试'
+    console.error('执行错误:', err)
   } finally {
     analyzing.value = false
   }
+}
+
+function getMessageType(msg) {
+  if (!msg) return 'info'
+  const lowerMsg = msg.toLowerCase()
+  if (lowerMsg.includes('error') || lowerMsg.includes('失败')) {
+    return 'danger'
+  }
+  if (lowerMsg.includes('warning') || lowerMsg.includes('警告')) {
+    return 'warning'
+  }
+  if (lowerMsg.includes('created') || lowerMsg.includes('成功') || lowerMsg.includes('完成')) {
+    return 'success'
+  }
+  return 'info'
+}
+
+function getMessageTypeLabel(msg) {
+  if (!msg) return '信息'
+  const lowerMsg = msg.toLowerCase()
+  if (lowerMsg.includes('error') || lowerMsg.includes('失败')) {
+    return '错误'
+  }
+  if (lowerMsg.includes('warning') || lowerMsg.includes('警告')) {
+    return '警告'
+  }
+  if (lowerMsg.includes('created') || lowerMsg.includes('成功') || lowerMsg.includes('完成')) {
+    return '成功'
+  }
+  return '信息'
 }
 </script>
 
@@ -116,6 +193,18 @@ async function handleAnalyze() {
 .card-header {
   font-weight: 600;
   font-size: 18px;
+}
+
+.message-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.6;
+}
+
+.message-item:last-child {
+  border-bottom: none;
 }
 </style>
 

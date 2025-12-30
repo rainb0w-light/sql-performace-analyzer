@@ -36,5 +36,11 @@ public interface ParsedSqlQueryRepository extends JpaRepository<ParsedSqlQuery, 
      * 删除指定命名空间的所有查询
      */
     void deleteByMapperNamespace(String mapperNamespace);
+
+    /**
+     * 获取所有不重复的Mapper命名空间
+     */
+    @Query("SELECT DISTINCT p.mapperNamespace FROM ParsedSqlQuery p ORDER BY p.mapperNamespace")
+    List<String> findAllDistinctNamespaces();
 }
 

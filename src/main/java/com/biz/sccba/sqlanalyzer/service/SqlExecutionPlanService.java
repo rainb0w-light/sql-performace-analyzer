@@ -137,11 +137,18 @@ public class SqlExecutionPlanService {
      * @param datasourceName 数据源名称（可选，如果不指定则使用默认数据源）
      */
     public List<TableStructure> getTableStructures(String sql, String datasourceName) {
+        List<String> tableNames = parseTableNames(sql);
+        return getTableStructuresByNames(tableNames, datasourceName);
+    }
+
+    /**
+     * 按表名列表获取表结构信息，避免多次解析 SQL。
+     */
+    public List<TableStructure> getTableStructuresByNames(List<String> tableNames, String datasourceName) {
         JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
         String databaseName = extractDatabaseName(datasourceName);
-        List<String> tableNames = parseTableNames(sql);
         List<TableStructure> structures = new ArrayList<>();
-        
+
         for (String tableName : tableNames) {
             TableStructure structure = new TableStructure();
             structure.setTableName(tableName);
@@ -150,7 +157,7 @@ public class SqlExecutionPlanService {
             structure.setStatistics(getTableStatistics(tableName, jdbcTemplate));
             structures.add(structure);
         }
-        
+
         return structures;
     }
 
@@ -293,13 +300,13 @@ public class SqlExecutionPlanService {
     }
 
     /**
-     * 获取SQL中WHERE条件涉及的列的直方图数据
+     * 获取SQL中WHERE条件涉及的列的直方图数据（Domain Stats Object）
      * @param sql SQL语句
      * @param datasourceName 数据源名称
-     * @return 直方图数据列表
+     * @return 直方图数据列表（ColumnHistogram - Domain Stats Object）
      */
-    public List<com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO> getHistogramDataForSql(String sql, String datasourceName) {
-        List<com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO> histograms = new ArrayList<>();
+    public List<com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram> getHistogramDataForSql(String sql, String datasourceName) {
+        List<com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram> histograms = new ArrayList<>();
         
         try {
             // 提取表名
@@ -316,15 +323,15 @@ public class SqlExecutionPlanService {
             
             String databaseName = extractDatabaseName(datasourceName);
             
-            // 为每个表和列获取直方图数据
+            // 为每个表和列获取直方图数据（返回 Domain Stats Object）
             for (String tableName : tableNames) {
                 for (String columnName : whereColumns) {
-                    com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO stats = 
+                    com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram histogram = 
                         columnStatisticsParserService.getStatisticsFromMysql(
                             datasourceName, databaseName, tableName, columnName);
                     
-                    if (stats != null) {
-                        histograms.add(stats);
+                    if (histogram != null) {
+                        histograms.add(histogram);
                     }
                 }
             }

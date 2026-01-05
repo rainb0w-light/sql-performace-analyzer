@@ -1,6 +1,6 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.dto.ColumnStatisticsDTO;
+import com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -35,10 +35,10 @@ public class ColumnStatisticsParserService {
      * @param databaseName 数据库名
      * @param tableName 表名
      * @param columnName 列名
-     * @return 解析后的ColumnStatisticsDTO对象，如果不存在则返回null
+     * @return 解析后的 ColumnHistogram，如果不存在则返回null
      */
-    public ColumnStatisticsDTO getStatisticsFromMysql(String datasourceName, String databaseName,
-                                                       String tableName, String columnName) {
+    public ColumnHistogram getStatisticsFromMysql(String datasourceName, String databaseName,
+                                                  String tableName, String columnName) {
         try {
             JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
             
@@ -76,9 +76,9 @@ public class ColumnStatisticsParserService {
     /**
      * 从MySQL获取指定表的所有列的统计信息
      */
-    public List<ColumnStatisticsDTO> getStatisticsFromMysql(String datasourceName, String databaseName,
-                                                              String tableName) {
-        List<ColumnStatisticsDTO> result = new ArrayList<>();
+    public List<ColumnHistogram> getStatisticsFromMysql(String datasourceName, String databaseName,
+                                                        String tableName) {
+        List<ColumnHistogram> result = new ArrayList<>();
         
         try {
             JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
@@ -96,9 +96,9 @@ public class ColumnStatisticsParserService {
                 String histogramJson = (String) row.get("HISTOGRAM");
                 
                 if (histogramJson != null && !histogramJson.trim().isEmpty()) {
-                    ColumnStatisticsDTO dto = parseHistogramJson(histogramJson, datasourceName, databaseName, tableName, columnName);
-                    if (dto != null) {
-                        result.add(dto);
+                    ColumnHistogram histogram = parseHistogramJson(histogramJson, datasourceName, databaseName, tableName, columnName);
+                    if (histogram != null) {
+                        result.add(histogram);
                     }
                 }
             }
@@ -113,55 +113,58 @@ public class ColumnStatisticsParserService {
     }
     
     /**
-     * 解析直方图JSON数据为DTO
+     * 解析直方图JSON数据为 Domain Stats Object（ColumnHistogram）
      * 
      * @param histogramJson 直方图JSON字符串
      * @param datasourceName 数据源名称
      * @param databaseName 数据库名
      * @param tableName 表名
      * @param columnName 列名
-     * @return 解析后的ColumnStatisticsDTO对象
+     * @return 解析后的 ColumnHistogram
      */
-    public ColumnStatisticsDTO parseHistogramJson(String histogramJson, String datasourceName,
-                                                  String databaseName, String tableName, String columnName) {
+    public ColumnHistogram parseHistogramJson(String histogramJson, String datasourceName,
+                                              String databaseName, String tableName, String columnName) {
         try {
             JsonNode rootNode = objectMapper.readTree(histogramJson);
-            
-            ColumnStatisticsDTO dto = new ColumnStatisticsDTO(datasourceName, databaseName, tableName, columnName);
 
-            // 解析直方图类型
-            if (rootNode.has("histogram-type")) {
-                dto.setHistogramType(rootNode.get("histogram-type").asText());
-            }
+            String histogramType = rootNode.has("histogram-type") ? rootNode.get("histogram-type").asText() : null;
+            Integer bucketCountSpecified = rootNode.has("number-of-buckets-specified")
+                    ? rootNode.get("number-of-buckets-specified").asInt()
+                    : null;
+            Integer bucketCount = rootNode.has("number-of-buckets") ? rootNode.get("number-of-buckets").asInt() : bucketCountSpecified;
+            String lastUpdated = rootNode.has("last-updated") ? rootNode.get("last-updated").asText() : null;
+            Double samplingRate = rootNode.has("sampling-rate") ? rootNode.get("sampling-rate").asDouble() : null;
+            String dataType = rootNode.has("data-type") ? rootNode.get("data-type").asText() : null;
 
-            // 解析桶数量
-            if (rootNode.has("number-of-buckets-specified")) {
-                dto.setBucketCount(rootNode.get("number-of-buckets-specified").asInt());
-            }
-
-            // 解析数据统计信息
-            String dataType = null;
-            if (rootNode.has("data-type")) {
-                dataType = rootNode.get("data-type").asText();
-            }
-
-            // 解析直方图桶数据
+            JsonNode bucketsNode = null;
             if (rootNode.has("buckets")) {
-                JsonNode bucketsNode = rootNode.get("buckets");
-                dto.setHistogramData(bucketsNode.toString());
-                
-                // 从桶中提取最小值和最大值
-                parseBucketData(bucketsNode, dto, dataType);
+                bucketsNode = rootNode.get("buckets");
+            } else if (rootNode.has("histogram")) {
+                // 某些 MySQL 版本/文档使用 histogram 字段承载 bucket 数组
+                bucketsNode = rootNode.get("histogram");
             }
 
-            // 解析采样值
-            List<Object> sampleValues = extractSampleValues(rootNode);
-            dto.setSampleValues(sampleValues);
+            ParsedBuckets parsed = parseBuckets(bucketsNode, dataType);
 
-            logger.debug("解析列统计信息成功: table={}, column={}, type={}, buckets={}", 
-                        tableName, columnName, dto.getHistogramType(), dto.getBucketCount());
+            logger.debug("解析列统计信息成功: table={}, column={}, type={}, buckets={}",
+                    tableName, columnName, histogramType, bucketCount);
 
-            return dto;
+            return new ColumnHistogram(
+                    datasourceName,
+                    databaseName,
+                    tableName,
+                    columnName,
+                    dataType,
+                    histogramType,
+                    bucketCountSpecified,
+                    bucketCount,
+                    lastUpdated,
+                    samplingRate,
+                    parsed.minValue,
+                    parsed.maxValue,
+                    parsed.buckets,
+                    parsed.sampleValues
+            );
 
         } catch (Exception e) {
             logger.error("解析直方图JSON失败: table={}, column={}, error={}", 
@@ -169,96 +172,131 @@ public class ColumnStatisticsParserService {
             return null;
         }
     }
-    
 
-    /**
-     * 解析桶数据，提取最小值和最大值
-     * 支持两种格式：
-     * 1. 对象格式：{"lower-bound": "...", "upper-bound": "...", "value": "..."}
-     * 2. 数组格式：["value", cumulative_frequency] 或 [value, cumulative_frequency]
-     */
-    private void parseBucketData(JsonNode bucketsNode, ColumnStatisticsDTO dto, String dataType) {
-        if (!bucketsNode.isArray() || bucketsNode.size() == 0) {
-            return;
-        }
+    private static final class ParsedBuckets {
+        private final String minValue;
+        private final String maxValue;
+        private final List<ColumnHistogram.Bucket> buckets;
+        private final List<String> sampleValues;
 
-        try {
-            JsonNode firstBucket = bucketsNode.get(0);
-
-            // 判断桶的格式：数组格式还是对象格式
-            if (firstBucket.isArray()) {
-                // 数组格式：[value, cumulative_frequency]
-                parseArrayFormatBuckets(bucketsNode, dto, dataType);
-            } else if (firstBucket.isObject()) {
-                // 对象格式：{"lower-bound": "...", "upper-bound": "...", "value": "..."}
-                parseObjectFormatBuckets(bucketsNode, dto);
-            }
-
-        } catch (Exception e) {
-            logger.warn("解析桶数据失败: {}", e.getMessage(), e);
+        private ParsedBuckets(String minValue, String maxValue, List<ColumnHistogram.Bucket> buckets, List<String> sampleValues) {
+            this.minValue = minValue;
+            this.maxValue = maxValue;
+            this.buckets = buckets;
+            this.sampleValues = sampleValues;
         }
     }
 
     /**
-     * 解析数组格式的桶数据
-     * 格式：[value, cumulative_frequency]
-     * 例如：["base64:type254:QWxpY2UgU21pdGg=", 0.2] 或 [25, 0.2]
+     * Histogram Extractor + Normalizer（解析+归一化）
+     *
+     * <p>把 MySQL buckets/histogram 统一成内部 bucket 结构，并对 CDF 做差分得到 rowFraction。</p>
      */
-    private void parseArrayFormatBuckets(JsonNode bucketsNode, ColumnStatisticsDTO dto, String dataType) {
-        try {
-            // 第一个桶的最小值
-            JsonNode firstBucket = bucketsNode.get(0);
-            if (firstBucket.isArray() && firstBucket.size() >= 1) {
-                JsonNode valueNode = firstBucket.get(0);
-                String minValue = extractValueFromNode(valueNode, dataType);
-                if (minValue != null) {
-                    dto.setMinValue(minValue);
+    private ParsedBuckets parseBuckets(JsonNode bucketsNode, String dataType) {
+        if (bucketsNode == null || !bucketsNode.isArray() || bucketsNode.isEmpty()) {
+            return new ParsedBuckets(null, null, List.of(), List.of());
+        }
+
+        List<ColumnHistogram.Bucket> buckets = new ArrayList<>();
+        List<String> sampleValues = new ArrayList<>();
+
+        Double prevCdf = 0.0d;
+
+        for (JsonNode bucket : bucketsNode) {
+            if (bucket == null || bucket.isNull()) {
+                continue;
+            }
+
+            String lower = null;
+            String upper = null;
+            Double cdf = null;
+
+            if (bucket.isArray()) {
+                // 常见格式：
+                // - [value, cdf]
+                // - [lower, upper, cdf]
+                if (bucket.size() >= 2) {
+                    if (bucket.size() == 2) {
+                        String v = extractValueFromNode(bucket.get(0), dataType);
+                        lower = v;
+                        upper = v;
+                        cdf = bucket.get(1).isNumber() ? bucket.get(1).asDouble() : null;
+                    } else {
+                        lower = extractValueFromNode(bucket.get(0), dataType);
+                        upper = extractValueFromNode(bucket.get(1), dataType);
+                        cdf = bucket.get(2).isNumber() ? bucket.get(2).asDouble() : null;
+                    }
+                }
+            } else if (bucket.isObject()) {
+                // 兼容对象格式：
+                // {"lower-bound": "...", "upper-bound": "...", "value": "...", "cumulative-frequency": 0.2}
+                if (bucket.has("value")) {
+                    String v = bucket.get("value").asText();
+                    lower = v;
+                    upper = v;
+                } else {
+                    if (bucket.has("lower-bound")) lower = bucket.get("lower-bound").asText();
+                    if (bucket.has("upper-bound")) upper = bucket.get("upper-bound").asText();
+                }
+                if (bucket.has("cumulative-frequency") && bucket.get("cumulative-frequency").isNumber()) {
+                    cdf = bucket.get("cumulative-frequency").asDouble();
+                } else if (bucket.has("cumulative_frequency") && bucket.get("cumulative_frequency").isNumber()) {
+                    cdf = bucket.get("cumulative_frequency").asDouble();
+                } else if (bucket.has("cumulative-fraction") && bucket.get("cumulative-fraction").isNumber()) {
+                    cdf = bucket.get("cumulative-fraction").asDouble();
                 }
             }
 
-            // 最后一个桶的最大值
-            JsonNode lastBucket = bucketsNode.get(bucketsNode.size() - 1);
-            if (lastBucket.isArray() && lastBucket.size() >= 1) {
-                JsonNode valueNode = lastBucket.get(0);
-                String maxValue = extractValueFromNode(valueNode, dataType);
-                if (maxValue != null) {
-                    dto.setMaxValue(maxValue);
+            if (lower != null && lower.startsWith("base64:")) {
+                lower = decodeBase64Value(lower);
+            }
+            if (upper != null && upper.startsWith("base64:")) {
+                upper = decodeBase64Value(upper);
+            }
+
+            Double rowFraction = null;
+            if (cdf != null) {
+                rowFraction = cdf - (prevCdf == null ? 0.0d : prevCdf);
+                prevCdf = cdf;
+            }
+
+            ColumnHistogram.BucketKind kind = classifyBucket(lower, upper);
+            buckets.add(new ColumnHistogram.Bucket(lower, upper, cdf, rowFraction, kind));
+
+            // sample values：从 bucket 抽代表值
+            if (sampleValues.size() < 50) {
+                String sample = (kind == ColumnHistogram.BucketKind.SINGLETON) ? lower : (lower != null ? lower : upper);
+                if (sample != null) {
+                    sampleValues.add(sample);
                 }
             }
-        } catch (Exception e) {
-            logger.warn("解析数组格式桶数据失败: {}", e.getMessage());
         }
+
+        String minValue = null;
+        String maxValue = null;
+        if (!buckets.isEmpty()) {
+            ColumnHistogram.Bucket first = buckets.get(0);
+            ColumnHistogram.Bucket last = buckets.get(buckets.size() - 1);
+            minValue = first != null ? coalesce(first.lower(), first.upper()) : null;
+            maxValue = last != null ? coalesce(last.upper(), last.lower()) : null;
+        }
+
+        return new ParsedBuckets(minValue, maxValue, buckets, sampleValues);
     }
 
-    /**
-     * 解析对象格式的桶数据
-     * 格式：{"lower-bound": "...", "upper-bound": "...", "value": "..."}
-     */
-    private void parseObjectFormatBuckets(JsonNode bucketsNode, ColumnStatisticsDTO dto) {
-        try {
-            // 第一个桶的最小值
-            JsonNode firstBucket = bucketsNode.get(0);
-            if (firstBucket.has("lower-bound")) {
-                String lowerBound = firstBucket.get("lower-bound").asText();
-                dto.setMinValue(lowerBound);
-            } else if (firstBucket.has("value")) {
-                // 对于singleton类型，使用value
-                String value = firstBucket.get("value").asText();
-                dto.setMinValue(value);
-            }
-
-            // 最后一个桶的最大值
-            JsonNode lastBucket = bucketsNode.get(bucketsNode.size() - 1);
-            if (lastBucket.has("upper-bound")) {
-                String upperBound = lastBucket.get("upper-bound").asText();
-                dto.setMaxValue(upperBound);
-            } else if (lastBucket.has("value")) {
-                String value = lastBucket.get("value").asText();
-                dto.setMaxValue(value);
-            }
-        } catch (Exception e) {
-            logger.warn("解析对象格式桶数据失败: {}", e.getMessage());
+    private ColumnHistogram.BucketKind classifyBucket(String lower, String upper) {
+        if (lower == null || upper == null) {
+            return ColumnHistogram.BucketKind.UNKNOWN;
         }
+        if (lower.equals(upper)) {
+            return ColumnHistogram.BucketKind.SINGLETON;
+        }
+        // SMALL_RANGE/RANGE 需要知道数值跨度；此处先用 UNKNOWN/RANGE 兜底，后续可以在 Normalizer 中按 dataType 做细分
+        return ColumnHistogram.BucketKind.RANGE;
+    }
+
+    private static String coalesce(String a, String b) {
+        return (a != null && !a.isBlank()) ? a : b;
     }
 
     /**
@@ -310,117 +348,6 @@ public class ColumnStatisticsParserService {
         } catch (Exception e) {
             logger.warn("解码base64值失败: {}", e.getMessage());
             return base64Value;
-        }
-    }
-
-    /**
-     * 从直方图数据中提取采样值
-     * 支持对象格式和数组格式的桶数据
-     */
-    private List<Object> extractSampleValues(JsonNode rootNode) {
-        List<Object> sampleValues = new ArrayList<>();
-
-        try {
-            if (rootNode.has("buckets")) {
-                JsonNode bucketsNode = rootNode.get("buckets");
-                String dataType = rootNode.has("data-type") ? rootNode.get("data-type").asText() : null;
-                
-                if (bucketsNode.isArray()) {
-                    // 从每个桶中提取代表性值
-                    for (JsonNode bucket : bucketsNode) {
-                        Object sampleValue = null;
-                        
-                        if (bucket.isArray() && bucket.size() >= 1) {
-                            // 数组格式：[value, cumulative_frequency]
-                            JsonNode valueNode = bucket.get(0);
-                            sampleValue = extractSampleValueFromNode(valueNode, dataType);
-                        } else if (bucket.isObject()) {
-                            // 对象格式：{"lower-bound": "...", "upper-bound": "...", "value": "..."}
-                            if (bucket.has("value")) {
-                                sampleValue = bucket.get("value").asText();
-                            } else if (bucket.has("lower-bound")) {
-                                sampleValue = bucket.get("lower-bound").asText();
-                            } else if (bucket.has("upper-bound")) {
-                                sampleValue = bucket.get("upper-bound").asText();
-                            }
-                        }
-                        
-                        if (sampleValue != null) {
-                            sampleValues.add(sampleValue);
-                        }
-                        
-                        // 限制采样值数量，避免过多
-                        if (sampleValues.size() >= 50) {
-                            break;
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("提取采样值失败: {}", e.getMessage());
-        }
-
-        return sampleValues;
-    }
-
-    /**
-     * 从JsonNode中提取采样值
-     */
-    private Object extractSampleValueFromNode(JsonNode valueNode, String dataType) {
-        if (valueNode == null) {
-            return null;
-        }
-
-        try {
-            if (valueNode.isTextual()) {
-                String textValue = valueNode.asText();
-                // 检查是否是base64编码的字符串
-                if (textValue.startsWith("base64:")) {
-                    return decodeBase64Value(textValue);
-                }
-                return textValue;
-            } else if (valueNode.isNumber()) {
-                // 根据数据类型返回合适的数值类型
-                if ("int".equals(dataType) || "integer".equals(dataType) || "bigint".equals(dataType)) {
-                    return valueNode.asLong();
-                } else if ("double".equals(dataType) || "float".equals(dataType) || "decimal".equals(dataType)) {
-                    return valueNode.asDouble();
-                }
-                return valueNode.asText();
-            } else if (valueNode.isBoolean()) {
-                return valueNode.asBoolean();
-            } else {
-                return valueNode.toString();
-            }
-        } catch (Exception e) {
-            logger.warn("提取采样值失败: {}", e.getMessage());
-            return valueNode.asText();
-        }
-    }
-
-    /**
-     * 从ColumnStatisticsDTO对象中获取采样值列表
-     */
-    public List<Object> getSampleValues(ColumnStatisticsDTO dto) {
-        if (dto == null || dto.getSampleValues() == null) {
-            return new ArrayList<>();
-        }
-        return dto.getSampleValues();
-    }
-
-    /**
-     * 从ColumnStatisticsDTO对象中获取直方图桶数据
-     */
-    public JsonNode getHistogramBuckets(ColumnStatisticsDTO dto) {
-        if (dto == null || dto.getHistogramData() == null || dto.getHistogramData().trim().isEmpty()) {
-            return null;
-        }
-
-        try {
-            return objectMapper.readTree(dto.getHistogramData());
-        } catch (Exception e) {
-            logger.warn("解析直方图数据失败: {}", e.getMessage());
-            return null;
         }
     }
 }

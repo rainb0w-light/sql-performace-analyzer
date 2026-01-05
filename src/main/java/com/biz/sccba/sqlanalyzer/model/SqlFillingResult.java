@@ -23,11 +23,6 @@ public class SqlFillingResult {
      */
     @JsonProperty("scenarios")
     private List<FilledSqlScenario> scenarios;
-    
-    /**
-     * LLM 的推理过程和参数选择理由
-     */
-    @JsonProperty("reasoning")
-    private String reasoning;
+
 }
 

@@ -150,16 +150,9 @@ export async function deleteParameters(ids) {
   })
 }
 
-// SQL Agent 分析
+// SQL Agent 分析（多 SQL）
 export async function analyzeAgent(data) {
   return request('/sql-agent/analyze', {
-    method: 'POST',
-    body: JSON.stringify(data)
-  })
-}
-
-export async function analyzeMapper(data) {
-  return request('/sql-agent/analyze-mapper', {
     method: 'POST',
     body: JSON.stringify(data)
   })

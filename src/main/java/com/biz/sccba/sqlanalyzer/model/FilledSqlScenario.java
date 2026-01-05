@@ -29,11 +29,6 @@ public class FilledSqlScenario {
      */
     @JsonProperty("parameters")
     private Map<String, Object> parameters;
-    
-    /**
-     * 场景描述（说明为什么选择这些参数）
-     */
-    @JsonProperty("description")
-    private String description;
+
 }
 

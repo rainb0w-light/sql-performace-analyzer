@@ -28,6 +28,7 @@ public class PromptTemplateManagerService {
     public static final String TYPE_SQL_RISK_COMPARISON = "SQL_RISK_COMPARISON";
     public static final String TYPE_SQL_RISK_REFINEMENT = "SQL_RISK_REFINEMENT";
     public static final String TYPE_SQL_PARAMETER_FILLING = "SQL_PARAMETER_FILLING";
+    public static final String TYPE_SQL_INDEX_OPTIMIZATION = "SQL_INDEX_OPTIMIZATION";
 
     @PostConstruct
     public void initDefaultTemplates() {
@@ -76,6 +77,11 @@ public class PromptTemplateManagerService {
         // 检查并初始化 SQL 参数填充模板
         if (repository.findByTemplateType(TYPE_SQL_PARAMETER_FILLING).isEmpty()) {
             createDefaultTemplate(TYPE_SQL_PARAMETER_FILLING, "SQL 参数填充专家", getDefaultSqlParameterFillingTemplate());
+        }
+
+        // 检查并初始化 SQL 索引优化综合分析模板
+        if (repository.findByTemplateType(TYPE_SQL_INDEX_OPTIMIZATION).isEmpty()) {
+            createDefaultTemplate(TYPE_SQL_INDEX_OPTIMIZATION, "SQL 索引优化综合分析专家", getDefaultSqlIndexOptimizationTemplate());
         }
     }
 
@@ -908,104 +914,202 @@ public class PromptTemplateManagerService {
 
     private String getDefaultSqlParameterFillingTemplate() {
         return """
-            你是一位资深的 SQL 测试专家和数据库性能分析师。请根据以下 SQL 模板、表结构信息（包括索引）和列的直方图数据，生成多个测试场景的 SQL 语句。
-            
-            ## SQL 模板
+            你是一名 SQL 性能测试工具，而不是自由发挥的文本助手。
+            你的任务是：基于 SQL 模板、表结构（含索引）和列直方图数据，
+            生成用于执行计划与索引有效性验证的测试 SQL。
+
+            ## 输入
+
+            ### SQL 模板
             {sql}
-            
-            ## 表结构和索引信息
+
+            ### 表结构与索引
             {table_structure}
-            
-            ## 列直方图数据
+
+            ### 列直方图数据（JSON）
             {histogram_data}
-            
-            ## 任务要求
-            
-            请分析 SQL 模板和直方图数据，生成 3-5 个不同测试场景的 SQL 语句：
-            
-            ### 1. 识别 SQL 占位符
-            - 识别 SQL 中的占位符：? （问号）、:paramName （冒号参数）、#{paramName} （MyBatis 参数）
-            - 根据 WHERE 条件和直方图数据，推断每个占位符对应的列名
-            - 如果无法确定对应关系，按照出现顺序匹配
-            
-            ### 2. 场景设计原则
-            
-            基于直方图数据的分布特征，为以下场景生成合适的参数值：
-            
-            **场景 1: 最小值场景（边界测试）**
-            - 使用列的最小值或接近最小值
-            - 目的：测试下边界的执行计划
-            - 适用于测试范围查询的起始边界
-            
-            **场景 2: 最大值场景（边界测试）**
-            - 使用列的最大值或接近最大值
-            - 目的：测试上边界的执行计划
-            - 适用于测试范围查询的结束边界
-            
-            **场景 3: 典型值场景（常规测试）**
-            - 使用中位数或高频值（基于直方图的桶分布）
-            - 目的：测试最常见数据的执行计划
-            - 适用于评估日常查询性能
-            
-            **场景 4: 稀疏值场景（特殊情况）**（可选）
-            - 使用稀疏分布区域的值
-            - 目的：测试索引选择性高的情况
-            - 适用于评估选择性查询
-            
-            **场景 5: 边界值场景（索引失效测试）**（可选）
-            - 使用可能触发全表扫描的参数值
-            - 例如：范围过大、选择性低的值
-            - 目的：识别潜在的性能风险
-            
-            ### 3. 参数选择指导
-            
-            - **数值类型**：直接使用直方图中的 minValue、maxValue、中位数或采样值
-            - **字符串类型**：使用采样值中的实际字符串
-            - **日期时间**：根据 minValue 和 maxValue 推算合理的日期
-            - **多个参数**：确保参数之间的逻辑关系合理（如 start_date < end_date）
-            
-            ### 4. SQL 生成规则
-            
-            - 将占位符替换为实际的参数值
-            - 数值类型：直接替换（如 age > 25）
-            - 字符串类型：加单引号（如 name = 'Alice'）
-            - NULL 值：使用 NULL 关键字
-            - 确保生成的 SQL 语法正确，可以直接执行
-            
-            ## 输出格式（必须严格遵守 JSON 格式）
-            
-            请以 JSON 格式输出，JSON 结构说明：
-            - originalSql: 原始 SQL 模板字符串
-            - scenarios: 场景数组，每个场景包含：
-              - scenarioName: 场景名称（如"最小值场景"）
-              - filledSql: 填充好的完整 SQL 语句
-              - parameters: 参数对象，键为参数名，值为参数值
-              - description: 场景描述，说明为什么选择这些参数
-            - reasoning: 整体推理过程，解释参数选择的依据
-            
-            示例说明：
-            对于 SQL "SELECT * FROM users WHERE age > ? AND city = ?"
-            可以生成三个场景：
-            1. 最小值场景：age=18, city='Beijing'
-            2. 最大值场景：age=65, city='Shanghai'  
-            3. 典型值场景：age=35, city='Guangzhou'
-            
-            ## 重要提示
-            
-            1. **必须返回有效的 JSON 格式**，不要包含其他文本
-            2. **scenarios 数组必须包含 3-5 个场景**
-            3. **每个场景的 filledSql 必须是完整的、可执行的 SQL 语句**
-            4. **parameters 对象的 key 应该是列名或参数名**
-            5. **如果 SQL 没有占位符（已经是完整 SQL），也要生成场景，通过修改 WHERE 条件值来创建不同场景**
-            6. **确保参数值的类型正确**：数字用数字，字符串用字符串，不要全部用字符串
-            7. **reasoning 字段要解释参数选择的依据和测试目的**
-            
-            ## 特殊情况处理
-            
-            - 如果没有直方图数据：使用合理的默认值，并在 reasoning 中说明
-            - 如果 SQL 没有占位符：基于 WHERE 条件创建不同的测试场景
-            - 如果直方图数据不完整：使用已有的信息推断合理的参数值
-            - 如果无法生成多个场景：至少生成一个典型场景
+
+            ## 直方图数据规则（必须遵守）
+
+            每个列直方图可能包含：
+            - columnName
+            - dataType
+            - minValue / maxValue
+            - nullFraction
+            - buckets[]：
+              - lowerBound
+              - upperBound
+              - rowCount
+              - frequency（rowCount / totalRows）
+              - sampleValues（可选）
+
+            参数选择 **必须优先基于 buckets.frequency**，
+            禁止只使用 minValue / maxValue。
+
+            ## 占位符识别规则
+
+            - 支持：? 
+            - 根据 WHERE 条件判断占位符对应的列
+            - 无法确定时，按出现顺序映射
+
+            ## 场景生成规则（必须生成 3–5 个）
+
+            ### 场景 1：最小值场景（边界）
+            - 使用最小 bucket 或 minValue
+            - 估算选择性应极低
+
+            ### 场景 2：最大值场景（边界）
+            - 使用最大 bucket 或 maxValue
+            - 估算选择性应极低
+
+            ### 场景 3：典型值场景（高频）
+            - 选择 frequency 最高的 bucket
+            - 使用该 bucket 的中间值或 sampleValues
+            - 估算选择性应接近该 bucket 的 frequency
+
+            ### 场景 4：稀疏值场景（高选择性，可选）
+            - 选择 frequency 最低但非 0 的 bucket
+            - 估算选择性极高（索引友好）
+
+            ### 场景 5：索引失效场景（必须尽量生成）
+            - 构造覆盖 ≥ 70% 行数的条件：
+              - 跨多个高频 bucket 的范围
+              - 或使用极低选择性的等值条件
+            - 预期可能触发全表扫描
+
+            ## 范围查询参数规则（必须遵守）
+
+            若条件包含 >、>=、<、<=、BETWEEN：
+
+            - 高频场景：范围限制在单个高频 bucket 内
+            - 稀疏场景：范围限制在单个低频 bucket 内
+            - 索引失效场景：范围必须跨多个 bucket
+
+            ## SQL 填充规则
+
+            - 数值：直接填值
+            - 字符串：单引号
+            - 日期时间：使用直方图边界推算
+            - NULL：使用 NULL
+            - filledSql 必须是可直接执行的 SQL
+
+            ## 输出格式（严格 JSON）
+
+            仅返回 JSON，不得包含其他文本：
+
+            {
+              "originalSql": "...",
+              "scenarios": [
+                {
+                  "scenarioName": "...",
+                  "filledSql": "...",
+                  "parameters": { "column": value },
+                }
+              ],
+            }
+
+            ## 异常处理
+
+            - 无直方图：使用合理假设并说明
+            - 无占位符：修改 WHERE 条件生成场景
+            - 信息不足：优先生成典型值 + 索引失效场景
+            """;
+    }
+
+    private String getDefaultSqlIndexOptimizationTemplate() {
+        return """
+                # Role
+                你是一位拥有20年经验的顶级 MySQL 数据库性能调优专家。你当前的任务是根据提供的元数据和多场景执行计划，为开发团队提供精准的索引优化方案。
+                            
+                # Context 1: 库表统计信息 (Table & Statistics)
+                {table_structures}
+                *(注：请重点关注 Table_Rows 和 Index Cardinality)*
+                            
+                # Context 2: 多场景执行计划验证结果 (Execution Analysis)
+                {analysis_results}
+                *(注：包含 NO_INDEX 和 PLAN_SHIFT 两类关键瓶颈)*
+                            
+                # Task Requirements
+                请结合以上数据，进行深度的索引建模分析，并按 Markdown 格式输出报告：
+                            
+                ### 核心诊断逻辑：
+                1. **针对 NO_INDEX (全表扫描)**：
+                   - 分析 WHERE 和 JOIN 条件中的字段。
+                   - 检查索引基数 (Cardinality)，优先将高辨识度字段放在复合索引前部。
+                   - **关键诊断**：对比 rowsExamined 与表总行数 Table_Rows。如果比例超过 30%，即使命中索引，也要诊断为"索引选择性差"。
+                   - 考虑是否可以通过"覆盖索引"减少回表。
+                2. **针对 PLAN_SHIFT (执行计划偏移)**：
+                   - 识别哪些参数导致了优化器放弃索引。
+                   - 分析是否因为现有索引的字段顺序不当，导致其在特定参数下成本 (Cost) 过高。
+                   - **关键诊断**：对比不同场景下的 rowsExamined 和 accessType，分析为什么参数变化会导致索引选择变化。
+                   - 评估是否需要 `USE INDEX` 或优化索引结构来稳定执行计划。
+                3. **冗余清理**：
+                   - 检查现有索引中是否存在前缀重叠（例如有 (A,B) 就不需要单独的 (A)）。
+                4. **过滤因子计算**：
+                   - 根据 Cardinality 和 Table_Rows 计算列的过滤效率。
+                   - 评估索引的选择性，优先为高选择性字段创建索引。
+                5. **多 SQL 综合分析（如果分析结果中包含多个 SQL）**：
+                   - **重要**：如果分析结果中包含多个 SQL，需要综合考虑所有 SQL 的索引需求。
+                   - 识别不同 SQL 的查询模式，找出共同的索引需求。
+                   - 优先设计能够同时优化多个 SQL 的复合索引，而不是为每个 SQL 单独创建索引。
+                   - 分析不同 SQL 可能使用不同索引的情况，确保索引设计不会相互冲突。
+                   - 在索引建议中明确说明每个索引主要优化哪些 SQL（通过 mapperId 标识）。
+                   - 避免为单个 SQL 创建索引而影响其他 SQL 的性能。
+                   - 如果多个 SQL 访问相同表但查询条件不同，需要设计能够覆盖多个查询模式的索引。
+                            
+                # Output Format (Markdown)
+                请使用 Markdown 格式输出报告，包含以下部分：
+                
+                ## 📊 报告摘要
+                - **分析的 SQL 数量**: [数量]
+                - **关键问题**: [简述最严重的性能瓶颈，如：高频 SQL 的全表扫描]
+                - **预期整体收益**: [预估整体响应时间提升百分比]
+                
+                ## ➕ 新增索引建议
+                对于每个建议，请包含：
+                - **表名**: `table_name`
+                - **索引名**: `idx_table_columns`
+                - **索引列**: col1, col2
+                - **创建 SQL**:
+                  ```sql
+                  CREATE INDEX idx_table_columns ON table_name (col1, col2);
+                  ```
+                - **原因**: [基于过滤因子分析：字段 col1 的基数为 X，选择性优于 col2]
+                - **优先级**: 🔴 HIGH / 🟡 MEDIUM / 🟢 LOW
+                - **影响的 SQL**: mapperId1, mapperId2
+                - **优化影响**: [该索引可同时优化多个 SQL，预计提升整体查询性能 X%]
+                
+                ## 🔗 索引合并建议
+                对于每个建议，请包含：
+                - **合并来源**: idx_a, idx_b
+                - **目标索引**: `idx_a_b`
+                - **创建 SQL**:
+                  ```sql
+                  CREATE INDEX idx_a_b ON table_name (col1, col2);
+                  ```
+                - **原因**: [消除冗余，同时覆盖更多查询场景]
+                - **优先级**: 🔴 HIGH / 🟡 MEDIUM / 🟢 LOW
+                
+                ## 🎯 USE INDEX 建议
+                对于每个建议，请包含：
+                - **Mapper ID**: mapperId
+                - **推荐索引**: `index_name`
+                - **优化后 SQL**:
+                  ```sql
+                  SELECT ... USE INDEX (index_name) ...
+                  ```
+                - **原因**: [解决 PLAN_SHIFT 问题，强制稳定执行计划，防止因数据分布波动导致慢查询]
+                
+                ## 🗑️ 删除索引建议
+                对于每个建议，请包含：
+                - **索引名**: `index_name`
+                - **删除 SQL**:
+                  ```sql
+                  DROP INDEX index_name ON table_name;
+                  ```
+                - **原因**: [该索引已被新复合索引覆盖，且在分析中未被任何场景命中]
+                
+                请确保输出格式清晰、结构完整，使用标准的 Markdown 语法。
             """;
     }
 }

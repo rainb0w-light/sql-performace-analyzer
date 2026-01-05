@@ -48,7 +48,7 @@ spring:
   datasources:
     configs:
       - name: mysql-primary
-        url: jdbc:mysql://localhost:13307/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+        url: jdbc:mysql://127.0.0.1:3306/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
         username: root
         password: password
         driver-class-name: com.mysql.cj.jdbc.Driver
@@ -61,7 +61,7 @@ spring:
           leak-detection-threshold: 60000
 
       - name: mysql-secondary
-        url: jdbc:mysql://localhost:13307/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+        url: jdbc:mysql://127.0.0.1:3306/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
         username: root
         password: password
         driver-class-name: com.mysql.cj.jdbc.Driver

@@ -128,7 +128,11 @@
       </el-card>
 
       <!-- 分析结果 -->
-      <ResultViewer v-if="analysisResult" :result="analysisResult" :is-mapper="isBatchAnalysis" />
+      <!-- 索引优化报告 -->
+      <IndexOptimizationReportViewer 
+        v-if="analysisResult"
+        :report-content="analysisResult"
+      />
     </el-card>
   </div>
 </template>
@@ -136,7 +140,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getDatasources, getLlms, getNamespaces, getQueriesByNamespace, analyzeAgent } from '@/api'
-import ResultViewer from '@/components/sql-agent/ResultViewer.vue'
+import IndexOptimizationReportViewer from '@/components/sql-agent/IndexOptimizationReportViewer.vue'
 
 const queryTableRef = ref(null)
 const loadingNamespaces = ref(false)
@@ -149,7 +153,6 @@ const datasources = ref([])
 const llms = ref([])
 const selectedQueryIds = ref([])
 const analysisResult = ref(null)
-const isBatchAnalysis = ref(false)
 
 const form = reactive({
   namespace: '',
@@ -264,46 +267,24 @@ async function handleAnalyze() {
       throw new Error('未找到选中的 SQL 查询')
     }
 
-    // 判断是单个还是批量分析
-    isBatchAnalysis.value = selectedQueries.length > 1
+    // 构建多 SQL 请求
+    const sqlItems = selectedQueries.map(query => ({
+      sql: query.sql,
+      mapperId: `${form.namespace}.${query.statementId}`
+    }))
 
-    if (selectedQueries.length === 1) {
-      // 单条 SQL 分析
-      const query = selectedQueries[0]
-      const result = await analyzeAgent({
-        sql: query.sql,
-        datasourceName: form.datasource,
-        llmName: form.llm
-      })
-      analysisResult.value = result
+    // 发送多 SQL 分析请求
+    const response = await analyzeAgent({
+      sqlItems: sqlItems,
+      datasourceName: form.datasource,
+      llmName: form.llm
+    })
+
+    // 处理响应 - 直接使用 reportContent
+    if (response.reportContent) {
+      analysisResult.value = response.reportContent
     } else {
-      // 批量分析：构建类似 Mapper 批量分析的结果结构
-      const results = []
-      for (const query of selectedQueries) {
-        try {
-          const result = await analyzeAgent({
-            sql: query.sql,
-            datasourceName: form.datasource,
-            llmName: form.llm
-          })
-          results.push(result)
-        } catch (error) {
-          console.error(`分析 SQL ${query.id} 失败:`, error)
-          // 创建一个错误结果
-          results.push({
-            sql: query.sql,
-            error: error.message || '分析失败',
-            finalRiskLevel: 'UNKNOWN'
-          })
-        }
-      }
-
-      // 构建批量分析结果结构
-      analysisResult.value = {
-        mapperNamespace: form.namespace,
-        results: results,
-        overallSummary: `共分析了 ${results.length} 条 SQL 语句，成功 ${results.filter(r => !r.error).length} 条`
-      }
+      throw new Error('未收到分析报告')
     }
   } catch (error) {
     errorMessage.value = '分析失败: ' + error.message

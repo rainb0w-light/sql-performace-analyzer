@@ -13,9 +13,9 @@ import java.util.*;
  * 执行 ANALYZE TABLE 更新表的统计信息
  */
 @Service
-public class TableQueryAnalysisService {
+public class TableAnalysisService {
 
-    private static final Logger logger = LoggerFactory.getLogger(TableQueryAnalysisService.class);
+    private static final Logger logger = LoggerFactory.getLogger(TableAnalysisService.class);
 
     @Autowired
     private SqlExecutionPlanService sqlExecutionPlanService;

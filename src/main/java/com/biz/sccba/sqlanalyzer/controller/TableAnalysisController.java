@@ -1,6 +1,6 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
-import com.biz.sccba.sqlanalyzer.service.TableQueryAnalysisService;
+import com.biz.sccba.sqlanalyzer.service.TableAnalysisService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +20,7 @@ public class TableAnalysisController {
     private static final Logger logger = LoggerFactory.getLogger(TableAnalysisController.class);
 
     @Autowired
-    private TableQueryAnalysisService tableQueryAnalysisService;
+    private TableAnalysisService tableAnalysisService;
 
     /**
      * 执行 ANALYZE TABLE 更新表的统计信息
@@ -34,8 +34,8 @@ public class TableAnalysisController {
         try {
             logger.info("收到 ANALYZE TABLE 请求: tableName={}, datasourceName={}", tableName, datasourceName);
 
-            TableQueryAnalysisService.TableAnalysisResult result = 
-                    tableQueryAnalysisService.analyzeTable(tableName, datasourceName);
+            TableAnalysisService.TableAnalysisResult result =
+                    tableAnalysisService.analyzeTable(tableName, datasourceName);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", result.isSuccess());

@@ -4,6 +4,7 @@ import com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram;
 import com.biz.sccba.sqlanalyzer.llm.context.PromptRenderer;
 import com.biz.sccba.sqlanalyzer.llm.context.PromptTemplateEngine;
 import com.biz.sccba.sqlanalyzer.model.*;
+import com.biz.sccba.sqlanalyzer.model.request.FillingRecordsResponse;
 import com.biz.sccba.sqlanalyzer.repository.SqlFillingRecordRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -12,8 +13,10 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * 阶段1：数据填充。
@@ -49,6 +52,17 @@ public class SqlFillingService {
                                                         String llmName) throws AgentException {
         logger.info("阶段1：数据填充阶段 - mapperId: {}, sql: {}", mapperId, sql);
 
+        // 先查询是否已有填充记录
+        Optional<SqlFillingRecord> existingRecord = fillingRecordRepository
+                .findByMapperIdAndDatasourceNameAndLlmName(mapperId, datasourceName, llmName);
+        
+        if (existingRecord.isPresent()) {
+            logger.info("找到已存在的填充记录，复用 - mapperId: {}, recordId: {}", 
+                    mapperId, existingRecord.get().getId());
+            return existingRecord.get();
+        }
+
+        logger.info("未找到填充记录，调用 LLM 生成 - mapperId: {}", mapperId);
         List<ColumnHistogram> histograms = executionPlanFacade.getHistogramData(sql, datasourceName);
         List<TableStructure> tableStructures = executionPlanFacade.getTableStructures(sql, datasourceName);
 
@@ -225,6 +239,64 @@ public class SqlFillingService {
             sb.append("\n");
         }
         return sb.toString();
+    }
+
+    /**
+     * 批量查询填充记录
+     */
+    public FillingRecordsResponse getFillingRecords(List<String> mapperIds, 
+                                                     String datasourceName, 
+                                                     String llmName) {
+        logger.info("批量查询填充记录 - mapperIds数量: {}, datasourceName: {}, llmName: {}", 
+                mapperIds != null ? mapperIds.size() : 0, datasourceName, llmName);
+        
+        FillingRecordsResponse response = new FillingRecordsResponse();
+        Map<String, FillingRecordsResponse.FillingRecordData> recordsMap = new HashMap<>();
+        
+        if (mapperIds == null || mapperIds.isEmpty()) {
+            response.setRecords(recordsMap);
+            return response;
+        }
+        
+        for (String mapperId : mapperIds) {
+            Optional<SqlFillingRecord> recordOpt = fillingRecordRepository
+                    .findByMapperIdAndDatasourceNameAndLlmName(mapperId, datasourceName, llmName);
+            
+            if (recordOpt.isPresent()) {
+                SqlFillingRecord record = recordOpt.get();
+                try {
+                    SqlFillingResult fillingResult = objectMapper.readValue(
+                            record.getFillingResultJson(), SqlFillingResult.class);
+                    
+                    FillingRecordsResponse.FillingRecordData data = new FillingRecordsResponse.FillingRecordData();
+                    data.setMapperId(record.getMapperId());
+                    data.setOriginalSql(record.getOriginalSql());
+                    data.setCreatedAt(record.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                    
+                    if (fillingResult.getScenarios() != null) {
+                        List<FillingRecordsResponse.ScenarioData> scenarios = fillingResult.getScenarios().stream()
+                                .map(scenario -> {
+                                    FillingRecordsResponse.ScenarioData scenarioData = 
+                                            new FillingRecordsResponse.ScenarioData();
+                                    scenarioData.setScenarioName(scenario.getScenarioName());
+                                    scenarioData.setFilledSql(scenario.getFilledSql());
+                                    scenarioData.setParameters(scenario.getParameters());
+                                    return scenarioData;
+                                })
+                                .collect(Collectors.toList());
+                        data.setScenarios(scenarios);
+                    }
+                    
+                    recordsMap.put(mapperId, data);
+                } catch (Exception e) {
+                    logger.warn("解析填充记录失败 - mapperId: {}, error: {}", mapperId, e.getMessage());
+                }
+            }
+        }
+        
+        response.setRecords(recordsMap);
+        logger.info("批量查询填充记录完成 - 找到记录数: {}", recordsMap.size());
+        return response;
     }
 }
 

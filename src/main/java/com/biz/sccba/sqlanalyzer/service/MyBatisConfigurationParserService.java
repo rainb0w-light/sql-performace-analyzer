@@ -23,7 +23,9 @@ import org.apache.ibatis.scripting.xmltags.WhereSqlNode;
 import org.apache.ibatis.session.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -50,6 +52,9 @@ public class MyBatisConfigurationParserService {
     @Autowired
     private MapperParameterRepository mapperParameterRepository;
 
+    @Autowired(required = false)
+    private ApplicationContext applicationContext;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -74,8 +79,8 @@ public class MyBatisConfigurationParserService {
             parseMapperXml(configuration, xmlContent, mapperNamespace);
 
             // 从Configuration中提取所有MappedStatement
-            @SuppressWarnings("unchecked")
             Map<String, Object> extractionResult = extractQueriesFromConfiguration(configuration, mapperNamespace);
+            @SuppressWarnings("unchecked")
             List<ParsedSqlQuery> queries = (List<ParsedSqlQuery>) extractionResult.get("queries");
             @SuppressWarnings("unchecked")
             Map<String, Set<String>> testExpressionsMap = (Map<String, Set<String>>) extractionResult.get("testExpressionsMap");
@@ -1048,6 +1053,232 @@ public class MyBatisConfigurationParserService {
     @Transactional
     public void deleteParameters(List<Long> ids) {
         mapperParameterRepository.deleteAllById(ids);
+    }
+
+    /**
+     * 从应用上下文获取MyBatis Configuration
+     * 
+     * @return Configuration，如果不存在则返回null
+     */
+    private Configuration getConfigurationFromApplicationContext() {
+        if (applicationContext == null) {
+            logger.warn("ApplicationContext未注入，无法获取MyBatis Configuration");
+            return null;
+        }
+
+        try {
+            // 尝试获取SqlSessionFactory Bean
+            Map<String, SqlSessionFactory> sqlSessionFactoryMap = 
+                applicationContext.getBeansOfType(SqlSessionFactory.class);
+            
+            if (sqlSessionFactoryMap.isEmpty()) {
+                logger.warn("未找到SqlSessionFactory Bean");
+                return null;
+            }
+
+            // 如果有多个，返回第一个（通常只有一个）
+            SqlSessionFactory sqlSessionFactory = sqlSessionFactoryMap.values().iterator().next();
+            return sqlSessionFactory.getConfiguration();
+        } catch (Exception e) {
+            logger.error("获取MyBatis Configuration失败", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从应用上下文中查找包含指定namespace的Configuration
+     * 
+     * @param namespace 命名空间
+     * @return Configuration，如果不存在则返回null
+     */
+    private Configuration findConfigurationByNamespace(String namespace) {
+        Configuration config = getConfigurationFromApplicationContext();
+        if (config == null) {
+            return null;
+        }
+
+        // 检查Configuration中是否包含该namespace的MappedStatement
+        Collection<String> statementIds = config.getMappedStatementNames();
+        for (String statementId : statementIds) {
+            if (statementId.startsWith(namespace + ".")) {
+                logger.info("找到包含namespace {} 的Configuration", namespace);
+                return config;
+            }
+        }
+
+        logger.warn("Configuration中未找到namespace: {}", namespace);
+        return null;
+    }
+
+    /**
+     * 从Configuration提取Mapper参数（不解析SQL）
+     * 
+     * @param configuration MyBatis Configuration
+     * @param namespace Mapper命名空间
+     * @return 提取的参数列表
+     */
+    @Transactional
+    public List<MapperParameter> extractMapperParametersFromConfiguration(Configuration configuration, String namespace) {
+        logger.info("开始从Configuration提取参数: namespace={}", namespace);
+
+        List<MapperParameter> extractedParameters = new ArrayList<>();
+        Collection<String> statementIds = configuration.getMappedStatementNames();
+
+        for (String statementId : statementIds) {
+            // 只处理当前命名空间的语句
+            if (!statementId.startsWith(namespace + ".")) {
+                continue;
+            }
+
+            MappedStatement mappedStatement = configuration.getMappedStatement(statementId);
+            
+            // 只处理SELECT查询
+            if (mappedStatement.getSqlCommandType() != SqlCommandType.SELECT) {
+                continue;
+            }
+
+            // 提取 test 表达式
+            Set<String> testExpressions = extractTestExpressionsFromSqlSource(mappedStatement, statementId);
+            
+            if (!testExpressions.isEmpty()) {
+                // 保存到完整路径（namespace.statementId）
+                saveTestExpressionsAsParameters(statementId, testExpressions);
+                
+                // 保存到命名空间层级（namespace）
+                saveTestExpressionsAsParameters(namespace, testExpressions);
+                
+                // 收集参数用于返回
+                List<MapperParameter> statementParams = mapperParameterRepository.findAllByMapperId(statementId);
+                extractedParameters.addAll(statementParams);
+                
+                List<MapperParameter> namespaceParams = mapperParameterRepository.findAllByMapperId(namespace);
+                for (MapperParameter param : namespaceParams) {
+                    // 避免重复添加
+                    if (extractedParameters.stream().noneMatch(p -> 
+                        p.getParameterName().equals(param.getParameterName()) && 
+                        Objects.equals(p.getTestExpression(), param.getTestExpression()))) {
+                        extractedParameters.add(param);
+                    }
+                }
+            }
+        }
+
+        logger.info("从Configuration提取完成，共提取 {} 个参数: namespace={}", extractedParameters.size(), namespace);
+        return extractedParameters;
+    }
+
+    /**
+     * 基于namespace解析Mapper（从应用上下文获取Configuration）
+     * 
+     * @param namespace Mapper命名空间
+     * @return 解析结果，包含needEdit标志和参数列表或查询列表
+     */
+    @Transactional
+    public Map<String, Object> parseMapperByNamespace(String namespace) {
+        logger.info("开始基于namespace解析: namespace={}", namespace);
+
+        Map<String, Object> result = new HashMap<>();
+
+        // 1. 从应用上下文获取Configuration
+        Configuration configuration = findConfigurationByNamespace(namespace);
+        if (configuration == null) {
+            result.put("success", false);
+            result.put("error", "未找到包含该namespace的MyBatis Configuration，请确保应用已正确配置MyBatis");
+            return result;
+        }
+
+        // 2. 检查MapperParameter是否存在
+        List<MapperParameter> existingParameters = mapperParameterRepository.findAllByMapperId(namespace);
+        
+        // 也检查statement级别的参数
+        Collection<String> statementIds = configuration.getMappedStatementNames();
+        boolean hasAnyParameters = !existingParameters.isEmpty();
+        if (!hasAnyParameters) {
+            for (String statementId : statementIds) {
+                if (statementId.startsWith(namespace + ".")) {
+                    List<MapperParameter> statementParams = mapperParameterRepository.findAllByMapperId(statementId);
+                    if (!statementParams.isEmpty()) {
+                        hasAnyParameters = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. 如果参数不存在，只提取参数并返回
+        if (!hasAnyParameters) {
+            logger.info("MapperParameter不存在，提取参数: namespace={}", namespace);
+            List<MapperParameter> parameters = extractMapperParametersFromConfiguration(configuration, namespace);
+            
+            result.put("success", true);
+            result.put("needEdit", true);
+            result.put("parameters", parameters);
+            result.put("message", "参数已提取，请编辑参数值后继续解析SQL");
+            return result;
+        }
+
+        // 4. 如果参数存在，直接解析SQL
+        logger.info("MapperParameter已存在，直接解析SQL: namespace={}", namespace);
+        
+        // 删除旧数据
+        parsedSqlQueryRepository.deleteByMapperNamespace(namespace);
+
+        // 从Configuration中提取所有MappedStatement
+        Map<String, Object> extractionResult = extractQueriesFromConfiguration(configuration, namespace);
+        @SuppressWarnings("unchecked")
+        List<ParsedSqlQuery> queries = (List<ParsedSqlQuery>) extractionResult.get("queries");
+
+        // 保存所有查询
+        parsedSqlQueryRepository.saveAll(queries);
+
+        result.put("success", true);
+        result.put("needEdit", false);
+        result.put("queryCount", queries.size());
+        result.put("queries", queries);
+        result.put("message", "成功解析 " + queries.size() + " 个SQL查询");
+        
+        logger.info("解析完成，共解析出 {} 个SQL查询: namespace={}", queries.size(), namespace);
+        return result;
+    }
+
+    /**
+     * 刷新指定namespace的SQL解析结果
+     * 
+     * @param namespace Mapper命名空间
+     * @return 刷新后的解析结果
+     */
+    @Transactional
+    public Map<String, Object> refreshSqlQueriesByNamespace(String namespace) {
+        logger.info("开始刷新SQL解析结果: namespace={}", namespace);
+
+        Map<String, Object> result = new HashMap<>();
+
+        // 1. 从应用上下文获取Configuration
+        Configuration configuration = findConfigurationByNamespace(namespace);
+        if (configuration == null) {
+            result.put("success", false);
+            result.put("error", "未找到包含该namespace的MyBatis Configuration");
+            return result;
+        }
+
+        // 2. 删除旧数据
+        parsedSqlQueryRepository.deleteByMapperNamespace(namespace);
+
+        // 3. 从Configuration中重新提取SQL（使用最新的MapperParameter）
+        Map<String, Object> extractionResult = extractQueriesFromConfiguration(configuration, namespace);
+        @SuppressWarnings("unchecked")
+        List<ParsedSqlQuery> queries = (List<ParsedSqlQuery>) extractionResult.get("queries");
+
+        // 4. 保存所有查询
+        parsedSqlQueryRepository.saveAll(queries);
+
+        result.put("success", true);
+        result.put("queryCount", queries.size());
+        result.put("queries", queries);
+        result.put("message", "成功刷新 " + queries.size() + " 个SQL查询");
+        
+        logger.info("刷新完成，共解析出 {} 个SQL查询: namespace={}", queries.size(), namespace);
+        return result;
     }
 
 }

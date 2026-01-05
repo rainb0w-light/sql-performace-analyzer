@@ -158,6 +158,36 @@ export async function analyzeAgent(data) {
   })
 }
 
+// 批量查询填充记录
+export async function getFillingRecords(mapperIds, datasourceName, llmName) {
+  return request('/sql-agent/filling-records', {
+    method: 'POST',
+    body: JSON.stringify({
+      mapperIds,
+      datasourceName,
+      llmName
+    })
+  })
+}
+
+// 基于namespace解析（新接口）
+export async function parseByNamespace(namespace) {
+  const data = await request('/mybatis/parse-by-namespace', {
+    method: 'POST',
+    body: JSON.stringify({ namespace })
+  })
+  return data
+}
+
+// 刷新namespace的SQL解析结果（新接口）
+export async function refreshByNamespace(namespace) {
+  const data = await request('/mybatis/refresh-by-namespace', {
+    method: 'POST',
+    body: JSON.stringify({ namespace })
+  })
+  return data
+}
+
 // Prompt 模板管理
 export async function getPrompts() {
   return request('/prompts')

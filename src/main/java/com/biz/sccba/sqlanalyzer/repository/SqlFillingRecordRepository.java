@@ -25,5 +25,11 @@ public interface SqlFillingRecordRepository extends JpaRepository<SqlFillingReco
      */
     @Query("SELECT s FROM SqlFillingRecord s WHERE s.mapperId LIKE :namespace%")
     List<SqlFillingRecord> findByNamespace(@Param("namespace") String namespace);
+    
+    /**
+     * 根据 mapperId、datasourceName 和 llmName 查找
+     */
+    Optional<SqlFillingRecord> findByMapperIdAndDatasourceNameAndLlmName(
+            String mapperId, String datasourceName, String llmName);
 }
 

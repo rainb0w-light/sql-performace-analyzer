@@ -424,6 +424,70 @@ public class MyBatisController {
     }
 
     /**
+     * 基于namespace解析Mapper（从应用上下文获取Configuration）
+     * POST /api/mybatis/parse-by-namespace
+     */
+    @PostMapping("/parse-by-namespace")
+    public ResponseEntity<?> parseByNamespace(@RequestBody Map<String, Object> request) {
+        try {
+            String namespace = (String) request.get("namespace");
+
+            if (namespace == null || namespace.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(createErrorResponse("namespace不能为空"));
+            }
+
+            logger.info("收到基于namespace解析请求: namespace={}", namespace);
+
+            Map<String, Object> result = myBatisConfigurationParserService.parseMapperByNamespace(namespace.trim());
+
+            if (Boolean.TRUE.equals(result.get("success"))) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.status(500)
+                        .body(result);
+            }
+
+        } catch (Exception e) {
+            logger.error("基于namespace解析失败", e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("解析失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 刷新指定namespace的SQL解析结果
+     * POST /api/mybatis/refresh-by-namespace
+     */
+    @PostMapping("/refresh-by-namespace")
+    public ResponseEntity<?> refreshByNamespace(@RequestBody Map<String, Object> request) {
+        try {
+            String namespace = (String) request.get("namespace");
+
+            if (namespace == null || namespace.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(createErrorResponse("namespace不能为空"));
+            }
+
+            logger.info("收到刷新SQL解析结果请求: namespace={}", namespace);
+
+            Map<String, Object> result = myBatisConfigurationParserService.refreshSqlQueriesByNamespace(namespace.trim());
+
+            if (Boolean.TRUE.equals(result.get("success"))) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.status(500)
+                        .body(result);
+            }
+
+        } catch (Exception e) {
+            logger.error("刷新SQL解析结果失败", e);
+            return ResponseEntity.status(500)
+                    .body(createErrorResponse("刷新失败: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 创建错误响应
      */
     private Map<String, Object> createErrorResponse(String message) {

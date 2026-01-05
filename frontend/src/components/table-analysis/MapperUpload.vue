@@ -32,9 +32,9 @@
             type="primary"
             @click="handleUpload"
             :loading="uploading"
-            :disabled="!form.mapperNamespace.trim() || !form.xmlContent.trim()"
+            :disabled="!form.mapperNamespace.trim() && !form.xmlContent.trim()"
           >
-            {{ uploading ? '上传中...' : '上传并解析' }}
+            {{ uploading ? '解析中...' : '解析' }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -344,7 +344,8 @@ import {
   updateQuery,
   deleteQueries,
   updateParameter,
-  deleteParameters
+  deleteParameters,
+  parseByNamespace
 } from '@/api'
 
 const uploading = ref(false)
@@ -434,8 +435,18 @@ async function handleNamespaceChange() {
 
 // 上传处理
 async function handleUpload() {
-  if (!form.mapperNamespace.trim() || !form.xmlContent.trim()) {
-    error.value = '请填写Mapper命名空间和XML内容'
+  const namespace = form.mapperNamespace.trim()
+  const xmlContent = form.xmlContent.trim()
+
+  // 至少需要填写一个
+  if (!namespace && !xmlContent) {
+    error.value = '请至少填写Mapper命名空间或XML内容'
+    return
+  }
+
+  // 如果只有XML内容，需要namespace
+  if (!namespace && xmlContent) {
+    error.value = '解析XML内容需要提供Mapper命名空间'
     return
   }
 
@@ -444,23 +455,36 @@ async function handleUpload() {
   success.value = null
 
   try {
-    const data = await uploadMapperXml({
-      mapperNamespace: form.mapperNamespace.trim(),
-      xmlContent: form.xmlContent.trim()
-    })
+    let data
 
-    success.value = `成功解析 ${data.queryCount} 个SQL查询！`
-    form.xmlContent = ''
+    if (xmlContent) {
+      // 如果提供了XML内容，使用XML上传解析
+      data = await uploadMapperXml({
+        mapperNamespace: namespace,
+        xmlContent: xmlContent
+      })
+      success.value = `成功解析 ${data.queryCount} 个SQL查询！`
+      form.xmlContent = ''
+    } else {
+      // 如果只提供了namespace，使用namespace解析（从应用上下文获取Configuration）
+      data = await parseByNamespace(namespace)
+      
+      if (data.needEdit === true) {
+        success.value = `已提取 ${data.parameters?.length || 0} 个参数，请编辑参数后继续解析SQL`
+      } else {
+        success.value = `成功解析 ${data.queryCount || 0} 个SQL查询！`
+      }
+    }
     
-    // 上传成功后刷新命名空间列表和查询列表
+    // 解析成功后刷新命名空间列表和查询列表
     await loadNamespaces()
-    // 如果上传的命名空间已选中，刷新查询和参数列表
-    if (selectedNamespace.value === form.mapperNamespace.trim()) {
+    // 如果解析的命名空间已选中，刷新查询和参数列表
+    if (selectedNamespace.value === namespace) {
       await handleNamespaceChange()
     }
   } catch (err) {
-    error.value = err.message || '上传失败，请检查网络连接或稍后重试'
-    console.error('上传错误:', err)
+    error.value = err.message || '解析失败，请检查网络连接或稍后重试'
+    console.error('解析错误:', err)
   } finally {
     uploading.value = false
   }

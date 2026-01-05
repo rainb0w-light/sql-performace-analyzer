@@ -1,0 +1,44 @@
+{
+  "originalSql": "SELECT u.id, u.username, u.email, COUNT(o.id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_amount, MAX(o.created_at) as last_order_time FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id, u.username, u.email HAVING COUNT(o.id) > 0 ORDER BY total_amount DESC",
+  "scenarios": [
+    {
+      "scenarioName": "典型值场景（常规测试）",
+      "filledSql": "SELECT u.id, u.username, u.email, COUNT(o.id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_amount, MAX(o.created_at) as last_order_time FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id, u.username, u.email HAVING COUNT(o.id) > 0 ORDER BY total_amount DESC",
+      "parameters": {},
+      "description": "使用原始SQL模板进行测试。这是最常见的查询场景，旨在评估系统在常规负载下，对用户订单进行聚合统计的性能。由于SQL模板本身没有占位符，此场景直接执行原语句，用于测试基础性能、JOIN效率、GROUP BY开销以及排序操作。"
+    },
+    {
+      "scenarioName": "最小值场景（边界测试）",
+      "filledSql": "SELECT u.id, u.username, u.email, COUNT(o.id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_amount, MAX(o.created_at) as last_order_time FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = 1 GROUP BY u.id, u.username, u.email HAVING COUNT(o.id) > 0 ORDER BY total_amount DESC",
+      "parameters": {
+        "user_id": 1
+      },
+      "description": "通过添加 WHERE u.id = 1 条件，测试查询下边界（最小用户ID）。此场景旨在测试当关联数据量可能非常少（例如，用户1可能只有很少或没有订单）时，查询优化器是否会选择不同的执行计划（如使用主键索引进行高效查找），以及 HAVING COUNT(o.id) > 0 过滤的效果。"
+    },
+    {
+      "scenarioName": "最大值场景（边界测试）",
+      "filledSql": "SELECT u.id, u.username, u.email, COUNT(o.id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_amount, MAX(o.created_at) as last_order_time FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.id = 5000000 GROUP BY u.id, u.username, u.email HAVING COUNT(o.id) > 0 ORDER BY total_amount DESC",
+      "parameters": {
+        "user_id": 5000000
+      },
+      "description": "通过添加 WHERE u.id = 5000000 条件，测试查询上边界（一个较大的、可能不存在的用户ID）。此场景旨在测试当使用一个接近或超过当前最大ID的值进行查询时，数据库的索引查找效率、对不存在数据的处理方式，以及整个查询管道的性能表现。"
+    },
+    {
+      "scenarioName": "稀疏值场景（特殊情况）",
+      "filledSql": "SELECT u.id, u.username, u.email, COUNT(o.id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_amount, MAX(o.created_at) as last_order_time FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.status = 'inactive' GROUP BY u.id, u.username, u.email HAVING COUNT(o.id) > 0 ORDER BY total_amount DESC",
+      "parameters": {
+        "status": "inactive"
+      },
+      "description": "通过添加 WHERE u.status = 'inactive' 条件，测试对稀疏分布列的查询。假设 'inactive' 状态的用户占比较小，此场景旨在评估索引 idx_status 在高选择性条件下的有效性，以及当筛选出少量用户后，与订单表关联和聚合的性能。"
+    },
+    {
+      "scenarioName": "边界值场景（索引失效/全表扫描风险）",
+      "filledSql": "SELECT u.id, u.username, u.email, COUNT(o.id) as order_count, COALESCE(SUM(o.total_amount), 0) as total_amount, MAX(o.created_at) as last_order_time FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.age > 10 GROUP BY u.id, u.username, u.email HAVING COUNT(o.id) > 0 ORDER BY total_amount DESC",
+      "parameters": {
+        "age": 10
+      },
+      "description": "通过添加 WHERE u.age > 10 条件，测试可能导致全表扫描的场景。由于 `age` 列没有索引，且条件 `> 10` 可能覆盖大部分用户（假设年龄分布广泛），优化器可能被迫对 `users` 表进行全表扫描。此场景旨在识别无索引列上的范围查询对整体性能的潜在风险，并观察其如何影响后续的 JOIN 和 GROUP BY 操作。"
+    }
+  ],
+  "reasoning": "原始SQL模板没有显式的占位符（如?或:param），它是一个完整的聚合查询。为了创建不同的测试场景，我采取了以下策略：\n1.  **场景设计基础**：由于无法修改SELECT列表或GROUP BY子句中的固定列，我选择在WHERE子句中添加不同的过滤条件来创建场景。这些条件基于表结构中存在的、且有业务意义的列。\n2.  **参数选择依据**：\n    - **典型值场景**：直接执行原SQL，作为性能基线。\n    - **最小/最大值场景**：选择 `users.id` 列（主键）的边界值。最小值（1）是典型的起始点。最大值我假设了一个较大的数（5000000），用于模拟上边界查找。\n    - **稀疏值场景**：选择 `users.status` 枚举列，并假设 'inactive' 是低频值，以测试高选择性索引查询。\n    - **索引失效场景**：选择无索引的 `users.age` 列，并设置一个宽泛的范围条件（>10），旨在触发对users表的全表扫描，测试最坏情况下的性能。\n3.  **测试目的**：每个场景旨在验证不同的数据库行为：\n    - 典型场景：整体查询效率。\n    - 边界场景：索引在极端值下的查找效率。\n    - 稀疏值场景：高选择性索引的有效性。\n    - 索引失效场景：识别性能瓶颈和全表扫描的影响。\n4.  **关于直方图**：由于未提供直方图数据，所有参数值（如'inactive'状态的存在性、年龄>10的选择性）均基于常见业务逻辑的合理假设。在实际测试中，应使用真实的数据分布来调整这些值。"
+}

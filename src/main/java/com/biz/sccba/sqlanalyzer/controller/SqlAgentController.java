@@ -1,12 +1,12 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
-import com.biz.sccba.sqlanalyzer.model.request.FillingRecordsRequest;
-import com.biz.sccba.sqlanalyzer.model.request.FillingRecordsResponse;
-import com.biz.sccba.sqlanalyzer.model.request.MultiSqlAgentRequest;
-import com.biz.sccba.sqlanalyzer.model.request.MultiSqlAgentResponse;
+import com.biz.sccba.sqlanalyzer.request.FillingRecordsRequest;
+import com.biz.sccba.sqlanalyzer.response.FillingRecordsResponse;
+import com.biz.sccba.sqlanalyzer.request.MultiSqlAgentRequest;
+import com.biz.sccba.sqlanalyzer.response.MultiSqlAgentResponse;
 import com.biz.sccba.sqlanalyzer.service.SqlAgentService;
-import com.biz.sccba.sqlanalyzer.service.SqlFillingService;
-import com.biz.sccba.sqlanalyzer.model.AgentException;
+import com.biz.sccba.sqlanalyzer.llm.service.SqlFillingService;
+import com.biz.sccba.sqlanalyzer.error.AgentException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

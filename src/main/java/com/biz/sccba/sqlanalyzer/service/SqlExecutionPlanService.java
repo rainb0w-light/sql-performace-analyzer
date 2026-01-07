@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
-import com.biz.sccba.sqlanalyzer.model.TableStructure;
+import com.biz.sccba.sqlanalyzer.data.TableStructure;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,10 +48,10 @@ public class SqlExecutionPlanService {
                 ExecutionPlan plan = new ExecutionPlan();
                 plan.setRawJson(jsonResult);
                 
-                // 解析JSON
+                // 解析JSON并填充字段
                 try {
                     JsonNode jsonNode = objectMapper.readTree(jsonResult);
-                    plan.setQueryBlock(parseQueryBlock(jsonNode));
+                    plan.parseFromJsonNode(jsonNode);
                 } catch (Exception e) {
                     // 如果解析失败，只保留原始JSON
                     System.err.println("解析执行计划JSON失败: " + e.getMessage());
@@ -65,71 +65,6 @@ public class SqlExecutionPlanService {
         return null;
     }
 
-    /**
-     * 解析查询块
-     */
-    private ExecutionPlan.QueryBlock parseQueryBlock(JsonNode jsonNode) {
-        ExecutionPlan.QueryBlock queryBlock = new ExecutionPlan.QueryBlock();
-        
-        JsonNode queryBlockNode = jsonNode.path("query_block");
-        if (queryBlockNode.isMissingNode()) {
-            return queryBlock;
-        }
-        
-        // 解析select_id
-        if (queryBlockNode.has("select_id")) {
-            queryBlock.setSelectId(queryBlockNode.get("select_id").asInt());
-        }
-        
-        // 解析cost_info
-        if (queryBlockNode.has("cost_info")) {
-            JsonNode costInfoNode = queryBlockNode.get("cost_info");
-            ExecutionPlan.CostInfo costInfo = new ExecutionPlan.CostInfo();
-            if (costInfoNode.has("query_cost")) {
-                costInfo.setQueryCost(costInfoNode.get("query_cost").asText());
-            }
-            if (costInfoNode.has("read_cost")) {
-                costInfo.setReadCost(costInfoNode.get("read_cost").asText());
-            }
-            queryBlock.setCostInfo(costInfo);
-        }
-        
-        // 解析table
-        if (queryBlockNode.has("table")) {
-            JsonNode tableNode = queryBlockNode.get("table");
-            ExecutionPlan.TableInfo tableInfo = new ExecutionPlan.TableInfo();
-            
-            if (tableNode.has("table_name")) {
-                tableInfo.setTableName(tableNode.get("table_name").asText());
-            }
-            if (tableNode.has("access_type")) {
-                tableInfo.setAccessType(tableNode.get("access_type").asText());
-            }
-            if (tableNode.has("key")) {
-                tableInfo.setKey(tableNode.get("key").asText());
-            }
-            if (tableNode.has("rows_examined_per_scan")) {
-                tableInfo.setRowsExaminedPerScan(tableNode.get("rows_examined_per_scan").asLong());
-            }
-            if (tableNode.has("rows_produced_per_join")) {
-                tableInfo.setRowsProducedPerJoin(tableNode.get("rows_produced_per_join").asLong());
-            }
-            if (tableNode.has("used_columns")) {
-                JsonNode usedColumnsNode = tableNode.get("used_columns");
-                List<String> columns = new ArrayList<>();
-                if (usedColumnsNode.isArray()) {
-                    for (JsonNode col : usedColumnsNode) {
-                        columns.add(col.asText());
-                    }
-                }
-                tableInfo.setUsedColumns(columns.toArray(new String[0]));
-            }
-            
-            queryBlock.setTable(tableInfo);
-        }
-        
-        return queryBlock;
-    }
 
     /**
      * 获取SQL涉及的表结构信息

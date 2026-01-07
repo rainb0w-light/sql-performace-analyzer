@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.AgentErrorCode;
-import com.biz.sccba.sqlanalyzer.model.AgentException;
+import com.biz.sccba.sqlanalyzer.error.AgentErrorCode;
+import com.biz.sccba.sqlanalyzer.error.AgentException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;

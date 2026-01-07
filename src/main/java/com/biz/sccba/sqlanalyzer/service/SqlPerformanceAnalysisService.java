@@ -1,9 +1,9 @@
 package com.biz.sccba.sqlanalyzer.service;
 
+import com.biz.sccba.sqlanalyzer.llm.service.AiClientService;
 import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
-import com.biz.sccba.sqlanalyzer.model.TableStructure;
-import com.biz.sccba.sqlanalyzer.model.response.SqlAnalysisResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.biz.sccba.sqlanalyzer.data.TableStructure;
+import com.biz.sccba.sqlanalyzer.response.SqlAnalysisResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +27,6 @@ public class SqlPerformanceAnalysisService {
 
     @Autowired
     private SqlAnalysisCacheService cacheService;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 分析SQL性能（带缓存）
@@ -139,15 +137,13 @@ public class SqlPerformanceAnalysisService {
     }
 
     /**
-     * 格式化执行计划为字符串
+     * 格式化执行计划为字符串（使用Markdown格式，便于LLM理解）
      */
     private String formatExecutionPlan(ExecutionPlan executionPlan) {
         try {
-            if (executionPlan.getRawJson() != null) {
-                return executionPlan.getRawJson();
-            }
-            return objectMapper.writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(executionPlan);
+            // 使用toMarkdown()方法将执行计划转换为Markdown格式
+            // 这样LLM更容易理解和分析执行计划信息
+            return executionPlan.toMarkdown();
         } catch (Exception e) {
             logger.warn("格式化执行计划失败", e);
             return "执行计划格式错误";

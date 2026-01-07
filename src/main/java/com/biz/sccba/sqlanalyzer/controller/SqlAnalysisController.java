@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
-import com.biz.sccba.sqlanalyzer.model.request.SqlAnalysisRequest;
-import com.biz.sccba.sqlanalyzer.model.response.SqlAnalysisResponse;
+import com.biz.sccba.sqlanalyzer.request.SqlAnalysisRequest;
+import com.biz.sccba.sqlanalyzer.response.SqlAnalysisResponse;
 import com.biz.sccba.sqlanalyzer.service.DataSourceManagerService;
 import com.biz.sccba.sqlanalyzer.service.LlmManagerService;
 import com.biz.sccba.sqlanalyzer.service.SqlPerformanceAnalysisService;

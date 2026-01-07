@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import SqlAnalysis from '../views/SqlAnalysis.vue'
-import TableAnalysis from '../views/TableAnalysis.vue'
 import SqlAgentAnalysis from '../views/SqlAgentAnalysis.vue'
 import PromptManagement from '../views/PromptManagement.vue'
 
@@ -12,15 +11,6 @@ const routes = [
     meta: {
       title: 'SQL 分析',
       breadcrumb: ['首页', 'SQL 性能分析']
-    }
-  },
-  {
-    path: '/table-analysis',
-    name: 'TableAnalysis',
-    component: TableAnalysis,
-    meta: {
-      title: '表分析',
-      breadcrumb: ['首页', '表分析']
     }
   },
   {

@@ -1,6 +1,6 @@
 package com.biz.sccba.sqlanalyzer.service;
 
-import com.biz.sccba.sqlanalyzer.model.SqlExecutionPlanRecord;
+import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
 import com.biz.sccba.sqlanalyzer.model.SqlPlanAnalysisResult;
 import com.biz.sccba.sqlanalyzer.repository.SqlPlanAnalysisResultRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,22 +27,29 @@ public class PlanAnalysisService {
 
     public List<SqlPlanAnalysisResult> analyzeExecutionPlans(String mapperId,
                                                              String originalSql,
-                                                             List<SqlExecutionPlanRecord> executionPlanRecords) {
+                                                             List<ExecutionPlan> executionPlanRecords) {
         logger.info("阶段3：执行计划解析阶段 - mapperId: {}", mapperId);
 
         List<SqlPlanAnalysisResult> results = new ArrayList<>();
-        Map<String, List<SqlExecutionPlanRecord>> sqlGroups = executionPlanRecords.stream()
-                .collect(Collectors.groupingBy(SqlExecutionPlanRecord::getOriginalSql));
+        Map<String, List<ExecutionPlan>> sqlGroups = executionPlanRecords.stream()
+                .collect(Collectors.groupingBy(ExecutionPlan::getOriginalSql));
 
-        for (Map.Entry<String, List<SqlExecutionPlanRecord>> entry : sqlGroups.entrySet()) {
+        for (Map.Entry<String, List<ExecutionPlan>> entry : sqlGroups.entrySet()) {
             String sql = entry.getKey();
-            List<SqlExecutionPlanRecord> records = entry.getValue();
+            List<ExecutionPlan> records = entry.getValue();
             if (records.isEmpty()) {
                 continue;
             }
 
+            // 确保字段已解析
+            for (ExecutionPlan plan : records) {
+                if (plan.getKey() == null && plan.getRawJson() != null && !plan.getRawJson().isEmpty()) {
+                    plan.parseFromRawJson();
+                }
+            }
+
             boolean allNoIndex = records.stream()
-                    .allMatch(r -> r.getIndexName() == null || r.getIndexName().isEmpty());
+                    .allMatch(r -> r.getKey() == null || r.getKey().isEmpty());
             if (allNoIndex) {
                 SqlPlanAnalysisResult result = new SqlPlanAnalysisResult();
                 result.setMapperId(mapperId);
@@ -51,7 +58,7 @@ public class PlanAnalysisService {
                 result.setPlanShiftDetailsJson(null);
 
                 List<Long> recordIds = records.stream()
-                        .map(SqlExecutionPlanRecord::getId)
+                        .map(ExecutionPlan::getId)
                         .collect(Collectors.toList());
                 result.setExecutionPlanRecordIds(writeIds(recordIds));
 
@@ -61,7 +68,7 @@ public class PlanAnalysisService {
             }
 
             Set<String> indexNames = records.stream()
-                    .map(r -> r.getIndexName() != null ? r.getIndexName() : "FULL_TABLE_SCAN")
+                    .map(r -> r.getKey() != null && !r.getKey().isEmpty() ? r.getKey() : "FULL_TABLE_SCAN")
                     .collect(Collectors.toSet());
             boolean hasPlanShift = indexNames.size() > 1;
             if (hasPlanShift) {
@@ -70,13 +77,12 @@ public class PlanAnalysisService {
                 shiftDetails.put("scenarioCount", records.size());
 
                 List<Map<String, Object>> scenarioIndexes = new ArrayList<>();
-                for (SqlExecutionPlanRecord record : records) {
+                for (ExecutionPlan record : records) {
                     Map<String, Object> scenarioInfo = new HashMap<>();
-                    scenarioInfo.put("scenarioName", record.getScenarioName());
-                    scenarioInfo.put("indexName", record.getIndexName() != null ?
-                            record.getIndexName() : "FULL_TABLE_SCAN");
+                    scenarioInfo.put("indexName", record.getKey() != null && !record.getKey().isEmpty() ?
+                            record.getKey() : "FULL_TABLE_SCAN");
                     scenarioInfo.put("accessType", record.getAccessType());
-                    scenarioInfo.put("rowsExamined", record.getRowsExamined());
+                    scenarioInfo.put("rowsExamined", record.getRowsExaminedPerScan());
                     scenarioIndexes.add(scenarioInfo);
                 }
                 shiftDetails.put("scenarioIndexes", scenarioIndexes);
@@ -88,7 +94,7 @@ public class PlanAnalysisService {
                 result.setPlanShiftDetailsJson(writeValue(shiftDetails));
 
                 List<Long> recordIds = records.stream()
-                        .map(SqlExecutionPlanRecord::getId)
+                        .map(ExecutionPlan::getId)
                         .collect(Collectors.toList());
                 result.setExecutionPlanRecordIds(writeIds(recordIds));
 

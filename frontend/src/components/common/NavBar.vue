@@ -19,10 +19,6 @@
       <el-icon><Cpu /></el-icon>
       <span>Agent 分析</span>
     </el-menu-item>
-    <el-menu-item index="/table-analysis">
-      <el-icon><Document /></el-icon>
-      <span>表分析</span>
-    </el-menu-item>
     <el-menu-item index="/prompt-management">
       <el-icon><Setting /></el-icon>
       <span>模板管理</span>
@@ -33,7 +29,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { DataAnalysis, House, Cpu, Document, Setting } from '@element-plus/icons-vue'
+import { DataAnalysis, House, Cpu, Setting } from '@element-plus/icons-vue'
 
 const route = useRoute()
 

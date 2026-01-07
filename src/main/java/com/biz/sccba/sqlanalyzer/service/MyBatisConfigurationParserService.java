@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.model.MapperParameter;
-import com.biz.sccba.sqlanalyzer.model.ParseResult;
+import com.biz.sccba.sqlanalyzer.data.ParseResult;
 import com.biz.sccba.sqlanalyzer.model.ParsedSqlQuery;
 import com.biz.sccba.sqlanalyzer.repository.MapperParameterRepository;
 import com.biz.sccba.sqlanalyzer.repository.ParsedSqlQueryRepository;
@@ -95,9 +95,6 @@ public class MyBatisConfigurationParserService {
                 
                 // 保存到完整路径（namespace.statementId）
                 saveTestExpressionsAsParameters(statementId, testExpressions);
-                
-                // 保存到命名空间层级（namespace）
-                saveTestExpressionsAsParameters(mapperNamespace, testExpressions);
             }
 
             logger.info("解析完成，共解析出 {} 个SQL查询", queries.size());

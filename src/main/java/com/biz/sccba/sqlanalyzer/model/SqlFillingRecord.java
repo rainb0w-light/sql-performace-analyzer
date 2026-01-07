@@ -1,8 +1,14 @@
 package com.biz.sccba.sqlanalyzer.model;
 
+import com.biz.sccba.sqlanalyzer.data.FilledSqlScenario;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * SQL 数据填充结果记录
@@ -10,10 +16,10 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "sql_filling_record",
-    indexes = {
-        @Index(name = "idx_mapper_id", columnList = "mapperId"),
-        @Index(name = "idx_namespace", columnList = "mapperId")
-    }
+        indexes = {
+                @Index(name = "idx_mapper_id", columnList = "mapperId"),
+                @Index(name = "idx_namespace", columnList = "mapperId")
+        }
 )
 @Data
 public class SqlFillingRecord {
@@ -64,9 +70,23 @@ public class SqlFillingRecord {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+
+    /**
+     * 多个场景的填充结果
+     */
+    @JsonProperty("scenarios")
+    private List<FilledSqlScenario> scenarios;
+
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+    }
+
+    @PostLoad
+    protected void onLoad() throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        this.scenarios = objectMapper.readValue(fillingResultJson, List.class);
     }
 }
 

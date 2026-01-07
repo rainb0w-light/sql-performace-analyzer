@@ -1,4 +1,4 @@
-package com.biz.sccba.sqlanalyzer.model;
+package com.biz.sccba.sqlanalyzer.error;
 
 /**
  * Agent 层统一错误码。

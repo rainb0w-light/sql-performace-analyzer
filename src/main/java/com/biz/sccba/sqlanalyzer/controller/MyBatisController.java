@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
 import com.biz.sccba.sqlanalyzer.model.MapperParameter;
-import com.biz.sccba.sqlanalyzer.model.ParseResult;
+import com.biz.sccba.sqlanalyzer.data.ParseResult;
 import com.biz.sccba.sqlanalyzer.service.MyBatisConfigurationParserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

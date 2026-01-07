@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.config.DataSourceConfig;
-import com.biz.sccba.sqlanalyzer.model.DataSourceConfigModel;
+import com.biz.sccba.sqlanalyzer.data.DataSourceConfigModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;

@@ -15,9 +15,20 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'element-plus': ['element-plus'],
-          'vue-vendor': ['vue', 'vue-router']
+        manualChunks(id) {
+          // 将 node_modules 中的依赖分离
+          if (id.includes('node_modules')) {
+            // Element Plus 及其图标库单独打包
+            if (id.includes('element-plus')) {
+              return 'element-plus'
+            }
+            // Vue 相关库打包在一起
+            if (id.includes('vue') || id.includes('vue-router')) {
+              return 'vue-vendor'
+            }
+            // 其他第三方库
+            return 'vendor'
+          }
         }
       }
     }

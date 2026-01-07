@@ -1,6 +1,6 @@
 package com.biz.sccba.sqlanalyzer.config;
 
-import com.biz.sccba.sqlanalyzer.model.DataSourceConfigModel;
+import com.biz.sccba.sqlanalyzer.data.DataSourceConfigModel;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;

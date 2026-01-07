@@ -14,18 +14,7 @@ import java.util.Optional;
  */
 @Repository
 public interface SqlFillingRecordRepository extends JpaRepository<SqlFillingRecord, Long> {
-    
-    /**
-     * 根据 mapperId 查找
-     */
-    Optional<SqlFillingRecord> findByMapperId(String mapperId);
-    
-    /**
-     * 根据 namespace 查找（通过 mapperId 前缀匹配）
-     */
-    @Query("SELECT s FROM SqlFillingRecord s WHERE s.mapperId LIKE :namespace%")
-    List<SqlFillingRecord> findByNamespace(@Param("namespace") String namespace);
-    
+
     /**
      * 根据 mapperId、datasourceName 和 llmName 查找
      */

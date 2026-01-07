@@ -1,8 +1,13 @@
 package com.biz.sccba.sqlanalyzer.service;
 
+import com.biz.sccba.sqlanalyzer.error.AgentErrorCode;
+import com.biz.sccba.sqlanalyzer.error.AgentException;
+import com.biz.sccba.sqlanalyzer.llm.service.IndexReportService;
+import com.biz.sccba.sqlanalyzer.llm.service.SqlFillingService;
 import com.biz.sccba.sqlanalyzer.model.*;
-import com.biz.sccba.sqlanalyzer.model.request.MultiSqlAgentRequest;
-import com.biz.sccba.sqlanalyzer.model.request.MultiSqlAgentResponse;
+import com.biz.sccba.sqlanalyzer.data.FilledSqlScenario;
+import com.biz.sccba.sqlanalyzer.request.MultiSqlAgentRequest;
+import com.biz.sccba.sqlanalyzer.response.MultiSqlAgentResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
@@ -21,7 +26,6 @@ import java.util.Objects;
 public class SqlAgentService {
 
     private static final Logger logger = LoggerFactory.getLogger(SqlAgentService.class);
-    private final ObjectMapper objectMapper;
     @Autowired
     private SqlFillingService fillingService;
     @Autowired
@@ -30,12 +34,6 @@ public class SqlAgentService {
     private PlanAnalysisService planAnalysisService;
     @Autowired
     private IndexReportService indexReportService;
-
-    public SqlAgentService() {
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
-    }
-
 
     /**
      * 多条 SQL 批量全流程，阶段4一次性生成报告。
@@ -61,7 +59,7 @@ public class SqlAgentService {
 
             try {
                 SqlFillingRecord fillingRecord = fillingService.fillSqlWithDataDistribution(sql, mapperId, datasourceName, llmName);
-                List<FilledSqlScenario> scenarios = parseFillingResult(fillingRecord);
+                List<FilledSqlScenario> scenarios = fillingRecord.getScenarios();
                 List<String> scenarioNames = scenarios.stream()
                         .map(FilledSqlScenario::getScenarioName)
                         .collect(java.util.stream.Collectors.toList());
@@ -103,20 +101,5 @@ public class SqlAgentService {
         
         logger.info("批量 SQL 工作流分析完成 - SQL 数量: {}, 报告ID: {}", sqlItems.size(), report.getId());
         return response;
-    }
-
-    private List<FilledSqlScenario> parseFillingResult(SqlFillingRecord fillingRecord) throws AgentException {
-        try {
-            SqlFillingResult fillingResult = objectMapper.readValue(
-                    fillingRecord.getFillingResultJson(), SqlFillingResult.class);
-            if (fillingResult.getScenarios() == null || fillingResult.getScenarios().isEmpty()) {
-                throw new AgentException(AgentErrorCode.DATA_FILL_FAILED, "填充结果中没有场景数据");
-            }
-            return fillingResult.getScenarios();
-        } catch (AgentException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new AgentException(AgentErrorCode.JSON_PARSE_FAILED, "解析填充结果失败", e);
-        }
     }
 }

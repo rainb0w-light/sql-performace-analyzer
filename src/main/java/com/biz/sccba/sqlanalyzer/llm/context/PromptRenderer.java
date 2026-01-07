@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.llm.context;
 
 import com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram;
-import com.biz.sccba.sqlanalyzer.model.TableStructure;
+import com.biz.sccba.sqlanalyzer.data.TableStructure;
 
 import java.util.HashMap;
 import java.util.List;

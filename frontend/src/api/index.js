@@ -53,12 +53,6 @@ export async function downloadSqlReport(data) {
   return response
 }
 
-// 表分析
-export async function analyzeTable(tableName, datasourceName) {
-  const url = `/analysis/table/${encodeURIComponent(tableName)}${datasourceName ? `?datasourceName=${encodeURIComponent(datasourceName)}` : ''}`
-  return request(url)
-}
-
 // MyBatis Mapper 上传
 export async function uploadMapperXml(data) {
   return request('/mybatis/upload', {

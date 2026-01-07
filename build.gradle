@@ -77,3 +77,15 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+//// 前端构建任务
+//task buildFrontend(type: Exec) {
+//    group = 'build'
+//    description = '构建前端资源'
+//    workingDir = file('frontend')
+//    // 设置 npm 镜像源环境变量
+//    environment('npm_config_registry', 'https://registry.npmmirror.com')
+//    commandLine = ['npm', 'run', 'build']
+//}
+//
+//// 确保构建前端后再打包
+//processResources.dependsOn buildFrontend

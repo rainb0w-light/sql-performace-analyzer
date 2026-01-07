@@ -1,8 +1,8 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.model.ExecutionPlan;
-import com.biz.sccba.sqlanalyzer.model.TableStructure;
-import com.biz.sccba.sqlanalyzer.model.response.SqlAnalysisResponse;
+import com.biz.sccba.sqlanalyzer.data.TableStructure;
+import com.biz.sccba.sqlanalyzer.response.SqlAnalysisResponse;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -32,64 +32,8 @@ public class ReportGenerator {
         // 2. 执行计划摘要
         report.append("## 2. 执行计划摘要\n\n");
         ExecutionPlan executionPlan = response.getExecutionPlan();
-        if (executionPlan != null && executionPlan.getQueryBlock() != null) {
-            ExecutionPlan.QueryBlock queryBlock = executionPlan.getQueryBlock();
-            
-            report.append("| 指标 | 值 |\n");
-            report.append("|------|-----|\n");
-            
-            if (queryBlock.getSelectId() != null) {
-                report.append("| 查询ID | ").append(queryBlock.getSelectId()).append(" |\n");
-            }
-            
-            if (queryBlock.getCostInfo() != null) {
-                ExecutionPlan.CostInfo costInfo = queryBlock.getCostInfo();
-                if (costInfo.getQueryCost() != null) {
-                    report.append("| 查询成本 | ").append(costInfo.getQueryCost()).append(" |\n");
-                }
-                if (costInfo.getReadCost() != null) {
-                    report.append("| 读取成本 | ").append(costInfo.getReadCost()).append(" |\n");
-                }
-            }
-            
-            if (queryBlock.getTable() != null) {
-                ExecutionPlan.TableInfo tableInfo = queryBlock.getTable();
-                if (tableInfo.getTableName() != null) {
-                    report.append("| 表名 | ").append(tableInfo.getTableName()).append(" |\n");
-                }
-                if (tableInfo.getAccessType() != null) {
-                    report.append("| 访问类型 | ").append(tableInfo.getAccessType()).append(" |\n");
-                }
-                if (tableInfo.getKey() != null && !tableInfo.getKey().isEmpty()) {
-                    report.append("| 使用的索引 | ").append(tableInfo.getKey()).append(" |\n");
-                } else {
-                    report.append("| 使用的索引 | 无 |\n");
-                }
-                if (tableInfo.getRowsExaminedPerScan() != null) {
-                    report.append("| 扫描行数 | ").append(tableInfo.getRowsExaminedPerScan()).append(" |\n");
-                }
-                if (tableInfo.getRowsProducedPerJoin() != null) {
-                    report.append("| 产生行数 | ").append(tableInfo.getRowsProducedPerJoin()).append(" |\n");
-                }
-                if (tableInfo.getUsedColumns() != null && tableInfo.getUsedColumns().length > 0) {
-                    report.append("| 使用的列 | ").append(String.join(", ", tableInfo.getUsedColumns())).append(" |\n");
-                }
-            }
-            
-            report.append("\n");
-            
-            // 执行计划JSON（折叠）
-            if (executionPlan.getRawJson() != null) {
-                report.append("<details>\n");
-                report.append("<summary>查看完整执行计划（JSON）</summary>\n\n");
-                report.append("```json\n");
-                report.append(executionPlan.getRawJson()).append("\n");
-                report.append("```\n\n");
-                report.append("</details>\n\n");
-            }
-        } else {
-            report.append("无法获取执行计划信息。\n\n");
-        }
+
+        report.append(executionPlan.toMarkdown());
         
         // 3. 表结构信息
         report.append("## 3. 表结构信息\n\n");

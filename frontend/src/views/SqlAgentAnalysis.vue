@@ -14,10 +14,13 @@
           <el-form-item label="Namespace">
             <el-select
               v-model="form.namespace"
-              placeholder="请选择 Namespace"
+              placeholder="请选择或输入 Namespace"
               filterable
+              allow-create
+              default-first-option
               style="width: 400px"
               @change="handleNamespaceChange"
+              @keyup.enter="handleNamespaceEnter"
               :loading="loadingNamespaces || parsingNamespace"
             >
               <el-option
@@ -384,6 +387,23 @@ async function loadLlms() {
   }
 }
 
+async function handleNamespaceEnter() {
+  // 当用户按回车键时，如果输入的是新 namespace，则触发解析
+  if (!form.namespace || !form.namespace.trim()) {
+    return
+  }
+
+  const namespace = form.namespace.trim()
+  
+  // 检查是否是新增的 namespace
+  const isNewNamespace = !namespaces.value.includes(namespace)
+  
+  if (isNewNamespace) {
+    // 如果是新增的 namespace，触发解析
+    await handleNamespaceChange()
+  }
+}
+
 async function handleNamespaceChange() {
   if (!form.namespace) {
     queries.value = []
@@ -396,6 +416,14 @@ async function handleNamespaceChange() {
     }
     return
   }
+
+  // 去除首尾空格并更新 form.namespace
+  const namespace = form.namespace.trim()
+  if (namespace !== form.namespace) {
+    form.namespace = namespace
+  }
+  
+  const isNewNamespace = !namespaces.value.includes(namespace)
 
   parsingNamespace.value = true
   errorMessage.value = ''
@@ -410,7 +438,7 @@ async function handleNamespaceChange() {
 
   try {
     // 1. 调用新API: parseByNamespace
-    const parseResult = await parseByNamespace(form.namespace)
+    const parseResult = await parseByNamespace(namespace)
     
     // 2. 检查响应中的 needEdit 标志
     if (parseResult.needEdit === true) {
@@ -428,6 +456,12 @@ async function handleNamespaceChange() {
         await loadFillingRecords()
       }
     }
+
+    // 3. 如果是新增的 namespace 且解析成功，将其添加到列表中
+    if (isNewNamespace && namespace && !namespaces.value.includes(namespace)) {
+      namespaces.value.push(namespace)
+      namespaces.value.sort() // 保持列表有序
+    }
   } catch (error) {
     console.error('解析namespace失败:', error)
     errorMessage.value = '解析namespace失败: ' + error.message
@@ -435,8 +469,14 @@ async function handleNamespaceChange() {
     // 如果解析失败，尝试直接加载查询列表（兼容旧逻辑）
     try {
       loadingQueries.value = true
-      queries.value = await getQueriesByNamespace(form.namespace)
+      queries.value = await getQueriesByNamespace(namespace)
       needEditParameters.value = false
+      
+      // 即使解析失败，如果成功加载了查询列表，也添加到 namespace 列表
+      if (isNewNamespace && namespace && !namespaces.value.includes(namespace)) {
+        namespaces.value.push(namespace)
+        namespaces.value.sort()
+      }
     } catch (loadError) {
       console.error('加载 SQL 列表失败:', loadError)
       errorMessage.value = '加载 SQL 列表失败: ' + loadError.message

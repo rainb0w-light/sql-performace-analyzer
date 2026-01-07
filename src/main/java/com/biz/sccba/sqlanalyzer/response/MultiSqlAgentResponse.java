@@ -1,4 +1,4 @@
-package com.biz.sccba.sqlanalyzer.model.request;
+package com.biz.sccba.sqlanalyzer.response;
 
 import lombok.Data;
 

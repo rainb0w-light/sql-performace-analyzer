@@ -1,4 +1,4 @@
-package com.biz.sccba.sqlanalyzer.model;
+package com.biz.sccba.sqlanalyzer.data;
 
 import lombok.Data;
 import java.util.List;

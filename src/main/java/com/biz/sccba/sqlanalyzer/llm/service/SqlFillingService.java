@@ -1,11 +1,17 @@
-package com.biz.sccba.sqlanalyzer.service;
+package com.biz.sccba.sqlanalyzer.llm.service;
 
+import com.biz.sccba.sqlanalyzer.data.TableStructure;
 import com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram;
+import com.biz.sccba.sqlanalyzer.error.AgentErrorCode;
+import com.biz.sccba.sqlanalyzer.error.AgentException;
 import com.biz.sccba.sqlanalyzer.llm.context.PromptRenderer;
 import com.biz.sccba.sqlanalyzer.llm.context.PromptTemplateEngine;
 import com.biz.sccba.sqlanalyzer.model.*;
-import com.biz.sccba.sqlanalyzer.model.request.FillingRecordsResponse;
+import com.biz.sccba.sqlanalyzer.response.FillingRecordsResponse;
 import com.biz.sccba.sqlanalyzer.repository.SqlFillingRecordRepository;
+import com.biz.sccba.sqlanalyzer.service.ExecutionPlanServiceFacade;
+import com.biz.sccba.sqlanalyzer.service.LlmManagerService;
+import com.biz.sccba.sqlanalyzer.service.PromptTemplateManagerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,10 +19,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 /**
  * 阶段1：数据填充。
@@ -37,9 +40,6 @@ public class SqlFillingService {
 
     @Autowired
     private SqlFillingRecordRepository fillingRecordRepository;
-
-    @Autowired
-    private JsonResponseParser jsonResponseParser;
 
     @Autowired
     private PromptTemplateEngine templateEngine;
@@ -77,101 +77,27 @@ public class SqlFillingService {
                 "table_structure", tableStructureInfo
         ));
 
-        String response = callLlm(llmName, prompt);
-        SqlFillingResult fillingResult = jsonResponseParser.parse(response, SqlFillingResult.class, "SQL_FILL");
+        ChatClient chatClient = llmManagerService.getChatClient(llmName);
+        String response =  chatClient.prompt().user(prompt).call().content();
+
+        logger.info("LLM RESPONSE: {}", response);
 
         try {
             SqlFillingRecord record = new SqlFillingRecord();
             record.setMapperId(mapperId);
             record.setOriginalSql(sql);
-            record.setFillingResultJson(objectMapper.writeValueAsString(fillingResult));
+            record.setFillingResultJson(response);
             record.setHistogramDataJson(objectMapper.writeValueAsString(histograms));
             record.setDatasourceName(datasourceName);
             record.setLlmName(llmName);
 
             SqlFillingRecord savedRecord = fillingRecordRepository.save(record);
-            logger.info("数据填充记录已保存，ID: {}, 场景数: {}",
-                    savedRecord.getId(),
-                    fillingResult.getScenarios() != null ? fillingResult.getScenarios().size() : 0);
             return savedRecord;
         } catch (Exception e) {
             throw new AgentException(AgentErrorCode.JSON_PARSE_FAILED, "保存填充记录失败", e);
         }
     }
 
-    private String callLlm(String llmName, String prompt) throws AgentException {
-        ChatClient chatClient = llmManagerService.getChatClient(llmName);
-        int maxRetries = 3;
-        long retryDelayMs = 1000; // 初始重试延迟1秒
-        
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                logger.debug("LLM 调用尝试 {}/{} - llmName: {}", attempt, maxRetries, llmName);
-                return CompletableFuture.supplyAsync(() ->
-                        chatClient.prompt().user(prompt).call().content()).join();
-            } catch (Exception e) {
-                boolean isRetryable = isRetryableException(e);
-                String errorMsg = String.format("LLM 调用失败 (尝试 %d/%d): %s", attempt, maxRetries, e.getMessage());
-                
-                if (attempt < maxRetries && isRetryable) {
-                    logger.warn("{}，将在 {}ms 后重试", errorMsg, retryDelayMs);
-                    try {
-                        Thread.sleep(retryDelayMs);
-                        retryDelayMs *= 2; // 指数退避
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new AgentException(AgentErrorCode.LLM_CALL_FAILED, "LLM 调用被中断", ie);
-                    }
-                } else {
-                    logger.error("{}", errorMsg, e);
-                    String userMessage = isRetryable 
-                        ? String.format("LLM 调用失败，已重试 %d 次", maxRetries)
-                        : "LLM 调用失败: " + getRootCauseMessage(e);
-                    throw new AgentException(AgentErrorCode.LLM_CALL_FAILED, userMessage, e);
-                }
-            }
-        }
-        
-        // 理论上不会到达这里
-        throw new AgentException(AgentErrorCode.LLM_CALL_FAILED, "LLM 调用失败");
-    }
-    
-    private boolean isRetryableException(Exception e) {
-        Throwable cause = e;
-        while (cause != null) {
-            String message = cause.getMessage();
-            
-            // SSL 握手失败、网络连接问题等可重试
-            if (cause instanceof javax.net.ssl.SSLHandshakeException ||
-                cause instanceof javax.net.ssl.SSLException ||
-                cause instanceof java.net.ConnectException ||
-                cause instanceof java.net.SocketTimeoutException ||
-                cause instanceof java.io.IOException ||
-                (cause instanceof org.springframework.web.client.ResourceAccessException &&
-                 (message != null && (message.contains("handshake") || 
-                                      message.contains("connection") ||
-                                      message.contains("timeout"))))) {
-                return true;
-            }
-            
-            // CompletionException 需要检查内部原因
-            if (cause instanceof java.util.concurrent.CompletionException) {
-                cause = cause.getCause();
-                continue;
-            }
-            
-            cause = cause.getCause();
-        }
-        return false;
-    }
-    
-    private String getRootCauseMessage(Exception e) {
-        Throwable cause = e;
-        while (cause.getCause() != null && cause.getCause() != cause) {
-            cause = cause.getCause();
-        }
-        return cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
-    }
 
     /**
      * 复用老逻辑：格式化表结构信息。
@@ -251,51 +177,16 @@ public class SqlFillingService {
                 mapperIds != null ? mapperIds.size() : 0, datasourceName, llmName);
         
         FillingRecordsResponse response = new FillingRecordsResponse();
-        Map<String, FillingRecordsResponse.FillingRecordData> recordsMap = new HashMap<>();
-        
-        if (mapperIds == null || mapperIds.isEmpty()) {
-            response.setRecords(recordsMap);
-            return response;
-        }
         
         for (String mapperId : mapperIds) {
             Optional<SqlFillingRecord> recordOpt = fillingRecordRepository
                     .findByMapperIdAndDatasourceNameAndLlmName(mapperId, datasourceName, llmName);
-            
             if (recordOpt.isPresent()) {
                 SqlFillingRecord record = recordOpt.get();
-                try {
-                    SqlFillingResult fillingResult = objectMapper.readValue(
-                            record.getFillingResultJson(), SqlFillingResult.class);
-                    
-                    FillingRecordsResponse.FillingRecordData data = new FillingRecordsResponse.FillingRecordData();
-                    data.setMapperId(record.getMapperId());
-                    data.setOriginalSql(record.getOriginalSql());
-                    data.setCreatedAt(record.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-                    
-                    if (fillingResult.getScenarios() != null) {
-                        List<FillingRecordsResponse.ScenarioData> scenarios = fillingResult.getScenarios().stream()
-                                .map(scenario -> {
-                                    FillingRecordsResponse.ScenarioData scenarioData = 
-                                            new FillingRecordsResponse.ScenarioData();
-                                    scenarioData.setScenarioName(scenario.getScenarioName());
-                                    scenarioData.setFilledSql(scenario.getFilledSql());
-                                    scenarioData.setParameters(scenario.getParameters());
-                                    return scenarioData;
-                                })
-                                .collect(Collectors.toList());
-                        data.setScenarios(scenarios);
-                    }
-                    
-                    recordsMap.put(mapperId, data);
-                } catch (Exception e) {
-                    logger.warn("解析填充记录失败 - mapperId: {}, error: {}", mapperId, e.getMessage());
-                }
+                response.getSqlFillingRecords().add(record);
             }
         }
         
-        response.setRecords(recordsMap);
-        logger.info("批量查询填充记录完成 - 找到记录数: {}", recordsMap.size());
         return response;
     }
 }

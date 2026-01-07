@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.llm.context;
 
-import com.biz.sccba.sqlanalyzer.model.AgentErrorCode;
-import com.biz.sccba.sqlanalyzer.model.AgentException;
+import com.biz.sccba.sqlanalyzer.error.AgentErrorCode;
+import com.biz.sccba.sqlanalyzer.error.AgentException;
 
 import java.util.Map;
 import java.util.Set;

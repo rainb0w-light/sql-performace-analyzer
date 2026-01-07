@@ -1,6 +1,6 @@
 package com.biz.sccba.sqlanalyzer.config;
 
-import com.biz.sccba.sqlanalyzer.model.LlmConfig;
+import com.biz.sccba.sqlanalyzer.data.LlmConfig;
 import lombok.Getter;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;

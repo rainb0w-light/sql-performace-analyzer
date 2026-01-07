@@ -9,13 +9,7 @@ import java.time.LocalDateTime;
  * 存储从MyBatis Mapper XML解析出的SQL查询
  */
 @Entity
-@Table(name = "parsed_sql_query",
-    indexes = {
-        @Index(name = "idx_mapper_namespace", columnList = "mapperNamespace"),
-        @Index(name = "idx_table_name", columnList = "tableName"),
-        @Index(name = "idx_query_type", columnList = "queryType")
-    }
-)
+@Table(name = "parsed_sql_query")
 @Data
 public class ParsedSqlQuery {
 

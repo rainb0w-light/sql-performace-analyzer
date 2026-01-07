@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.config.AiConfig;
-import com.biz.sccba.sqlanalyzer.model.LlmConfig;
+import com.biz.sccba.sqlanalyzer.data.LlmConfig;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;

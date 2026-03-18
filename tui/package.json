@@ -1,0 +1,24 @@
+{
+  "name": "sql-analyzer-tui",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/main.tsx",
+    "build": "bun build src/main.tsx --outdir dist",
+    "typecheck": "tsc --noEmit --skipLibCheck || true",
+    "start": "bun run src/main.tsx"
+  },
+  "dependencies": {
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "@stomp/stompjs": "^7.0.0",
+    "axios": "^1.6.0",
+    "react": "^19.0.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "bun-types": "latest",
+    "typescript": "^5.3.0"
+  }
+}

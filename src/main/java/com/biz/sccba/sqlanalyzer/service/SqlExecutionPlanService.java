@@ -15,18 +15,13 @@ import java.util.regex.Pattern;
 @Service
 public class SqlExecutionPlanService {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Autowired
     private DataSourceManagerService dataSourceManagerService;
 
-    @Autowired
-    private ColumnStatisticsParserService columnStatisticsParserService;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
     /**
-     * 获取SQL执行计划（JSON格式）
-     * @param sql SQL语句
-     * @param datasourceName 数据源名称（可选，如果不指定则使用默认数据源）
+     * 获取 SQL 执行计划（JSON 格式）
      */
     public ExecutionPlan getExecutionPlan(String sql, String datasourceName) {
         JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
@@ -34,42 +29,36 @@ public class SqlExecutionPlanService {
     }
 
     /**
-     * 内部方法：使用指定的JdbcTemplate获取执行计划
+     * 内部方法：使用指定的 JdbcTemplate 获取执行计划
      */
     private ExecutionPlan getExecutionPlanInternal(String sql, JdbcTemplate jdbcTemplate) {
         try {
-            // 执行 EXPLAIN FORMAT=JSON
             String explainSql = "EXPLAIN FORMAT=JSON " + sql;
-            List<String> results = jdbcTemplate.query(explainSql, 
+            List<String> results = jdbcTemplate.query(explainSql,
                 (rs, rowNum) -> rs.getString(1));
-            
+
             if (!results.isEmpty()) {
                 String jsonResult = results.get(0);
                 ExecutionPlan plan = new ExecutionPlan();
                 plan.setRawJson(jsonResult);
-                
-                // 解析JSON并填充字段
+
                 try {
                     JsonNode jsonNode = objectMapper.readTree(jsonResult);
                     plan.parseFromJsonNode(jsonNode);
                 } catch (Exception e) {
-                    // 如果解析失败，只保留原始JSON
-                    System.err.println("解析执行计划JSON失败: " + e.getMessage());
+                    System.err.println("解析执行计划 JSON 失败：" + e.getMessage());
                 }
-                
+
                 return plan;
             }
         } catch (DataAccessException e) {
-            throw new RuntimeException("获取执行计划失败: " + e.getMessage(), e);
+            throw new RuntimeException("获取执行计划失败：" + e.getMessage(), e);
         }
         return null;
     }
 
-
     /**
-     * 获取SQL涉及的表结构信息
-     * @param sql SQL语句
-     * @param datasourceName 数据源名称（可选，如果不指定则使用默认数据源）
+     * 获取 SQL 涉及的表结构信息
      */
     public List<TableStructure> getTableStructures(String sql, String datasourceName) {
         List<String> tableNames = parseTableNames(sql);
@@ -77,7 +66,7 @@ public class SqlExecutionPlanService {
     }
 
     /**
-     * 按表名列表获取表结构信息，避免多次解析 SQL。
+     * 按表名列表获取表结构信息
      */
     public List<TableStructure> getTableStructuresByNames(List<String> tableNames, String datasourceName) {
         JdbcTemplate jdbcTemplate = dataSourceManagerService.getJdbcTemplate(datasourceName);
@@ -97,26 +86,23 @@ public class SqlExecutionPlanService {
     }
 
     /**
-     * 解析SQL语句，提取表名
+     * 解析 SQL 语句，提取表名
      */
     public List<String> parseTableNames(String sql) {
         List<String> tableNames = new ArrayList<>();
         Set<String> uniqueNames = new HashSet<>();
-        
-        // 移除注释
+
         sql = sql.replaceAll("--.*", "");
         sql = sql.replaceAll("/\\*.*?\\*/", "");
-        
-        // 匹配 FROM, JOIN, UPDATE, INSERT INTO, DELETE FROM 后的表名
+
         Pattern pattern = Pattern.compile(
             "(?i)(?:FROM|JOIN|UPDATE|INTO)\\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)",
             Pattern.CASE_INSENSITIVE
         );
-        
+
         Matcher matcher = pattern.matcher(sql);
         while (matcher.find()) {
             String tableName = matcher.group(1);
-            // 移除数据库名前缀（如果有）
             if (tableName.contains(".")) {
                 tableName = tableName.substring(tableName.indexOf(".") + 1);
             }
@@ -125,7 +111,7 @@ public class SqlExecutionPlanService {
                 tableNames.add(tableName);
             }
         }
-        
+
         return tableNames;
     }
 
@@ -134,14 +120,14 @@ public class SqlExecutionPlanService {
      */
     private List<TableStructure.ColumnInfo> getTableColumns(String tableName, JdbcTemplate jdbcTemplate, String databaseName) {
         String sql = """
-            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, 
+            SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY,
                    COLUMN_DEFAULT, EXTRA
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
             ORDER BY ORDINAL_POSITION
             """;
-        
-        return jdbcTemplate.query(sql, 
+
+        return jdbcTemplate.query(sql,
             (rs, rowNum) -> {
                 TableStructure.ColumnInfo column = new TableStructure.ColumnInfo();
                 column.setColumnName(rs.getString("COLUMN_NAME"));
@@ -165,7 +151,7 @@ public class SqlExecutionPlanService {
             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
             ORDER BY INDEX_NAME, SEQ_IN_INDEX
             """;
-        
+
         return jdbcTemplate.query(sql,
             (rs, rowNum) -> {
                 TableStructure.IndexInfo index = new TableStructure.IndexInfo();
@@ -184,7 +170,7 @@ public class SqlExecutionPlanService {
      */
     public TableStructure.TableStatistics getTableStatistics(String tableName, JdbcTemplate jdbcTemplate) {
         String sql = "SHOW TABLE STATUS WHERE Name = ?";
-        
+
         List<TableStructure.TableStatistics> results = jdbcTemplate.query(sql,
             (rs, rowNum) -> {
                 TableStructure.TableStatistics statistics = new TableStructure.TableStatistics();
@@ -195,7 +181,7 @@ public class SqlExecutionPlanService {
                 return statistics;
             },
             tableName);
-        
+
         return results.isEmpty() ? new TableStructure.TableStatistics() : results.get(0);
     }
 
@@ -203,23 +189,20 @@ public class SqlExecutionPlanService {
      * 从数据源配置中提取数据库名称
      */
     private String extractDatabaseName(String datasourceName) {
-        // 尝试从数据源配置中获取URL
         try {
             DataSourceManagerService.DataSourceInfo info =
                 dataSourceManagerService.getAllDataSources().stream()
-                    .filter(ds -> ds.getName().equals(datasourceName) || 
+                    .filter(ds -> ds.getName().equals(datasourceName) ||
                             (datasourceName == null && ds.getName() != null))
                     .findFirst()
                     .orElse(null);
-            
+
             if (info != null && info.getUrl() != null) {
                 String url = info.getUrl();
-                // jdbc:mysql://localhost:3306/test_db?...
                 if (url.contains("/")) {
                     String[] parts = url.split("/");
                     if (parts.length > 1) {
                         String dbPart = parts[parts.length - 1];
-                        // 移除查询参数
                         if (dbPart.contains("?")) {
                             dbPart = dbPart.substring(0, dbPart.indexOf("?"));
                         }
@@ -230,102 +213,7 @@ public class SqlExecutionPlanService {
         } catch (Exception e) {
             // 如果获取失败，返回默认值
         }
-        
-        return "test_db"; // 默认值
-    }
 
-    /**
-     * 获取SQL中WHERE条件涉及的列的直方图数据（Domain Stats Object）
-     * @param sql SQL语句
-     * @param datasourceName 数据源名称
-     * @return 直方图数据列表（ColumnHistogram - Domain Stats Object）
-     */
-    public List<com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram> getHistogramDataForSql(String sql, String datasourceName) {
-        List<com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram> histograms = new ArrayList<>();
-        
-        try {
-            // 提取表名
-            List<String> tableNames = parseTableNames(sql);
-            if (tableNames.isEmpty()) {
-                return histograms;
-            }
-            
-            // 提取WHERE子句中的列名
-            Set<String> whereColumns = extractWhereColumns(sql);
-            if (whereColumns.isEmpty()) {
-                return histograms;
-            }
-            
-            String databaseName = extractDatabaseName(datasourceName);
-            
-            // 为每个表和列获取直方图数据（返回 Domain Stats Object）
-            for (String tableName : tableNames) {
-                for (String columnName : whereColumns) {
-                    com.biz.sccba.sqlanalyzer.domain.stats.ColumnHistogram histogram = 
-                        columnStatisticsParserService.getStatisticsFromMysql(
-                            datasourceName, databaseName, tableName, columnName);
-                    
-                    if (histogram != null) {
-                        histograms.add(histogram);
-                    }
-                }
-            }
-            
-        } catch (Exception e) {
-            // 如果获取失败，返回空列表
-            System.err.println("获取直方图数据失败: " + e.getMessage());
-        }
-        
-        return histograms;
-    }
-    
-    /**
-     * 从SQL WHERE子句中提取列名
-     * @param sql SQL语句
-     * @return 列名集合
-     */
-    private Set<String> extractWhereColumns(String sql) {
-        Set<String> columns = new HashSet<>();
-        if (sql == null || sql.trim().isEmpty()) {
-            return columns;
-        }
-        
-        // 移除注释
-        String cleanSql = sql.replaceAll("--.*", "").replaceAll("/\\*.*?\\*/", "");
-        
-        // 提取WHERE子句
-        Pattern wherePattern = Pattern.compile(
-            "(?i)WHERE\\s+(.+?)(?:GROUP BY|ORDER BY|LIMIT|HAVING|$)",
-            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
-        );
-        
-        Matcher whereMatcher = wherePattern.matcher(cleanSql);
-        if (!whereMatcher.find()) {
-            return columns;
-        }
-        
-        String whereClause = whereMatcher.group(1);
-        
-        // 匹配各种WHERE条件中的列名
-        // 支持：column = ?, column > ?, column BETWEEN ? AND ?, column IN (?, ?), column LIKE ?
-        Pattern columnPattern = Pattern.compile(
-            "([a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)?)\\s*(?:[=<>!]+|(?:LIKE|IN|BETWEEN|NOT IN|NOT LIKE))\\s*[\\?'\"(]",
-            Pattern.CASE_INSENSITIVE
-        );
-        
-        Matcher columnMatcher = columnPattern.matcher(whereClause);
-        while (columnMatcher.find()) {
-            String columnName = columnMatcher.group(1);
-            if (columnName != null) {
-                // 去掉表别名前缀
-                if (columnName.contains(".")) {
-                    columnName = columnName.substring(columnName.lastIndexOf(".") + 1);
-                }
-                columns.add(columnName.toLowerCase());
-            }
-        }
-        
-        return columns;
+        return "test_db";
     }
 }
-

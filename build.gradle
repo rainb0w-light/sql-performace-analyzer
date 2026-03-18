@@ -10,7 +10,7 @@ description = 'SQL Performance Analyzer'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -32,43 +32,47 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    
-    // MySQL JDBC驱动
+
+    // MySQL JDBC 驱动
     implementation 'mysql:mysql-connector-java:8.0.33'
-    
+
     // H2 数据库（用于缓存）
     implementation 'com.h2database:h2'
-    
+
     // HikariCP 连接池（Spring Boot 默认使用，但显式添加以确保版本控制）
     implementation 'com.zaxxer:HikariCP'
-    
+
     // Spring AI (使用 OpenAI starter，因为 DeepSeek API 兼容 OpenAI)
     implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M4'
-    
-    // JSON处理
+
+    // JSON 处理
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
     implementation 'com.fasterxml.jackson.core:jackson-core:2.15.2'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
-    
-    // YAML处理
+
+    // YAML 处理
     implementation 'org.yaml:snakeyaml'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2'
-    
-    // XML解析（用于MyBatis Mapper解析）
+
+    // XML 解析（用于 MyBatis Mapper 解析）
     implementation 'org.dom4j:dom4j:2.1.4'
-    implementation 'jaxen:jaxen:1.2.0' // XPath支持
-    
-    // MyBatis（用于内置Mapper解析器）
+    implementation 'jaxen:jaxen:1.2.0' // XPath 支持
+
+    // MyBatis（用于内置 Mapper 解析器）
     implementation 'org.mybatis:mybatis:3.5.13'
     implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
-    
+
+    // AgentScope - AI Agent 框架
+    implementation 'io.agentscope:agentscope-core:1.0.9'
+    implementation 'io.agentscope:agentscope-extensions-mem0:1.0.9'
+
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
-    
+
     // 开发工具
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-    
+
     // 测试
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -77,15 +81,3 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
-//// 前端构建任务
-//task buildFrontend(type: Exec) {
-//    group = 'build'
-//    description = '构建前端资源'
-//    workingDir = file('frontend')
-//    // 设置 npm 镜像源环境变量
-//    environment('npm_config_registry', 'https://registry.npmmirror.com')
-//    commandLine = ['npm', 'run', 'build']
-//}
-//
-//// 确保构建前端后再打包
-//processResources.dependsOn buildFrontend

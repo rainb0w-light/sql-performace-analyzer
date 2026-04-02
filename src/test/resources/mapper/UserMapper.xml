@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.biz.sccba.sqlanalyzer.mapper.UserMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="UserResultMap" type="com.biz.sccba.sqlanalyzer.model.User">
+        <id property="userId" column="user_id"/>
+        <result property="userName" column="user_name"/>
+        <result property="email" column="email"/>
+        <result property="phone" column="phone"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+    </resultMap>
+
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        user_id, user_name, email, phone, status, create_time, update_time, last_login_time
+    </sql>
+
+    <!-- 根据 ID 查询用户 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="UserResultMap">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM user
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 多条件动态查询用户 -->
+    <select id="selectByCondition" parameterType="java.util.Map" resultMap="UserResultMap">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM user
+        WHERE
+        /* IF: userName != null -->
+            AND user_name LIKE CONCAT('%', #{userName}, '%')
+        /* IF: email != null -->
+            AND email = #{email}
+        /* IF: phone != null -->
+            AND phone = #{phone}
+        /* IF: status != null -->
+            AND status = #{status}
+        /* IF: startDate != null and endDate != null -->
+            AND create_time BETWEEN #{startDate} AND #{endDate}
+        /* IF: startDate != null and endDate == null -->
+            AND create_time >= #{startDate}
+        /* IF: startDate == null and endDate != null -->
+            AND create_time &lt;= #{endDate}
+        /* IF: hasLogin != null and hasLogin == true -->
+            AND last_login_time IS NOT NULL
+        /* IF: hasLogin != null and hasLogin == false -->
+            AND last_login_time IS NULL
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 批量查询用户（IN 查询） -->
+    <select id="selectByIds" parameterType="java.util.List" resultMap="UserResultMap">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM user
+        WHERE user_id IN
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 插入用户 -->
+    <insert id="insert" parameterType="com.biz.sccba.sqlanalyzer.model.User" useGeneratedKeys="true" keyProperty="userId">
+        INSERT INTO user (
+            user_name,
+            email,
+            phone,
+            status,
+            create_time,
+            update_time
+        ) VALUES (
+            #{userName},
+            #{email},
+            #{phone},
+            #{status},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <!-- 批量插入用户 -->
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO user (
+            user_name,
+            email,
+            phone,
+            status,
+            create_time,
+            update_time
+        ) VALUES
+        <foreach collection="list" item="user" separator=",">
+            (
+                #{user.userName},
+                #{user.email},
+                #{user.phone},
+                #{user.status},
+                NOW(),
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <!-- 更新用户 -->
+    <update id="update" parameterType="com.biz.sccba.sqlanalyzer.model.User">
+        UPDATE user
+        <set>
+            <if test="userName != null">
+                user_name = #{userName},
+            </if>
+            <if test="email != null">
+                email = #{email},
+            </if>
+            <if test="phone != null">
+                phone = #{phone},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="lastLoginTime != null">
+                last_login_time = #{lastLoginTime},
+            </if>
+            update_time = NOW()
+        </set>
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 删除用户（逻辑删除） -->
+    <update id="deleteById" parameterType="java.lang.Long">
+        UPDATE user
+        SET status = 0,
+            update_time = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+    <!-- 统计用户数 -->
+    <select id="countByCondition" parameterType="java.util.Map" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM user
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="startDate != null and endDate != null">
+                AND create_time BETWEEN #{startDate} AND #{endDate}
+            </if>
+        </where>
+    </select>
+
+    <!-- 查询用户及其订单统计（关联子查询） -->
+    <select id="selectWithOrderStats" resultMap="UserResultMap">
+        SELECT
+            u.user_id,
+            u.user_name,
+            u.email,
+            (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.user_id) AS order_count,
+            (SELECT SUM(o.amount) FROM orders o WHERE o.user_id = u.user_id) AS total_amount
+        FROM user u
+        WHERE u.status = 1
+        <if test="minOrderCount != null">
+            AND (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.user_id) >= #{minOrderCount}
+        </if>
+        ORDER BY
+        <choose>
+            <when test="orderBy == 'order_count'">
+                order_count DESC
+            </when>
+            <when test="orderBy == 'total_amount'">
+                total_amount DESC
+            </when>
+            <otherwise>
+                u.create_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="selectByPage" parameterType="java.util.Map" resultMap="UserResultMap">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM user
+        <where>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 锁定用户（悲观锁） -->
+    <select id="selectByIdForUpdate" parameterType="java.lang.Long" resultMap="UserResultMap">
+        SELECT
+            <include refid="Base_Column_List"/>
+        FROM user
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+</mapper>

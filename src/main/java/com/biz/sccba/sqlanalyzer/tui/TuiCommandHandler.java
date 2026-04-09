@@ -186,7 +186,7 @@ public class TuiCommandHandler {
             SqlAnalyzerTools.setCurrentSessionId(newSessionId);
 
             // 执行分析
-            AnalysisResult result = orchestrator.parseMapper(filePath, llmName);
+            AnalysisResult result = orchestrator.analyze("Parse mapper: " + filePath, null, llmName).block();
 
             return TuiCommandResult.builder()
                 .success(result.isSuccess())
@@ -235,7 +235,7 @@ public class TuiCommandHandler {
             // 设置当前会话 ID（用于工具调用记录）
             SqlAnalyzerTools.setCurrentSessionId(sessionId);
 
-            AnalysisResult result = orchestrator.analyzeSql(sql, datasourceName, llmName);
+            AnalysisResult result = orchestrator.analyze(sql, datasourceName, llmName).block();
 
             return TuiCommandResult.builder()
                 .success(result.isSuccess())
@@ -271,7 +271,7 @@ public class TuiCommandHandler {
             // 设置当前会话 ID（用于工具调用记录）
             SqlAnalyzerTools.setCurrentSessionId(sessionId);
 
-            AnalysisResult result = orchestrator.analyzeTable(tableName, datasourceName, llmName);
+            AnalysisResult result = orchestrator.analyze("Analyze table: " + tableName, datasourceName, llmName).block();
 
             return TuiCommandResult.builder()
                 .success(result.isSuccess())

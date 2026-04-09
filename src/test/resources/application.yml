@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: sql-analyzer-test
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        hbm2ddl:
+          auto: create-drop
+
+# 测试环境配置
+test:
+  environment:
+    enabled: false
+
+# 禁用 AgentScope（测试环境不需要）
+agentscope:
+  enabled: false
+
+# 禁用 AI 模型（测试环境不需要）
+ai:
+  enabled: false

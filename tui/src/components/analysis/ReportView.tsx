@@ -32,7 +32,7 @@ export function ReportView({ title = '分析报告', content }: ReportViewProps)
   const parsedElements = parseContent(content);
 
   return (
-    <box style={{ flexDirection: 'column', padding: [1, 1] }}>
+    <box style={{ flexDirection: 'column', paddingTop: 1, paddingBottom: 1, paddingLeft: 1, paddingRight: 1 }}>
       <box style={{ marginBottom: 1 }}>
         <text style={{ fg: 'cyan' }}>{title}</text>
       </box>

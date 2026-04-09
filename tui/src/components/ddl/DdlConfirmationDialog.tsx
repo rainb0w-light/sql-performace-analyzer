@@ -1,4 +1,3 @@
-import { Box } from '../ui/Box';
 import { Button } from '../ui/Button';
 
 interface DdlOperation {
@@ -28,20 +27,20 @@ export function DdlConfirmationDialog({
   return (
     <box
       style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
         width: 80,
         height: 20,
-        transform: 'translate(-50%, -50%)',
-        border: 'double',
+        border: true,
+        borderStyle: 'double',
         borderColor: 'cyan',
         backgroundColor: '#1a1a2e',
-        padding: [1, 2],
+        paddingLeft: 2,
+        paddingRight: 2,
+        paddingTop: 1,
+        paddingBottom: 1,
       }}
     >
       <box style={{ marginBottom: 1 }}>
-        <text style={{ fg: 'cyan', bold: true }}>确认 DDL 操作</text>
+        <text style={{ fg: 'cyan' }}>确认 DDL 操作</text>
       </box>
 
       <box style={{ flexDirection: 'column', gap: 1, marginBottom: 1 }}>
@@ -65,9 +64,13 @@ export function DdlConfirmationDialog({
 
       <box
         style={{
-          padding: [1, 1],
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+          paddingBottom: 1,
           backgroundColor: '#111',
-          border: 'single',
+          border: true,
+          borderStyle: 'single',
           borderColor: '#333',
           marginBottom: 1,
         }}

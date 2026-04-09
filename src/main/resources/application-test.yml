@@ -1,0 +1,67 @@
+server:
+  port: 18881
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: sql-performance-analyzer
+
+  # H2 数据源（用于缓存 SQL 分析结果）
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # H2 控制台
+  h2:
+    console:
+      enabled: false
+
+  # 多数据源配置 - 使用内存 H2 数据库代替 MySQL
+  datasources:
+    configs:
+      - name: default
+        url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+        driver-class-name: org.h2.Driver
+        username: sa
+        password:
+
+  # 多大模型配置 - 使用测试 API key
+  llms:
+    configs:
+      - name: deepseek1
+        type: openai
+        api-key: sk-test-key
+        base-url: https://api.deepseek.com
+        model: deepseek-chat
+        temperature: 0.7
+
+# MyBatis 配置
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.example.model
+
+logging:
+  level:
+    root: INFO
+    com.biz.sccba.sqlanalyzer: DEBUG
+    org.springframework.web: INFO
+    org.springframework.messaging: DEBUG
+
+agentscope:
+  enabled: false
+
+ai:
+  enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

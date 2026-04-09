@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Box } from '../ui/Box';
 import { Button } from '../ui/Button';
 
 const SKILL_OPTIONS = [
@@ -25,16 +24,20 @@ export function SkillExecutor({ sessionId, onExecute }: SkillExecutorProps) {
   };
 
   return (
-    <Box style={{ height: '100%', gap: 1 }}>
-      <text style={{ fg: 'cyan', bold: true }}>技能执行</text>
+    <box style={{ height: '100%', gap: 1 }}>
+      <text style={{ fg: 'cyan' }}>技能执行</text>
 
-      <box style={{ border: 'single', borderColor: '#333', padding: [1, 1] }}>
+      <box style={{ border: true, borderStyle: 'single', borderColor: '#333', paddingTop: 1, paddingBottom: 1, paddingLeft: 1, paddingRight: 1 }}>
         <text style={{ fg: '#888' }}>SQL 输入:</text>
         <box
           style={{
-            border: 'single',
+            border: true,
+            borderStyle: 'single',
             borderColor: '#444',
-            padding: [1, 1],
+            paddingTop: 1,
+            paddingBottom: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
             marginTop: 1,
             height: 5,
           }}
@@ -51,7 +54,10 @@ export function SkillExecutor({ sessionId, onExecute }: SkillExecutorProps) {
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
-              padding: [1, 1],
+              paddingTop: 1,
+              paddingBottom: 1,
+              paddingLeft: 1,
+              paddingRight: 1,
               backgroundColor: selectedSkill === skill.name ? '#2a2a4a' : 'transparent',
             }}
           >
@@ -63,6 +69,6 @@ export function SkillExecutor({ sessionId, onExecute }: SkillExecutorProps) {
           </box>
         ))}
       </box>
-    </Box>
+    </box>
   );
 }

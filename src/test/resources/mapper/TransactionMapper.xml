@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mapper namespace="com.biz.sccba.sqlanalyzer.mapper.TransactionMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="TransactionLogResultMap" type="com.biz.sccba.sqlanalyzer.model.TransactionLog">
+        <id column="txn_id" property="txnId"/>
+        <result column="txn_no" property="txnNo"/>
+        <result column="acct_id" property="acctId"/>
+        <result column="cust_id" property="custId"/>
+        <result column="txn_type" property="txnType"/>
+        <result column="txn_channel" property="txnChannel"/>
+        <result column="txn_amount" property="txnAmount"/>
+        <result column="status" property="status"/>
+        <result column="txn_date" property="txnDate"/>
+        <result column="txn_time" property="txnTime"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- ================================================
+         示例 1: 复杂多条件查询
+         包含多个 if 标签，每个 if 标签有复杂的 AND/OR 条件
+         ================================================ -->
+    <select id="selectByCondition" resultMap="TransactionLogResultMap">
+        SELECT
+            t.txn_id,
+            t.txn_no,
+            t.acct_id,
+            t.cust_id,
+            t.txn_type,
+            t.txn_channel,
+            t.txn_amount,
+            t.status,
+            t.txn_date,
+            t.txn_time,
+            t.create_time
+        FROM transaction_log t
+        <where>
+            <!-- 条件 1: 账户 ID 过滤 -->
+            <if test="acctId != null">
+                AND t.acct_id = #{acctId}
+            </if>
+
+            <!-- 条件 2: 客户 ID 过滤 -->
+            <if test="custId != null">
+                AND t.cust_id = #{custId}
+            </if>
+
+            <!-- 条件 3: 交易类型过滤（多值 OR 条件） -->
+            <if test="txnTypes != null and txnTypes.size() > 0">
+                AND t.txn_type IN
+                <foreach collection="txnTypes" item="type" open="(" separator="," close=")">
+                    #{type}
+                </foreach>
+            </if>
+
+            <!-- 条件 4: 交易渠道过滤 -->
+            <if test="txnChannel != null">
+                AND t.txn_channel = #{txnChannel}
+            </if>
+
+            <!-- 条件 5: 状态过滤（多值 OR 条件） -->
+            <if test="statuses != null and statuses.size() > 0">
+                AND t.status IN
+                <foreach collection="statuses" item="status" open="(" separator="," close=")">
+                    #{status}
+                </foreach>
+            </if>
+
+            <!-- 条件 6: 交易日期范围（复杂条件） -->
+            <if test="startDate != null and endDate != null">
+                AND t.txn_date BETWEEN #{startDate} AND #{endDate}
+            </if>
+            <if test="startDate != null and endDate == null">
+                AND t.txn_date &gt;= #{startDate}
+            </if>
+            <if test="startDate == null and endDate != null">
+                AND t.txn_date &lt;= #{endDate}
+            </if>
+
+            <!-- 条件 7: 交易金额范围 -->
+            <if test="minAmount != null and maxAmount != null">
+                AND t.txn_amount BETWEEN #{minAmount} AND #{maxAmount}
+            </if>
+            <if test="minAmount != null and maxAmount == null">
+                AND t.txn_amount &gt;= #{minAmount}
+            </if>
+            <if test="minAmount == null and maxAmount != null">
+                AND t.txn_amount &lt;= #{maxAmount}
+            </if>
+
+            <!-- 条件 8: 大额交易标记（复杂业务逻辑） -->
+            <if test="largeAmount != null and largeAmount == true">
+                AND t.txn_amount &gt;= 50000
+            </if>
+
+            <!-- 条件 9: 模糊查询（对手方信息） -->
+            <if test="counterpartyName != null and counterpartyName != ''">
+                AND t.counterparty_cust_name LIKE CONCAT('%', #{counterpartyName}, '%')
+            </if>
+        </where>
+        ORDER BY t.txn_date DESC, t.txn_time DESC
+    </select>
+
+    <!-- ================================================
+         示例 2: 嵌套 choose/when 条件
+         根据不同类型的查询条件动态生成 SQL
+         ================================================ -->
+    <select id="selectByDynamicType" resultMap="TransactionLogResultMap">
+        SELECT
+            t.txn_id,
+            t.txn_no,
+            t.acct_id,
+            t.cust_id,
+            t.txn_type,
+            t.txn_amount,
+            t.status,
+            t.txn_date
+        FROM transaction_log t
+        <where>
+            t.status = 1
+            <!-- 根据查询类型选择不同的条件 -->
+            <choose>
+                <!-- 按日期查询 -->
+                <when test="queryType == 'DATE' and queryDate != null">
+                    AND t.txn_date = #{queryDate}
+                </when>
+                <!-- 按月份查询 -->
+                <when test="queryType == 'MONTH' and queryMonth != null">
+                    AND DATE_FORMAT(t.txn_date, '%Y%m') = #{queryMonth}
+                </when>
+                <!-- 按日期范围查询 -->
+                <when test="queryType == 'RANGE' and startDate != null and endDate != null">
+                    AND t.txn_date BETWEEN #{startDate} AND #{endDate}
+                </when>
+                <!-- 最近 N 天查询 -->
+                <when test="queryType == 'RECENT' and days != null">
+                    AND t.txn_date &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+                </when>
+                <otherwise>
+                    AND t.txn_date &gt;= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                </otherwise>
+            </choose>
+
+            <!-- 额外的过滤条件 -->
+            <if test="custId != null">
+                AND t.cust_id = #{custId}
+            </if>
+        </where>
+        ORDER BY t.txn_date DESC, t.txn_time DESC
+    </select>
+
+    <!-- ================================================
+         示例 3: 复杂 UPDATE 语句
+         使用 set 标签和多个 if 条件
+         ================================================ -->
+    <update id="updateTransferOrder" parameterType="com.biz.sccba.sqlanalyzer.model.TransferOrder">
+        UPDATE transfer_order
+        <set>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="processTime != null">
+                process_time = #{processTime},
+            </if>
+            <if test="completeTime != null">
+                complete_time = #{completeTime},
+            </if>
+            <if test="failReason != null">
+                fail_reason = #{failReason},
+            </if>
+            update_time = NOW()
+        </set>
+        WHERE order_id = #{orderId}
+        <if test="expectedStatus != null">
+            AND status = #{expectedStatus}
+        </if>
+    </update>
+
+    <!-- ================================================
+         示例 4: 关联查询（JOIN 多表）
+         包含多个表的 JOIN 和复杂条件
+         ================================================ -->
+    <select id="selectTransactionWithCustomer" resultMap="TransactionLogResultMap">
+        SELECT
+            t.txn_id,
+            t.txn_no,
+            t.acct_id,
+            t.cust_id,
+            t.txn_type,
+            t.txn_channel,
+            t.txn_amount,
+            t.status,
+            t.txn_date,
+            c.cust_name,
+            c.cust_type,
+            c.risk_level
+        FROM transaction_log t
+        INNER JOIN customer c ON t.cust_id = c.cust_id
+        <where>
+            <!-- 基础条件 -->
+            <if test="paramMap.custId != null">
+                AND t.cust_id = #{paramMap.custId}
+            </if>
+            <if test="paramMap.acctId != null">
+                AND t.acct_id = #{paramMap.acctId}
+            </if>
+
+            <!-- 客户类型过滤 -->
+            <if test="paramMap.custType != null">
+                AND c.cust_type = #{paramMap.custType}
+            </if>
+
+            <!-- 客户风险等级（多值） -->
+            <if test="paramMap.riskLevels != null and paramMap.riskLevels.size() > 0">
+                AND c.risk_level IN
+                <foreach collection="paramMap.riskLevels" item="level" open="(" separator="," close=")">
+                    #{level}
+                </foreach>
+            </if>
+
+            <!-- 交易日期范围 -->
+            <if test="paramMap.startDate != null">
+                AND t.txn_date &gt;= #{paramMap.startDate}
+            </if>
+            <if test="paramMap.endDate != null">
+                AND t.txn_date &lt;= #{paramMap.endDate}
+            </if>
+
+            <!-- 大额交易筛选（复杂条件：多个 OR） -->
+            <if test="paramMap.filterLargeAmount != null and paramMap.filterLargeAmount">
+                AND (
+                    t.txn_amount &gt;= 50000
+                    OR (t.txn_channel = 3 AND t.txn_amount &gt;= 20000)
+                    OR (c.risk_level &gt;= 3 AND t.txn_amount &gt;= 10000)
+                )
+            </if>
+        </where>
+        ORDER BY t.txn_date DESC
+    </select>
+
+    <!-- ================================================
+         示例 5: 统计分析 SQL
+         使用 GROUP BY 和 HAVING
+         ================================================ -->
+    <select id="analyzeTransactionStatistics" resultType="java.util.Map">
+        SELECT
+            t.txn_date,
+            t.txn_type,
+            COUNT(*) as txn_count,
+            SUM(t.txn_amount) as total_amount,
+            AVG(t.txn_amount) as avg_amount,
+            MAX(t.txn_amount) as max_amount,
+            MIN(t.txn_amount) as min_amount
+        FROM transaction_log t
+        <where>
+            <if test="startDate != null">
+                AND t.txn_date &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND t.txn_date &lt;= #{endDate}
+            </if>
+            <if test="custId != null">
+                AND t.cust_id = #{custId}
+            </if>
+            <if test="txnTypes != null and txnTypes.size() > 0">
+                AND t.txn_type IN
+                <foreach collection="txnTypes" item="type" open="(" separator="," close=")">
+                    #{type}
+                </foreach>
+            </if>
+        </where>
+        GROUP BY t.txn_date, t.txn_type
+        <if test="minCount != null">
+            HAVING COUNT(*) &gt;= #{minCount}
+        </if>
+        ORDER BY t.txn_date DESC, txn_count DESC
+    </select>
+
+    <!-- ================================================
+         示例 6: 嵌套 if 条件（极度复杂）
+         模拟真实金融业务场景
+         ================================================ -->
+    <select id="selectHighValueTransactions" resultMap="TransactionLogResultMap">
+        SELECT
+            txn_id,
+            txn_no,
+            acct_id,
+            cust_id,
+            txn_type,
+            txn_channel,
+            txn_amount,
+            status,
+            txn_date,
+            txn_time
+        FROM transaction_log
+        <where>
+            <!-- 基础状态过滤 -->
+            status = 1
+
+            <!-- 必须满足：账户或客户至少有一个 -->
+            <choose>
+                <when test="acctId != null">
+                    AND acct_id = #{acctId}
+                </when>
+                <when test="custId != null">
+                    AND cust_id = #{custId}
+                </when>
+                <otherwise>
+                    AND 1=0  <!-- 必须提供账户或客户 ID -->
+                </otherwise>
+            </choose>
+
+            <!-- 金额条件：根据 highValueOnly 参数决定 -->
+            <if test="highValueOnly != null and highValueOnly">
+                AND txn_amount &gt;=
+                <choose>
+                    <when test="channel != null and channel == 3">
+                        20000  <!-- 网银渠道大额标准 -->
+                    </when>
+                    <when test="channel != null and channel == 4">
+                        10000  <!-- 手机银行大额标准 -->
+                    </when>
+                    <otherwise>
+                        50000  <!-- 默认大额标准 -->
+                    </otherwise>
+                </choose>
+            </if>
+
+            <!-- 日期条件：复杂组合 -->
+            <if test="dateRangeType != null">
+                <choose>
+                    <when test="dateRangeType == 'TODAY'">
+                        AND txn_date = CURDATE()
+                    </when>
+                    <when test="dateRangeType == 'YESTERDAY'">
+                        AND txn_date = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+                    </when>
+                    <when test="dateRangeType == 'WEEK'">
+                        AND txn_date &gt;= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                    </when>
+                    <when test="dateRangeType == 'MONTH'">
+                        AND txn_date &gt;= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    </when>
+                    <when test="dateRangeType == 'CUSTOM' and startDate != null and endDate != null">
+                        AND txn_date BETWEEN #{startDate} AND #{endDate}
+                    </when>
+                </choose>
+            </if>
+
+            <!-- 渠道条件 -->
+            <if test="channels != null and channels.size() > 0">
+                AND txn_channel IN
+                <foreach collection="channels" item="ch" open="(" separator="," close=")">
+                    #{ch}
+                </foreach>
+            </if>
+
+            <!-- 交易类型排除 -->
+            <if test="excludeTxnTypes != null and excludeTxnTypes.size() > 0">
+                AND txn_type NOT IN
+                <foreach collection="excludeTxnTypes" item="type" open="(" separator="," close=")">
+                    #{type}
+                </foreach>
+            </if>
+
+            <!-- 反洗钱规则：可疑交易标记 -->
+            <if test="suspiciousCheck != null and suspiciousCheck">
+                AND (
+                    (txn_amount &gt;= 50000 AND txn_channel = 2)  <!-- ATM 大额 -->
+                    OR (txn_amount &gt;= 200000 AND txn_channel = 1)  <!-- 柜面特大额 -->
+                    OR EXISTS (
+                        SELECT 1 FROM customer c
+                        WHERE c.cust_id = transaction_log.cust_id
+                        AND c.risk_level &gt;= 3
+                    )
+                )
+            </if>
+        </where>
+        ORDER BY txn_amount DESC, txn_date DESC
+    </select>
+
+</mapper>

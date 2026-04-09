@@ -1,3 +1,5 @@
+import { useTheme } from '../../theme';
+
 interface ButtonProps {
   label: string;
   onClick: () => void;
@@ -7,30 +9,44 @@ interface ButtonProps {
 }
 
 export function Button({ label, onClick, shortcut, variant = 'secondary', disabled = false }: ButtonProps) {
-  const colors: Record<string, string> = {
-    primary: 'cyan',
-    secondary: '#666',
-    danger: 'red',
+  const theme = useTheme();
+  
+  const variantStyles = {
+    primary: {
+      fg: theme.colors.primaryLight,
+      bg: theme.colors.surface,
+      border: theme.colors.primary,
+    },
+    secondary: {
+      fg: theme.colors.textSecondary,
+      bg: theme.colors.gray800,
+      border: theme.colors.border,
+    },
+    danger: {
+      fg: theme.colors.error,
+      bg: theme.colors.gray800,
+      border: theme.colors.error,
+    },
   };
 
-  const bgColor: Record<string, string> = {
-    primary: '#1a3a4a',
-    secondary: '#2a2a2a',
-    danger: '#3a1a1a',
-  };
+  // Get styles for current variant
+  const currentStyle = variantStyles[variant];
 
   return (
     <box
       style={{
-        padding: [0, 2],
-        backgroundColor: disabled ? '#1a1a1a' : bgColor[variant],
-        border: 'single',
-        borderColor: disabled ? '#333' : colors[variant],
-        contentAlign: 'center',
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 2,
+        paddingRight: 2,
+        backgroundColor: disabled ? theme.colors.gray900 : currentStyle.bg,
+        border: true,
+        borderStyle: 'single',
+        borderColor: disabled ? theme.colors.gray700 : currentStyle.border,
       }}
     >
       <text
-        style={{ fg: disabled ? '#444' : colors[variant], dim: disabled }}
+        style={{ fg: disabled ? theme.colors.textMuted : currentStyle.fg }}
       >{` ${label}${shortcut ? ` [${shortcut}]` : ''} `}</text>
     </box>
   );

@@ -1,7 +1,7 @@
 interface StatusBarProps {
   status?: 'idle' | 'busy' | 'error';
   sessionId?: string;
-  datasource?: string;
+  datasources?: string;
   llm?: string;
 }
 
@@ -20,7 +20,7 @@ const STATUS_COLOR: Record<string, string> = {
 export function StatusBar({
   status = 'idle',
   sessionId = '-',
-  datasource = '-',
+  datasources = '-',
   llm = '-',
 }: StatusBarProps) {
   return (
@@ -28,8 +28,12 @@ export function StatusBar({
       style={{
         flexDirection: 'row',
         justifyContent: 'space-between',
-        padding: [0, 2],
-        borderTop: 'single',
+        paddingTop: 0,
+        paddingBottom: 0,
+        paddingLeft: 2,
+        paddingRight: 2,
+        border: true,
+        borderStyle: 'single',
         borderColor: '#333',
         backgroundColor: '#1a1a2e',
       }}
@@ -42,7 +46,7 @@ export function StatusBar({
       </box>
       <box style={{ flexDirection: 'row', gap: 2 }}>
         <text style={{ fg: '#888' }}>DS:</text>
-        <text>{datasource}</text>
+        <text>{datasources}</text>
         <text style={{ fg: '#666' }}>|</text>
         <text style={{ fg: '#888' }}>LLM:</text>
         <text>{llm}</text>

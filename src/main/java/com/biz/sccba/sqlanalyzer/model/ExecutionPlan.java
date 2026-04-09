@@ -5,13 +5,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
-import lombok.Data;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sql_execution_plan_record")
-@Data
 public class ExecutionPlan {
     
     @Id
@@ -527,4 +525,74 @@ public class ExecutionPlan {
         
         return queryBlock;
     }
+
+    // Getter and Setter methods
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getOriginalSql() { return originalSql; }
+    public void setOriginalSql(String originalSql) { this.originalSql = originalSql; }
+
+    public String getFilledSql() { return filledSql; }
+    public void setFilledSql(String filledSql) { this.filledSql = filledSql; }
+
+    public String getRawJson() { return rawJson; }
+    public void setRawJson(String rawJson) { this.rawJson = rawJson; }
+
+    public Integer getSelectId() { return selectId; }
+    public void setSelectId(Integer selectId) { this.selectId = selectId; }
+
+    public String getCostInfo() { return costInfo; }
+    public void setCostInfo(String costInfo) { this.costInfo = costInfo; }
+
+    public String getTableName() { return tableName; }
+    public void setTableName(String tableName) { this.tableName = tableName; }
+
+    public String getAccessType() { return accessType; }
+    public void setAccessType(String accessType) { this.accessType = accessType; }
+
+    public String getKey() { return key; }
+    public void setKey(String key) { this.key = key; }
+
+    public String[] getPossibleKeys() { return possibleKeys; }
+    public void setPossibleKeys(String[] possibleKeys) { this.possibleKeys = possibleKeys; }
+
+    public String[] getUsedKeyParts() { return usedKeyParts; }
+    public void setUsedKeyParts(String[] usedKeyParts) { this.usedKeyParts = usedKeyParts; }
+
+    public String getKeyLength() { return keyLength; }
+    public void setKeyLength(String keyLength) { this.keyLength = keyLength; }
+
+    public String[] getRef() { return ref; }
+    public void setRef(String[] ref) { this.ref = ref; }
+
+    public String getFiltered() { return filtered; }
+    public void setFiltered(String filtered) { this.filtered = filtered; }
+
+    public Boolean getUsingIndex() { return usingIndex; }
+    public void setUsingIndex(Boolean usingIndex) { this.usingIndex = usingIndex; }
+
+    public Long getRowsExaminedPerScan() { return rowsExaminedPerScan; }
+    public void setRowsExaminedPerScan(Long rowsExaminedPerScan) { this.rowsExaminedPerScan = rowsExaminedPerScan; }
+
+    public Long getRowsProducedPerJoin() { return rowsProducedPerJoin; }
+    public void setRowsProducedPerJoin(Long rowsProducedPerJoin) { this.rowsProducedPerJoin = rowsProducedPerJoin; }
+
+    public String[] getUsedColumns() { return usedColumns; }
+    public void setUsedColumns(String[] usedColumns) { this.usedColumns = usedColumns; }
+
+    public String getReadCost() { return readCost; }
+    public void setReadCost(String readCost) { this.readCost = readCost; }
+
+    public String getEvalCost() { return evalCost; }
+    public void setEvalCost(String evalCost) { this.evalCost = evalCost; }
+
+    public String getPrefixCost() { return prefixCost; }
+    public void setPrefixCost(String prefixCost) { this.prefixCost = prefixCost; }
+
+    public String getDataReadPerJoin() { return dataReadPerJoin; }
+    public void setDataReadPerJoin(String dataReadPerJoin) { this.dataReadPerJoin = dataReadPerJoin; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

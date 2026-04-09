@@ -1,0 +1,4 @@
+<!-- 简化的 MyBatis Mapper DTD 用于测试 -->
+<!ELEMENT mapper (cache|cache-ref|resultMap|parameterMap|sql|insert|update|delete|select)*>
+<!ATTLIST mapper namespace CDATA #REQUIRED>
+<!ATTLIST mapper (id|resultMap|parameterMap) CDATA #IMPLIED>

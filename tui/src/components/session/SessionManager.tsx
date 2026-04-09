@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { Box } from '../ui/Box';
-import { Text } from '../ui/Text';
 import { Button } from '../ui/Button';
 
 interface Session {
@@ -42,9 +40,9 @@ export function SessionManager({
   };
 
   return (
-    <Box style={{ height: '100%' }}>
+    <box style={{ height: '100%' }}>
       <box style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 1 }}>
-        <text style={{ fg: 'cyan', bold: true }}>会话管理</text>
+        <text style={{ fg: 'cyan' }}>会话管理</text>
         {onCreateSession && (
           <Button label="新建会话" onClick={onCreateSession} variant="primary" />
         )}
@@ -52,10 +50,12 @@ export function SessionManager({
 
       <box
         style={{
-          flex: 1,
-          border: 'single',
+          border: true,
+          borderStyle: 'single',
           borderColor: '#333',
-          padding: [1, 1],
+          flexGrow: 1,
+          paddingX: 1,
+          paddingY: 1,
         }}
       >
         {sessions.length === 0 ? (
@@ -65,7 +65,8 @@ export function SessionManager({
             <box
               key={session.id}
               style={{
-                padding: [1, 1],
+                paddingX: 1,
+                paddingY: 1,
                 backgroundColor: selectedId === session.id ? '#2a2a4a' : 'transparent',
                 marginBottom: 1,
               }}
@@ -97,6 +98,6 @@ export function SessionManager({
           ))
         )}
       </box>
-    </Box>
+    </box>
   );
 }

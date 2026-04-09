@@ -17,7 +17,7 @@ interface IndexSuggestionsProps {
 export function IndexSuggestions({ suggestions, onApply, onApplyAll }: IndexSuggestionsProps) {
   if (suggestions.length === 0) {
     return (
-      <box style={{ padding: [1, 1], backgroundColor: '#1a3a1a' }}>
+      <box style={{ paddingTop: 1, paddingBottom: 1, paddingLeft: 1, paddingRight: 1, backgroundColor: '#1a3a1a' }}>
         <text style={{ fg: 'green' }}>✓ 当前查询无需优化</text>
       </box>
     );
@@ -37,9 +37,13 @@ export function IndexSuggestions({ suggestions, onApply, onApplyAll }: IndexSugg
           key={i}
           style={{
             marginBottom: 1,
-            padding: [1, 1],
+            paddingTop: 1,
+            paddingBottom: 1,
+            paddingLeft: 1,
+            paddingRight: 1,
             backgroundColor: '#222',
-            border: 'single',
+            border: true,
+            borderStyle: 'single',
             borderColor: '#444',
           }}
         >
@@ -67,7 +71,7 @@ export function IndexSuggestions({ suggestions, onApply, onApplyAll }: IndexSugg
             </box>
           </box>
 
-          <box style={{ padding: 1, backgroundColor: '#1a1a1a', border: 'single', borderColor: '#333' }}>
+          <box style={{ paddingTop: 1, paddingBottom: 1, paddingLeft: 1, paddingRight: 1, backgroundColor: '#1a1a1a', border: true, borderStyle: 'single', borderColor: '#333' }}>
             <text style={{ fg: 'green' }}>{suggestion.ddl}</text>
           </box>
 

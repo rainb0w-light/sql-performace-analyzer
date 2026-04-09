@@ -6,19 +6,28 @@
     "dev": "bun run src/main.tsx",
     "build": "bun build src/main.tsx --outdir dist",
     "typecheck": "tsc --noEmit --skipLibCheck || true",
-    "start": "bun run src/main.tsx"
+    "start": "bun run src/main.tsx",
+    "test": "bun test",
+    "test:unit": "bun test tests/acceptance.test.tsx",
+    "test:e2e": "bun test tests/e2e.test.tsx --timeout 120000"
   },
   "dependencies": {
     "@opentui/core": "latest",
     "@opentui/react": "latest",
     "@stomp/stompjs": "^7.0.0",
-    "axios": "^1.6.0",
     "react": "^19.0.0",
-    "zustand": "^4.5.0"
+    "react-devtools-core": "^7.0.1",
+    "ws": "^8.18.0",
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "@types/react": "^19.0.0",
-    "bun-types": "latest",
+    "@types/ws": "^8.18.0",
+    "@xterm/headless": "^6.0.0",
     "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
   }
 }

@@ -68,6 +68,12 @@ public class SqlAnalyzerTools {
     private SqlOptimizerExpertTool sqlOptimizerExpertTool;
 
     @Autowired(required = false)
+    private SqlQueryComplexityAnalyzer sqlQueryComplexityAnalyzer;
+
+    @Autowired(required = false)
+    private IndexUsageAnalyzer indexUsageAnalyzer;
+
+    @Autowired(required = false)
     private SessionMemoryService sessionMemoryService;
 
     @Autowired(required = false)
@@ -118,7 +124,9 @@ public class SqlAnalyzerTools {
             "alter_table",
             "innodb_expert_analyze",
             "distributed_db_expert_analyze",
-            "sql_optimizer_analyze"
+            "sql_optimizer_analyze",
+            "analyze_sql_complexity",
+            "analyze_index_usage"
         );
     }
 
@@ -167,7 +175,7 @@ public class SqlAnalyzerTools {
                 case "get_table_indexes" -> {
                     String tableName = (String) parameters.get("tableName");
                     String datasource = (String) parameters.get("datasourceName");
-                    yield tableStructureTool.getTableIndexes(tableName, datasource);
+                    yield tableStructureTool.getTableStructure(tableName, datasource);
                 }
                 case "collect_column_stats" -> {
                     String tableName = (String) parameters.get("tableName");
@@ -248,6 +256,17 @@ public class SqlAnalyzerTools {
                     String sql = (String) parameters.get("sql");
                     List<String> tables = (List<String>) parameters.get("tables");
                     yield sqlOptimizerExpertTool.execute(datasource, sql, tables);
+                }
+                case "analyze_sql_complexity" -> {
+                    String sql = (String) parameters.get("sql");
+                    String datasource = (String) parameters.get("datasourceName");
+                    yield sqlQueryComplexityAnalyzer.analyzeSqlComplexity(sql, datasource);
+                }
+                case "analyze_index_usage" -> {
+                    String sql = (String) parameters.get("sql");
+                    String datasource = (String) parameters.get("datasourceName");
+                    String tableName = (String) parameters.get("tableName");
+                    yield indexUsageAnalyzer.analyzeIndexUsage(sql, datasource, tableName);
                 }
                 default -> throw new IllegalArgumentException("未知的工具：" + toolName);
             };
@@ -330,6 +349,8 @@ public class SqlAnalyzerTools {
         descriptions.put("innodb_expert_analyze", "InnoDB 存储引擎专家分析表结构、索引和锁");
         descriptions.put("distributed_db_expert_analyze", "分布式数据库专家分析分片分布和跨分片查询");
         descriptions.put("sql_optimizer_analyze", "SQL 优化专家分析查询语句，提供查询重写和索引覆盖建议");
+        descriptions.put("analyze_sql_complexity", "分析 SQL 查询的复杂度，提供复杂度评分和优化建议");
+        descriptions.put("analyze_index_usage", "分析 SQL 查询中的索引使用情况，识别索引缺失和使用不当的问题");
         return descriptions;
     }
 

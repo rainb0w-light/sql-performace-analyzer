@@ -4,11 +4,13 @@ import com.biz.sccba.sqlanalyzer.tool.TableStructureTool;
 import io.agentscope.core.tool.Toolkit;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * AgentScope 配置类
  */
 @Configuration
+@Profile("!test") // 测试环境不加载此配置
 public class AgentScopeConfig {
 
     /**

@@ -26,7 +26,7 @@ export function ExecutionPlanTable({ plan }: ExecutionPlanTableProps) {
 
   if (plan.length === 0) {
     return (
-      <box style={{ padding: [1, 1] }}>
+      <box style={{ paddingTop: 1, paddingBottom: 1, paddingLeft: 1, paddingRight: 1 }}>
         <text style={{ fg: '#666' }}>暂无执行计划</text>
       </box>
     );
@@ -35,14 +35,18 @@ export function ExecutionPlanTable({ plan }: ExecutionPlanTableProps) {
   return (
     <box style={{ flexDirection: 'column' }}>
       <box style={{ flexDirection: 'row', marginBottom: 1 }}>
-        <text style={{ fg: 'cyan', bold: true }}>执行计划</text>
+        <text style={{ fg: 'cyan' }}>执行计划</text>
       </box>
 
       <box
         style={{
-          border: 'single',
+          border: true,
+          borderStyle: 'single',
           borderColor: '#333',
-          padding: [1, 1],
+          paddingTop: 1,
+          paddingBottom: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
           flexDirection: 'column',
         }}
       >
@@ -62,15 +66,19 @@ export function ExecutionPlanTable({ plan }: ExecutionPlanTableProps) {
       </box>
 
       {plan.some((row) => row.type === 'ALL') && (
-        <box
-          style={{
-            marginTop: 1,
-            padding: [1, 1],
-            backgroundColor: '#3a1a1a',
-            border: 'single',
-            borderColor: 'red',
-          }}
-        >
+      <box
+        style={{
+          marginTop: 1,
+          paddingTop: 1,
+          paddingBottom: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          backgroundColor: '#3a1a1a',
+          border: true,
+          borderStyle: 'single',
+          borderColor: 'red',
+        }}
+      >
           <text style={{ fg: 'red' }}>⚠ 检测到全表扫描，建议添加索引</text>
         </box>
       )}

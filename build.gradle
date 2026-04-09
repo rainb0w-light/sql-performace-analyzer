@@ -32,6 +32,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
     // MySQL JDBC 驱动
     implementation 'mysql:mysql-connector-java:8.0.33'
@@ -66,9 +67,17 @@ dependencies {
     implementation 'io.agentscope:agentscope-core:1.0.9'
     implementation 'io.agentscope:agentscope-extensions-mem0:1.0.9'
 
+    // Resilience4j - Circuit Breaker and Fault Tolerance
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+    implementation 'io.github.resilience4j:resilience4j-reactor:2.2.0'
+
     // Lombok
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+
+    // Lombok for tests
+    testCompileOnly 'org.projectlombok:lombok:1.18.36'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
 
     // 开发工具
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

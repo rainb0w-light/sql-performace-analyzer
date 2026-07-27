@@ -1,2 +1,4 @@
 rootProject.name = 'sql-performance-analyzer'
 
+// IntelliJ 插件是独立构建的，使用自己的 Gradle wrapper/插件版本，避免污染后端构建。
+includeBuild('idea-plugin')

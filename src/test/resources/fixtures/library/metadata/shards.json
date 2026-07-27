@@ -1,0 +1,17 @@
+{
+  "shards": [
+    {
+      "id": "lib-shard-loan",
+      "datasource": "library_db",
+      "logicalTable": "loan",
+      "physicalPattern": "loan_{0..15}",
+      "shardKey": "member_id",
+      "secondaryShardKey": "borrowed_at",
+      "algorithm": "hash",
+      "routingExpr": "member_id % 16, monthly(borrowed_at)",
+      "topology": { "primary": { "key": "member_id", "buckets": 16 }, "secondary": { "key": "borrowed_at", "unit": "MONTH" } },
+      "source": "MANUAL",
+      "confirmedBy": "alice"
+    }
+  ]
+}

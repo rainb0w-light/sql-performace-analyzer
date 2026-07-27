@@ -1,0 +1,64 @@
+{
+  "indexes": [
+    {
+      "id": "lib-idx-book-isbn",
+      "datasource": "library_db",
+      "tableName": "book",
+      "indexName": "uk_book_isbn",
+      "indexType": "UNIQUE",
+      "columns": [ { "column": "isbn", "direction": "ASC" } ],
+      "source": "MANUAL",
+      "confirmedBy": "alice"
+    },
+    {
+      "id": "lib-idx-book-cat-status",
+      "datasource": "library_db",
+      "tableName": "book",
+      "indexName": "idx_book_category_status",
+      "indexType": "NORMAL",
+      "columns": [ { "column": "category", "direction": "ASC" }, { "column": "status", "direction": "ASC" } ],
+      "source": "MANUAL",
+      "confirmedBy": "alice"
+    },
+    {
+      "id": "lib-idx-copy-branch-status-book",
+      "datasource": "library_db",
+      "tableName": "book_copy",
+      "indexName": "idx_book_copy_branch_status_book",
+      "indexType": "NORMAL",
+      "columns": [ { "column": "branch_id", "direction": "ASC" }, { "column": "status", "direction": "ASC" }, { "column": "book_id", "direction": "ASC" } ],
+      "source": "MANUAL",
+      "confirmedBy": "alice"
+    },
+    {
+      "id": "lib-idx-loan-member-status-due",
+      "datasource": "library_db",
+      "tableName": "loan",
+      "indexName": "idx_loan_member_status_due",
+      "indexType": "NORMAL",
+      "columns": [ { "column": "member_id", "direction": "ASC" }, { "column": "status", "direction": "ASC" }, { "column": "due_at", "direction": "ASC" } ],
+      "source": "MANUAL",
+      "confirmedBy": "alice"
+    },
+    {
+      "id": "lib-idx-loan-copy-status",
+      "datasource": "library_db",
+      "tableName": "loan",
+      "indexName": "idx_loan_copy_status",
+      "indexType": "NORMAL",
+      "columns": [ { "column": "copy_id", "direction": "ASC" }, { "column": "status", "direction": "ASC" } ],
+      "source": "MANUAL",
+      "confirmedBy": "alice"
+    },
+    {
+      "id": "lib-idx-reservation-composite",
+      "datasource": "library_db",
+      "tableName": "reservation",
+      "indexName": "idx_reservation_book_branch_status_priority",
+      "indexType": "NORMAL",
+      "columns": [ { "column": "book_id", "direction": "ASC" }, { "column": "branch_id", "direction": "ASC" }, { "column": "status", "direction": "ASC" }, { "column": "priority", "direction": "ASC" } ],
+      "source": "MANUAL",
+      "confirmedBy": "alice"
+    }
+  ]
+}

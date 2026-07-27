@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  Library fixture mapper (docs/cloud-code-next-goal.md §4.4).
+  Covers: optional <if> filters, <foreach> (empty/single/multi), <choose> ordering, and a ${}
+  interpolation whose only safe values come from the published business-knowledge whitelist.
+  Final SQL for every scenario comes exclusively from MappedStatement.getBoundSql.
+-->
+<mapper namespace="library.BookMapper">
+
+    <select id="searchAvailableBooks" resultType="map">
+        SELECT b.id, b.isbn, b.title, b.category, bc.branch_id, bc.shelf_code
+        FROM book b
+        JOIN book_copy bc ON bc.book_id = b.id
+        <where>
+            b.status = 'ACTIVE'
+            AND bc.status = 'AVAILABLE'
+            <if test="keyword != null and keyword != ''">
+                AND (b.title LIKE CONCAT('%', #{keyword}, '%') OR b.isbn = #{keyword})
+            </if>
+            <if test="category != null and category != ''">
+                AND b.category = #{category}
+            </if>
+            <if test="branchId != null">
+                AND bc.branch_id = #{branchId}
+            </if>
+            <if test="categories != null and categories.size() > 0">
+                AND b.category IN
+                <foreach collection="categories" item="cat" open="(" separator="," close=")">
+                    #{cat}
+                </foreach>
+            </if>
+        </where>
+        <choose>
+            <when test="orderBy == 'title'">
+                ORDER BY b.title
+            </when>
+            <when test="orderBy == 'category'">
+                ORDER BY b.category, b.title
+            </when>
+            <otherwise>
+                ORDER BY b.id
+            </otherwise>
+        </choose>
+    </select>
+
+</mapper>

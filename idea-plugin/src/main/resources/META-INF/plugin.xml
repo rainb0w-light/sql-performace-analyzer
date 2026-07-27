@@ -1,0 +1,28 @@
+<idea-plugin>
+    <id>com.biz.sccba.sqlanalyzer.idea</id>
+    <name>SQL Performance Analyzer</name>
+    <vendor email="dev@biz.sccba.com">SQL Analyzer Team</vendor>
+    <description><![CDATA[
+        Analyze MyBatis statements with the SQL Performance Analyzer cloud agent: one click on a
+        statement tag starts a business-driven analysis (official MyBatis BoundSql), streams the
+        persisted AG-UI run and renders the standard report inside IntelliJ IDEA.
+    ]]></description>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.xml</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="SQL Analyzer" anchor="right"
+                    factoryClass="com.biz.sccba.sqlanalyzer.idea.ui.SqlAnalyzerToolWindowFactory"
+                    canCloseContent="false" />
+        <applicationService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.settings.TokenStore" />
+        <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.settings.ProjectAnalyzerSettings" />
+        <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.mybatis.MyBatisMapperWatcher" />
+    </extensions>
+    <actions>
+        <action id="SqlAnalyzer.AnalyzeStatement"
+                class="com.biz.sccba.sqlanalyzer.idea.actions.AnalyzeStatementAction"
+                text="Analyze SQL Performance"
+                description="Analyze SQL performance of this MyBatis statement via the SQL Performance Analyzer">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  Library fixture mapper (docs/cloud-code-next-goal.md §4.4): reservation queue lookup.
+  Exercises the (book_id, branch_id, status, priority) composite index: hotspot book + high
+  frequency branch combinations, optional filters, priority ordering.
+-->
+<mapper namespace="library.ReservationMapper">
+
+    <select id="findQueue" resultType="map">
+        SELECT r.id, r.member_id, r.book_id, r.branch_id, r.priority, r.status
+        FROM reservation r
+        <where>
+            <if test="bookId != null">
+                AND r.book_id = #{bookId}
+            </if>
+            <if test="branchId != null">
+                AND r.branch_id = #{branchId}
+            </if>
+            <if test="status != null and status != ''">
+                AND r.status = #{status}
+            </if>
+            <if test="maxPriority != null">
+                AND r.priority &lt;= #{maxPriority}
+            </if>
+        </where>
+        ORDER BY r.priority, r.id
+    </select>
+
+</mapper>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  Library fixture mapper (docs/cloud-code-next-goal.md §4.4): the overdue-loan main path.
+  loan is sharded by member_id (primary) and borrowed_at (secondary/time). The scenario matrix
+  must exercise: with/without the primary shard key (single vs cross-shard), with/without the
+  borrowed_at range (secondary shard pruning), and statuses <foreach> empty/single/multi.
+-->
+<mapper namespace="library.LoanMapper">
+
+    <select id="findOverdueLoans" resultType="map">
+        SELECT l.id, l.member_id, l.copy_id, l.borrowed_at, l.due_at, l.status
+        FROM loan l
+        <where>
+            l.status = 'ACTIVE'
+            AND l.due_at &lt; #{asOf}
+            <if test="memberId != null">
+                AND l.member_id = #{memberId}
+            </if>
+            <if test="branchId != null">
+                AND l.copy_id IN (SELECT id FROM book_copy WHERE branch_id = #{branchId})
+            </if>
+            <if test="dueBefore != null">
+                AND l.due_at &lt; #{dueBefore}
+            </if>
+            <if test="borrowedFrom != null">
+                AND l.borrowed_at &gt;= #{borrowedFrom}
+            </if>
+            <if test="borrowedTo != null">
+                AND l.borrowed_at &lt; #{borrowedTo}
+            </if>
+            <if test="statuses != null and statuses.size() > 0">
+                AND l.status IN
+                <foreach collection="statuses" item="st" open="(" separator="," close=")">
+                    #{st}
+                </foreach>
+            </if>
+        </where>
+        ORDER BY l.due_at
+    </select>
+
+</mapper>

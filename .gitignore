@@ -7,9 +7,12 @@ build/
 
 # Node.js
 tui/node_modules/
+# OpenTUI 已删除；保留的历史截图不属于新交付物
+tui/docs/test-output/
 
 # IntelliJ IDEA
 .idea/
+.intellijPlatform/
 *.iws
 *.iml
 *.ipr
@@ -21,7 +24,14 @@ out/
 .classpath
 .project
 .settings/
+.factorypath
 bin/
+
+# Codex local metadata
+.codex/
+
+# AgentScope local runtime state
+.agentscope/
 
 # VS Code
 .vscode/

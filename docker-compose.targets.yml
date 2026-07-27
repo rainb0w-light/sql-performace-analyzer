@@ -1,0 +1,19 @@
+services:
+  mysql-target:
+    image: mysql:8.4
+    container_name: sql-analyzer-mysql-target
+    environment:
+      MYSQL_DATABASE: target_db
+      MYSQL_ROOT_PASSWORD: target
+    ports:
+      - "${MYSQL_TARGET_PORT:-3306}:3306"
+    volumes:
+      - mysql_target_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-ptarget"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql_target_data:

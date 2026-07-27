@@ -4,7 +4,7 @@ import com.biz.sccba.sqlanalyzer.config.AiConfig;
 import com.biz.sccba.sqlanalyzer.data.LlmConfig;
 import io.agentscope.core.model.GenerateOptions;
 import io.agentscope.core.model.Model;
-import io.agentscope.core.model.OpenAIChatModel;
+import io.agentscope.extensions.model.openai.OpenAIChatModel;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -38,15 +38,20 @@ public class AgentScopeLlmService {
         }
 
         for (LlmConfig config : configs) {
-            validateConfig(config);
+            if (!validateConfig(config)) {
+                System.out.println("[AgentScopeLlmService] 跳过不完整的 LLM 配置：" + config.getName());
+                continue;
+            }
             Model model = createModel(config);
             models.put(config.getName(), model);
             System.out.println("[AgentScopeLlmService] 注册 LLM 模型：" + config.getName() + " (" + config.getModel() + ")");
         }
 
         // 设置默认模型
-        this.defaultModelName = configs.get(0).getName();
-        System.out.println("[AgentScopeLlmService] 默认 LLM 模型：" + defaultModelName);
+        this.defaultModelName = models.keySet().stream().findFirst().orElse(null);
+        if (defaultModelName != null) {
+            System.out.println("[AgentScopeLlmService] 默认 LLM 模型：" + defaultModelName);
+        }
     }
 
     /**
@@ -63,6 +68,7 @@ public class AgentScopeLlmService {
      * 获取默认 AgentScope Model
      */
     public Optional<Model> getDefaultModel() {
+        if (defaultModelName == null) return Optional.empty();
         Model model = models.get(defaultModelName);
         if (model != null) {
             return Optional.of(model);
@@ -111,19 +117,20 @@ public class AgentScopeLlmService {
     /**
      * 验证配置
      */
-    private void validateConfig(LlmConfig config) {
+    private boolean validateConfig(LlmConfig config) {
         if (config.getName() == null || config.getName().trim().isEmpty()) {
-            throw new IllegalStateException("LLM 配置中 name 不能为空");
+            return false;
         }
         if (config.getApiKey() == null || config.getApiKey().trim().isEmpty()) {
-            throw new IllegalStateException("LLM 配置中 api-key 不能为空：" + config.getName());
+            return false;
         }
         if (config.getBaseUrl() == null || config.getBaseUrl().trim().isEmpty()) {
-            throw new IllegalStateException("LLM 配置中 base-url 不能为空：" + config.getName());
+            return false;
         }
         if (config.getModel() == null || config.getModel().trim().isEmpty()) {
-            throw new IllegalStateException("LLM 配置中 model 不能为空：" + config.getName());
+            return false;
         }
+        return true;
     }
 
     /**

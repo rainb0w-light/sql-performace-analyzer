@@ -1,123 +1,58 @@
 server:
-  port: 18881
-  # 静态资源路径配置
-  servlet:
-    context-path: /
+  port: ${SERVER_PORT:18881}
 
 spring:
   application:
     name: sql-performance-analyzer
-  
-  # 禁用DevTools自动重启功能
-  devtools:
-    restart:
-      enabled: false
-    livereload:
-      enabled: false
-  
-  # H2 数据源（用于缓存SQL分析结果，JPA使用）
-  # 使用TCP服务器模式，支持多客户端访问
-  # 数据库文件存储在H2服务器的/opt/h2-data目录下
-
-  
-  # JPA 配置（用于H2缓存数据库）
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    database-platform: org.hibernate.dialect.H2Dialect
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
-        format_sql: true
-        # 禁用对序列的检查（H2不需要）
-        use_sql_comments: false
-    defer-datasource-initialization: true
-  datasource:
-    url: jdbc:h2:file:./data/sql-analysis-cache;AUTO_SERVER=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  
-  # H2 控制台（明确禁用）
-  h2:
-    console:
-      enabled: false
-
-  # 多数据源配置（用于SQL分析，通过自定义配置类管理）
-  datasources:
-    configs:
-      - name: mysql-primary
-        url: jdbc:mysql://127.0.0.1:3306/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-        username: root
-        password: password
-        driver-class-name: com.mysql.cj.jdbc.Driver
-        hikari:
-          maximum-pool-size: 10
-          minimum-idle: 5
-          connection-timeout: 30000
-          idle-timeout: 600000
-          max-lifetime: 1800000
-          leak-detection-threshold: 60000
-
-      - name: mysql-secondary
-        url: jdbc:mysql://127.0.0.1:3306/test_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-        username: root
-        password: password
-        driver-class-name: com.mysql.cj.jdbc.Driver
-        hikari:
-          maximum-pool-size: 10
-          minimum-idle: 5
-          connection-timeout: 30000
-          idle-timeout: 600000
-          max-lifetime: 1800000
-          leak-detection-threshold: 60000
-
-  # 多大模型配置（使用 Spring AI OpenAI starter，因为 DeepSeek API 兼容 OpenAI）
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
   llms:
     configs:
-      - name: deepseek1
-        type: openai
-        api-key: sk-f251ef2a739746d394fb1df3935bb06f
-        base-url: https://api.deepseek.com
-        model: deepseek-chat
-        temperature: 0.7
-      - name: deepseek2
-        type: openai
-        api-key: sk-f251ef2a739746d394fb1df3935bb06f
-        base-url: https://api.deepseek.com
-        model: deepseek-chat
-        temperature: 0.7
+      - name: ${AGENTSCOPE_MODEL_NAME:deepseek}
+        api-key: ${DEEPSEEK_API_KEY:}
+        base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+        model: ${DEEPSEEK_MODEL:deepseek-chat}
+        temperature: ${DEEPSEEK_TEMPERATURE:0.2}
 
-# MyBatis 配置
-mybatis:
-  # Mapper XML 文件位置
-  mapper-locations: 
-    - classpath*:com/example/mapper/*.xml
-    - classpath*:mapper/**/*.xml
-  # MyBatis 配置文件名（可选，如果不存在可以注释掉）
-  # config-location: classpath:mybatis-config.xml
-  # 类型别名包路径（可选）
-  type-aliases-package: com.example.model
+sql-analyzer:
+  persistence:
+    enabled: ${SQL_ANALYZER_PERSISTENCE_ENABLED:false}
+    # Management database: PostgreSQL in production; H2 for the Docker-free local gate and dev.
+    # The dialect is detected from the JDBC URL via JDBC metadata (docs/cloud-code-next-goal.md §3.5);
+    # the driver is inferred from the URL, so no driver-class-name is configured here.
+    #   PostgreSQL: jdbc:postgresql://localhost:5432/sql_analyzer
+    #   H2 (file, restart-recoverable): jdbc:h2:file:./data/sql-analyzer-management
+    jdbc-url: ${SQL_ANALYZER_POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/sql_analyzer}
+    username: ${SQL_ANALYZER_POSTGRES_USERNAME:postgres}
+    password: ${SQL_ANALYZER_POSTGRES_PASSWORD:postgres}
+    maximum-pool-size: ${SQL_ANALYZER_POSTGRES_POOL_SIZE:10}
+  worker:
+    enabled: ${SQL_ANALYZER_WORKER_ENABLED:false}
+    poll-delay-ms: ${SQL_ANALYZER_WORKER_POLL_DELAY_MS:500}
+  limits:
+    max-concurrent-runs: ${SQL_ANALYZER_MAX_CONCURRENT_RUNS:10}
+  knowledge:
+    vector:
+      # Requires a PostgreSQL with the pgvector extension; structured search works regardless.
+      enabled: ${SQL_ANALYZER_KNOWLEDGE_VECTOR_ENABLED:false}
+      jdbc-url: ${SQL_ANALYZER_KNOWLEDGE_PGVECTOR_JDBC_URL:${SQL_ANALYZER_POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/sql_analyzer}}
+      username: ${SQL_ANALYZER_KNOWLEDGE_PGVECTOR_USERNAME:${SQL_ANALYZER_POSTGRES_USERNAME:postgres}}
+      password: ${SQL_ANALYZER_KNOWLEDGE_PGVECTOR_PASSWORD:${SQL_ANALYZER_POSTGRES_PASSWORD:postgres}}
+      schema: sql_analyzer
+      table: kb_embedding
+      dimensions: ${SQL_ANALYZER_KNOWLEDGE_VECTOR_DIMENSIONS:1024}
+    embedding:
+      api-key: ${SQL_ANALYZER_EMBEDDING_API_KEY:}
+      base-url: ${SQL_ANALYZER_EMBEDDING_BASE_URL:https://api.openai.com}
+      model: ${SQL_ANALYZER_EMBEDDING_MODEL:text-embedding-3-small}
+  profiling:
+    sample-rows: ${SQL_ANALYZER_PROFILING_SAMPLE_ROWS:50000}
+    top-k: ${SQL_ANALYZER_PROFILING_TOP_K:10}
+    statement-timeout-ms: ${SQL_ANALYZER_PROFILING_STATEMENT_TIMEOUT_MS:10000}
 
 logging:
   level:
-    root: DEBUG
-    com.example.sqlanalyzer: DEBUG
-    jdk.internal.httpclient: INFO
-    sun.rmi: INFO
-    com.zaxxer: INFO
-    javax: INFO
-
-# Resilience4j Circuit Breaker Configuration
-resilience4j:
-  circuitbreaker:
-    instances:
-      databaseOperations:
-        failureRateThreshold: 50
-        waitDurationInOpenState: 30s
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-
-
+    root: INFO
+    com.biz.sccba.sqlanalyzer: INFO

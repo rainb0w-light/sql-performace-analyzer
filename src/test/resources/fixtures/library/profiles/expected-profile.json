@@ -1,0 +1,69 @@
+{
+  "comment": "Deterministic profiling expectations over schema/seed-data.sql (docs/cloud-code-next-goal.md §5.3). Values derive straight from the seed rows; tests assert these exactly.",
+  "tables": {
+    "book": {
+      "columns": {
+        "category": {
+          "distinct": 3,
+          "nullRatio": 0.0,
+          "topK": [ { "value": "FICTION", "count": 4 }, { "value": "TECH", "count": 1 }, { "value": "HISTORY", "count": 1 } ],
+          "skewComment": "FICTION dominates (category skew) — high-frequency enum scenario source"
+        },
+        "status": {
+          "distinct": 2,
+          "nullRatio": 0.0,
+          "topK": [ { "value": "ACTIVE", "count": 5 }, { "value": "WITHDRAWN", "count": 1 } ]
+        },
+        "isbn": {
+          "distinct": 6,
+          "nullRatio": 0.0,
+          "sensitivityPolicy": "PLAINTEXT"
+        }
+      }
+    },
+    "book_copy": {
+      "columns": {
+        "branch_id": {
+          "distinct": 3,
+          "nullRatio": 0.0,
+          "topK": [ { "value": "1", "count": 5 }, { "value": "2", "count": 2 }, { "value": "3", "count": 1 } ],
+          "skewComment": "branch 1 (中心馆) is the hotspot — HOTSPOT risk scenario source"
+        },
+        "status": {
+          "distinct": 3,
+          "nullRatio": 0.0,
+          "topK": [ { "value": "AVAILABLE", "count": 5 }, { "value": "BORROWED", "count": 2 }, { "value": "DAMAGED", "count": 1 } ]
+        }
+      }
+    },
+    "member": {
+      "columns": {
+        "member_no": {
+          "distinct": 4,
+          "nullRatio": 0.0,
+          "sensitivityPolicy": "HASHED",
+          "rawValueForbiddenPrefix": "M-100",
+          "comment": "Top-K values must be 64-char SHA-256 hex; raw member_no must never appear"
+        },
+        "level": {
+          "distinct": 3,
+          "nullRatio": 0.0,
+          "topK": [ { "value": "GOLD", "count": 2 }, { "value": "SILVER", "count": 1 }, { "value": "BRONZE", "count": 1 } ]
+        }
+      }
+    },
+    "loan": {
+      "columns": {
+        "status": {
+          "distinct": 2,
+          "nullRatio": 0.0,
+          "topK": [ { "value": "ACTIVE", "count": 4 }, { "value": "RETURNED", "count": 2 } ]
+        },
+        "returned_at": {
+          "nullRatioApprox": 0.6667,
+          "comment": "4 of 6 loans are active (returned_at NULL)"
+        }
+      }
+    }
+  }
+}

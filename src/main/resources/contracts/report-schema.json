@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-analyzer.example/schemas/analysis-report/v1.1.json",
+  "title": "SQL Performance Analysis Report",
+  "description": "标准分析报告结构化 Schema（development-guide §10）。报告必须通过本 Schema 校验后才持久化并投影为 UI/Markdown。所有结论必须携带证据来源、版本、采集时间和置信度。",
+  "type": "object",
+  "required": ["schemaVersion", "reportId", "subject", "summary", "scenarios", "evidenceCatalog", "recommendations", "limits", "audit"],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "const": "1.1" },
+    "reportId": { "type": "string" },
+    "subject": {
+      "description": "§10.1 基本信息",
+      "type": "object",
+      "required": ["projectId", "mapperPath", "namespace", "statementId", "contentHash"],
+      "properties": {
+        "projectId": { "type": "string" },
+        "moduleId": { "type": ["string", "null"] },
+        "mapperPath": { "type": "string" },
+        "namespace": { "type": "string" },
+        "statementId": { "type": "string" },
+        "statementType": { "enum": ["SELECT", "UPDATE", "INSERT", "DELETE", null] },
+        "contentHash": { "type": "string", "description": "Mapper 内容 SHA-256" },
+        "mybatisVersion": { "type": ["string", "null"] }
+      }
+    },
+    "summary": {
+      "description": "§10.2 结论摘要",
+      "type": "object",
+      "required": ["severity", "headline", "confidence"],
+      "properties": {
+        "severity": { "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+        "headline": { "type": "string" },
+        "primaryBottlenecks": { "type": "array", "items": { "type": "string" } },
+        "impactScope": { "type": "string" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "businessSemantics": {
+      "description": "§10.3 业务语义",
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidencedFact" }
+    },
+    "scenarios": {
+      "description": "§10.4/§10.5 动态 SQL 场景矩阵",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scenarioId", "name", "boundSql", "sqlFingerprint", "parameterMappings", "coverage", "coverageGoals", "evidenceIds"],
+        "properties": {
+          "scenarioId": { "type": "string" },
+          "name": { "type": "string" },
+          "businessDescription": { "type": "string" },
+          "parameterSource": { "enum": ["USER", "EXCEL", "PROFILE", "RULE_INFERRED", "BOUNDARY_GENERATED"] },
+          "parameters": { "type": "object", "description": "类型化参数 JSON，敏感字段已脱敏" },
+          "expectedBranches": { "type": "array", "items": { "type": "string" } },
+          "boundSql": { "type": "string", "description": "仅来自 MappedStatement.getBoundSql" },
+          "sqlFingerprint": { "type": "string" },
+          "parameterMappings": { "type": "array", "items": { "type": "object" } },
+          "additionalParameters": { "type": "object" },
+          "coverage": { "type": "array", "items": { "type": "string" }, "description": "覆盖的动态节点 ID" },
+          "coverageGoals": { "type": "array", "items": { "type": "string" }, "description": "场景规划覆盖目标；不得混作证据 ID" },
+          "evidenceIds": { "type": "array", "items": { "type": "string" }, "description": "引用顶层 evidenceCatalog.evidenceId" },
+          "hasDollarInterpolation": { "type": "boolean", "description": "${} 强制风险标记" },
+          "unsupported": { "type": ["string", "null"], "description": "UNSUPPORTED 原因（自定义 LanguageDriver/typeHandler 等）" },
+          "confidence": { "$ref": "#/$defs/confidence" }
+        }
+      }
+    },
+    "schemaMetadata": {
+      "description": "§10.6 表结构、索引、分片键",
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidencedFact" }
+    },
+    "dataDistribution": {
+      "description": "§10.7 数据分布",
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidencedFact" }
+    },
+    "evidenceCatalog": {
+      "description": "报告引用的规范化证据目录",
+      "type": "array",
+      "items": {
+        "allOf": [ { "$ref": "#/$defs/evidence" } ],
+        "required": ["evidenceId", "sourceType", "sourceId", "version", "locator", "collectedAt", "confidence"],
+        "properties": {
+          "evidenceId": { "type": "string" },
+          "sourceId": { "type": "string" },
+          "locator": { "type": "string" }
+        }
+      }
+    },
+    "executionPlans": {
+      "description": "§10.8 EXPLAIN/执行计划",
+      "type": "array",
+      "items": {
+        "allOf": [ { "$ref": "#/$defs/evidencedFact" } ],
+        "properties": {
+          "scenarioId": { "type": "string" },
+          "plan": { "type": ["object", "string"] },
+          "keyOperators": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "risks": {
+      "description": "§10.9 风险",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "title"],
+        "properties": {
+          "type": { "enum": ["FULL_TABLE_SCAN", "ROW_LOOKUP", "SORT", "TEMP_TABLE", "CROSS_SHARD", "HOTSPOT", "DOLLAR_INTERPOLATION", "OTHER"] },
+          "title": { "type": "string" },
+          "scenarioIds": { "type": "array", "items": { "type": "string" } },
+          "evidence": { "$ref": "#/$defs/evidence" }
+        }
+      }
+    },
+    "recommendations": {
+      "description": "§10.10 优化建议",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["recommendationId", "title", "priority", "confidence", "evidence"],
+        "properties": {
+          "recommendationId": { "type": "string" },
+          "problem": { "type": "string" },
+          "title": { "type": "string" },
+          "impact": { "type": "string" },
+          "suggestedSql": { "type": ["string", "null"] },
+          "suggestedDdl": { "type": ["string", "null"], "description": "仅建议，系统绝不执行" },
+          "priority": { "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+          "confidence": { "$ref": "#/$defs/confidence" },
+          "evidence": { "$ref": "#/$defs/evidence" }
+        }
+      }
+    },
+    "limits": {
+      "description": "§10.11 限制与缺失证据",
+      "type": "object",
+      "properties": {
+        "unsupportedTags": { "type": "array", "items": { "type": "string" } },
+        "missingPermissions": { "type": "array", "items": { "type": "string" } },
+        "staleSnapshots": { "type": "array", "items": { "type": "string" } },
+        "explainSkipped": { "type": "boolean" },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "audit": {
+      "description": "§10.12 审计信息",
+      "type": "object",
+      "required": ["runId", "sessionId", "generatedAt", "model"],
+      "properties": {
+        "runId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "knowledgeVersion": { "type": ["string", "null"] },
+        "profileSnapshotId": { "type": ["string", "null"] },
+        "profileCollectedAt": { "type": ["string", "null"] },
+        "model": { "type": "string" },
+        "generatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "$defs": {
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "evidence": {
+      "type": "object",
+      "description": "证据来源三要素：来源、版本、采集时间（development-guide §2.4）",
+      "required": ["sourceType", "collectedAt"],
+      "properties": {
+        "sourceType": { "enum": ["EXCEL_PUBLISHED", "MANUAL_RULE", "SYSTEM_CATALOG", "PROFILE_SNAPSHOT", "AGENT_INFERRED", "EXPLAIN", "SLOW_LOG", "MAPPER_XML"] },
+        "sourceId": { "type": ["string", "null"] },
+        "version": { "type": ["string", "integer", "null"] },
+        "locator": { "type": ["string", "null"], "description": "Sheet/行/列或系统目录位置" },
+        "collectedAt": { "type": "string", "format": "date-time" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "evidencedFact": {
+      "type": "object",
+      "required": ["fact", "evidence"],
+      "properties": {
+        "fact": { "type": "string" },
+        "structured": { "type": ["object", "array", "null"] },
+        "evidence": { "$ref": "#/$defs/evidence" }
+      }
+    }
+  }
+}

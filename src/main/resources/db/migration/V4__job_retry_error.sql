@@ -1,0 +1,1 @@
+ALTER TABLE v2_agent_job ADD COLUMN IF NOT EXISTS last_error TEXT;

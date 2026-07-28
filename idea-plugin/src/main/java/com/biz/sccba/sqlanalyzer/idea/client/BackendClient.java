@@ -79,6 +79,17 @@ public final class BackendClient {
                 "artifactId");
     }
 
+    public String indexMyBatisAnnotation(String sessionId, String javaContent,
+                                         String namespace, String methodName) throws Exception {
+        JsonObject body = new JsonObject();
+        body.addProperty("sessionId", sessionId);
+        body.addProperty("namespace", namespace);
+        body.addProperty("methodName", methodName);
+        body.addProperty("javaContent", javaContent);
+        return requiredText(jsonRequest("POST", "/api/v1/artifacts/mybatis/annotation-index",
+                body, true, true), "artifactId");
+    }
+
     public SuggestionSet suggestDefaultParameters(SuggestionRequest request) throws Exception {
         return typedRequest("POST", "/api/v1/mapper-statements/default-parameters/suggest",
                 request, true, true, SuggestionSet.class);

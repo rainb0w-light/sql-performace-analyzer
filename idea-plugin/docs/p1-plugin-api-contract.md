@@ -5,6 +5,11 @@
 
 ## 1. 默认参数建议
 
+Java 注解 Mapper 在 PSI 能唯一解析时，Plugin 使用
+`POST /artifacts/mybatis/annotation-index` 上传 `sessionId/javaContent/namespace/methodName`。
+该端点只接受单个可静态求值的 `@Select/@Insert/@Update/@Delete` 方法；无法静态求值返回
+`UNSUPPORTED`，Plugin 不在本地展开动态 Java 表达式。
+
 `POST /mapper-statements/default-parameters/suggest`
 
 请求：
@@ -147,4 +152,3 @@
 ## 7. 尚未实现的真实集成
 
 基线 `ea30131` 尚无第 1、2、4、5、6 节端点。P1 Plugin 使用 Fake Gateway 做 consumer contract 和状态交互验收；真实按钮收到 404/501 时显示结构化“服务端能力未部署”，不回退为本地伪造结果。
-

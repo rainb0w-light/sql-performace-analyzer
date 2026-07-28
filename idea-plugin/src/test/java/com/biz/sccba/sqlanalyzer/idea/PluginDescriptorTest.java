@@ -16,6 +16,8 @@ public class PluginDescriptorTest {
         assertTrue(xml.contains("<id>com.biz.sccba.sqlanalyzer.idea</id>"));
         assertTrue("XML PSI support must be declared",
                 xml.contains("<depends>com.intellij.modules.xml</depends>"));
+        assertTrue("Java annotation Mapper PSI support must be declared",
+                xml.contains("<depends>com.intellij.modules.java</depends>"));
         assertTrue(xml.contains("factoryClass=\"com.biz.sccba.sqlanalyzer.idea.ui.SqlAnalyzerToolWindowFactory\""));
         assertTrue("token secret must live in a PasswordSafe-backed application service",
                 xml.contains("serviceImplementation=\"com.biz.sccba.sqlanalyzer.idea.settings.TokenStore\""));
@@ -25,5 +27,12 @@ public class PluginDescriptorTest {
         assertTrue("statement analysis must be a registered action, not a manual flow",
                 xml.contains("class=\"com.biz.sccba.sqlanalyzer.idea.actions.AnalyzeStatementAction\""));
         assertTrue(xml.contains("<add-to-group group-id=\"EditorPopupMenu\""));
+        assertTrue("statement analysis must also be exposed in the gutter",
+                xml.contains("MyBatisStatementLineMarkerProvider"));
+        assertTrue("Alt/Option+Enter must expose an Intention",
+                xml.contains("AnalyzeStatementIntention"));
+        assertFalse("the plugin must not occupy IntelliJ's Ctrl/Cmd+Shift+A shortcut",
+                xml.contains("first-keystroke=\"control shift A\"")
+                        || xml.contains("first-keystroke=\"meta shift A\""));
     }
 }

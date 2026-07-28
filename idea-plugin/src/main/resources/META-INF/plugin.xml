@@ -9,6 +9,7 @@
     ]]></description>
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.xml</depends>
+    <depends>com.intellij.modules.java</depends>
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="SQL Analyzer" anchor="right"
                     factoryClass="com.biz.sccba.sqlanalyzer.idea.ui.SqlAnalyzerToolWindowFactory"
@@ -16,6 +17,12 @@
         <applicationService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.settings.TokenStore" />
         <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.settings.ProjectAnalyzerSettings" />
         <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.mybatis.MyBatisMapperWatcher" />
+        <codeInsight.lineMarkerProvider language="XML"
+                implementationClass="com.biz.sccba.sqlanalyzer.idea.actions.MyBatisStatementLineMarkerProvider" />
+        <codeInsight.lineMarkerProvider language="JAVA"
+                implementationClass="com.biz.sccba.sqlanalyzer.idea.actions.MyBatisStatementLineMarkerProvider" />
+        <intentionAction implementationClass="com.biz.sccba.sqlanalyzer.idea.actions.AnalyzeStatementIntention"
+                category="SQL Performance Analyzer" />
     </extensions>
     <actions>
         <action id="SqlAnalyzer.AnalyzeStatement"

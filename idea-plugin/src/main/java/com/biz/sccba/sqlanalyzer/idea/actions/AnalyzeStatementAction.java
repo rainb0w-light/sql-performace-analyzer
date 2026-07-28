@@ -15,7 +15,7 @@ import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
+import com.intellij.psi.PsiJavaFile;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
@@ -40,11 +40,9 @@ public final class AnalyzeStatementAction extends AnAction {
         PsiFile file = e.getData(CommonDataKeys.PSI_FILE);
         Editor editor = e.getData(CommonDataKeys.EDITOR);
         boolean visible = false;
-        if (file instanceof XmlFile xmlFile && editor != null) {
-            visible = ReadAction.compute(() -> {
-                if (!MyBatisStatementPsi.isMapperFile(xmlFile)) return false;
-                return MyBatisStatementPsi.statementTagAt(xmlFile, editor.getCaretModel().getOffset()) != null;
-            });
+        if ((file instanceof XmlFile || file instanceof PsiJavaFile) && editor != null) {
+            visible = ReadAction.compute(() ->
+                    MyBatisStatementPsi.resolve(e.getProject(), file, editor.getCaretModel().getOffset()) != null);
         }
         e.getPresentation().setEnabledAndVisible(visible);
     }
@@ -54,23 +52,28 @@ public final class AnalyzeStatementAction extends AnAction {
         var project = e.getProject();
         PsiFile file = e.getData(CommonDataKeys.PSI_FILE);
         Editor editor = e.getData(CommonDataKeys.EDITOR);
-        if (project == null || !(file instanceof XmlFile xmlFile) || editor == null) return;
+        if (project == null || file == null || editor == null) return;
+        startAnalysis(project, editor, file);
+    }
+
+    public static void startAnalysis(com.intellij.openapi.project.Project project,
+                                     Editor editor, PsiFile file) {
+        if (project == null || file == null || editor == null) return;
 
         AnalysisUiBridge bridge = AnalysisUiBridge.getInstance(project);
-        MyBatisStatementPsi.StatementRef ref = ReadAction.compute(() -> {
-            XmlTag tag = MyBatisStatementPsi.statementTagAt(xmlFile, editor.getCaretModel().getOffset());
-            return tag == null ? null : MyBatisStatementPsi.toRef(project, xmlFile, tag);
-        });
+        MyBatisStatementPsi.StatementRef ref = ReadAction.compute(() ->
+                MyBatisStatementPsi.resolve(project, file, editor.getCaretModel().getOffset()));
         if (ref == null) {
-            bridge.showAndDispatch(() -> bridge.status("请将光标放在 <select>/<insert>/<update>/<delete> 标签内"));
+                bridge.showAndDispatch(() -> bridge.status(
+                        "请将光标放在 Mapper statement 或可静态解析的 MyBatis 注解方法内"));
             return;
         }
         bridge.showAndDispatch(() -> bridge.status("正在分析 " + ref.namespace() + "." + ref.statementId()));
         CompletableFuture.runAsync(() -> runAnalysis(project, bridge, ref));
     }
 
-    private void runAnalysis(com.intellij.openapi.project.Project project, AnalysisUiBridge bridge,
-                             MyBatisStatementPsi.StatementRef ref) {
+    private static void runAnalysis(com.intellij.openapi.project.Project project, AnalysisUiBridge bridge,
+                                    MyBatisStatementPsi.StatementRef ref) {
         try {
             ProjectAnalyzerSettings settings = ProjectAnalyzerSettings.getInstance(project);
             String token = TokenStore.getInstance().token();
@@ -86,7 +89,9 @@ public final class AnalyzeStatementAction extends AnAction {
             // Content-hash dedup: identical mapper content is not re-uploaded.
             String artifactId = settings.lastMapperArtifactId();
             if (artifactId.isBlank() || !ref.contentHash().equals(settings.lastMapperHash())) {
-                artifactId = client.indexMyBatisMapper(sessionId, ref.mapperXml(), ref.namespace());
+                artifactId = ref.sourceKind() == MyBatisStatementPsi.SourceKind.XML
+                        ? client.indexMyBatisMapper(sessionId, ref.mapperXml(), ref.namespace())
+                        : client.indexMyBatisAnnotation(sessionId, ref.mapperXml(), ref.namespace(), ref.statementId());
                 settings.mapperCache(ref.contentHash(), artifactId);
             }
 

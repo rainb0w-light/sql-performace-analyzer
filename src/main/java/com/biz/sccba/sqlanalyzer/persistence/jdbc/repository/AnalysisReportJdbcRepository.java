@@ -23,4 +23,10 @@ public interface AnalysisReportJdbcRepository extends CrudRepository<AnalysisRep
             + "ORDER BY created_at DESC LIMIT :limit")
     List<AnalysisReportEntity> findAllForClient(@Param("clientId") String clientId,
                                                 @Param("limit") int limit);
+
+    @Query("SELECT * FROM sql_analyzer.analysis_report WHERE client_id = :clientId "
+            + "ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset")
+    List<AnalysisReportEntity> findPageForClient(@Param("clientId") String clientId,
+                                                @Param("offset") int offset,
+                                                @Param("limit") int limit);
 }

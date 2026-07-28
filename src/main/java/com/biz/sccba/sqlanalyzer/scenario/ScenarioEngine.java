@@ -65,8 +65,9 @@ public class ScenarioEngine {
             // structural scan is advisory; binding below remains authoritative
         }
 
+        PlannerInput hashedInput = input.withContentHash(contentHash(mapperXml));
         List<ParameterScenario> scenarios = structure == null
-                ? List.of() : planner.plan(structure, input);
+                ? List.of() : planner.plan(structure, hashedInput);
         Set<String> dollarExpressions = structure == null ? Set.of()
                 : new LinkedHashSet<>(structure.dollarExpressions());
 
@@ -120,6 +121,15 @@ public class ScenarioEngine {
             return HexFormat.of().formatHex(digest).substring(0, 16);
         } catch (Exception e) {
             return Integer.toHexString(normalized.hashCode());
+        }
+    }
+
+    private static String contentHash(byte[] content) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (Exception e) {
+            return Integer.toHexString(java.util.Arrays.hashCode(content));
         }
     }
 

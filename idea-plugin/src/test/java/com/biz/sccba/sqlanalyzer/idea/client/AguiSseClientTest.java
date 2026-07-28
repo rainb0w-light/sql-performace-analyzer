@@ -15,6 +15,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
@@ -29,6 +30,7 @@ public class AguiSseClientTest {
     private final AtomicReference<String> acceptHeader = new AtomicReference<>();
     private final AtomicReference<String> idempotencyKey = new AtomicReference<>();
     private final AtomicReference<String> existingRunAuthorization = new AtomicReference<>();
+    private final AtomicInteger unauthorizedCalls = new AtomicInteger();
 
     @Before
     public void setUp() throws IOException {
@@ -74,6 +76,12 @@ public class AguiSseClientTest {
                         "{\"runId\":\"run_existing\",\"type\":\"RUN_FINISHED\"}"));
                 out.flush();
             }
+        });
+        server.createContext("/api/v1/agui/runs/run_unauthorized/stream", exchange -> {
+            unauthorizedCalls.incrementAndGet();
+            byte[] body = "{\"code\":\"UNAUTHORIZED\",\"retryable\":false}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(401, body.length);
+            try (OutputStream out = exchange.getResponseBody()) { out.write(body); }
         });
         server.start();
     }
@@ -164,6 +172,21 @@ public class AguiSseClientTest {
         assertEquals(List.of("RUN_STARTED", "RUN_FINISHED"), eventTypes);
         assertEquals("Bearer spa_token", existingRunAuthorization.get());
         assertNull("following a created run must not create/replay a run POST", idempotencyKey.get());
+    }
+
+    @Test
+    public void unauthorizedStreamDoesNotBlindlyRetry() throws Exception {
+        AguiSseClient client = new AguiSseClient(baseUrl(), "bad", 1L, 2L, 5);
+        try {
+            client.streamExisting("/api/v1/agui/runs/run_unauthorized/stream", "run_unauthorized",
+                    (id, type, json) -> false);
+            fail("expected unauthorized SSE failure");
+        } catch (AguiSseClient.SseException expected) {
+            assertEquals(401, expected.status());
+            assertEquals("UNAUTHORIZED", expected.code());
+            assertFalse(expected.retryable());
+        }
+        assertEquals(1, unauthorizedCalls.get());
     }
 
     private static byte[] sse(String id, String type, String data) {

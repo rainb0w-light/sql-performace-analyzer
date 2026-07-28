@@ -105,6 +105,17 @@ public class SessionService {
         if (!runs.belongsToClient(runId, clientId)) {
             throw new IllegalArgumentException("Run 不存在或不属于当前客户端");
         }
+        var run = runs.findById(runId).orElseThrow(() ->
+                new IllegalArgumentException("Run 不存在"));
+        if ("AWAITING_CONFIRMATION".equals(run.status())) {
+            runs.updateStatus(runId, "CANCELLED", "cancelled by client");
+            events.append(runId, "RUN_ERROR", "{\"runId\":\"" + runId
+                    + "\",\"code\":\"CANCELLED\",\"message\":\"cancelled by client\",\"retryable\":false}");
+            events.append(runId, "RUN_FINISHED", "{\"runId\":\"" + runId
+                    + "\",\"status\":\"CANCELLED\"}");
+            sessions.touch(run.sessionId(), "ACTIVE");
+            return new Cancellation(runId, "CANCELLED");
+        }
         // Queued first (legacy + AG-UI jobs share the queue).
         boolean cancelled = jobs.cancelQueuedForRun(runId);
         if (cancelled) {

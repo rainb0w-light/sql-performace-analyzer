@@ -1,5 +1,10 @@
 package com.biz.sccba.sqlanalyzer.idea.ui;
 
+import com.biz.sccba.sqlanalyzer.idea.client.BackendClient;
+import com.biz.sccba.sqlanalyzer.idea.contract.PluginApiDtos.BoundSqlPreview;
+import com.biz.sccba.sqlanalyzer.idea.report.ReportViewModel;
+import com.biz.sccba.sqlanalyzer.idea.scenario.MainScenarioModel;
+import com.biz.sccba.sqlanalyzer.idea.state.AnalysisState;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.project.Project;
@@ -18,13 +23,18 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class AnalysisUiBridge {
 
     public interface Listener {
-        void onStreamText(String text);
-        void onStatus(String status);
-        void onScenarioMatrix(String planJson);
-        void onReport(String reportJson);
-        void onRecommendations(String recommendationsJson);
-        void onRunStarted(String runId);
-        void onRunFinished();
+        default void onState(AnalysisState state) {}
+        default void onMainScenario(MainScenarioModel model) {}
+        default void onBoundSqlPreview(BoundSqlPreview preview) {}
+        default void onDatasourceCandidates(List<BackendClient.DatasourceProfile> profiles) {}
+        default void onReportModel(ReportViewModel model, String rawJson) {}
+        default void onStreamText(String text) {}
+        default void onStatus(String status) {}
+        default void onScenarioMatrix(String planJson) {}
+        default void onReport(String reportJson) {}
+        default void onRecommendations(String recommendationsJson) {}
+        default void onRunStarted(String runId) {}
+        default void onRunFinished() {}
     }
 
     private final Project project;
@@ -57,6 +67,27 @@ public final class AnalysisUiBridge {
 
     public void streamText(String text) {
         ApplicationManager.getApplication().invokeLater(() -> listeners.forEach(l -> l.onStreamText(text)));
+    }
+
+    public void state(AnalysisState state) {
+        ApplicationManager.getApplication().invokeLater(() -> listeners.forEach(l -> l.onState(state)));
+    }
+
+    public void mainScenario(MainScenarioModel model) {
+        ApplicationManager.getApplication().invokeLater(() -> listeners.forEach(l -> l.onMainScenario(model)));
+    }
+
+    public void boundSqlPreview(BoundSqlPreview preview) {
+        ApplicationManager.getApplication().invokeLater(() -> listeners.forEach(l -> l.onBoundSqlPreview(preview)));
+    }
+
+    public void datasourceCandidates(List<BackendClient.DatasourceProfile> profiles) {
+        ApplicationManager.getApplication().invokeLater(() -> listeners.forEach(l -> l.onDatasourceCandidates(profiles)));
+    }
+
+    public void reportModel(ReportViewModel model, String rawJson) {
+        ApplicationManager.getApplication().invokeLater(() ->
+                listeners.forEach(l -> l.onReportModel(model, rawJson)));
     }
 
     public void status(String status) {

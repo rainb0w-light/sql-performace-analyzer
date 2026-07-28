@@ -13,7 +13,8 @@ import org.springframework.data.repository.query.Param;
 public interface AgentJobJdbcRepository extends CrudRepository<AgentJobEntity, String> {
 
     @Modifying
-    @Query("UPDATE sql_analyzer.agent_job SET status = 'COMPLETED', lease_until = NULL WHERE id = :id")
+    @Query("UPDATE sql_analyzer.agent_job SET status = 'COMPLETED', lease_until = NULL "
+            + "WHERE id = :id AND status = 'RUNNING'")
     void markCompleted(@Param("id") String id);
 
     @Modifying
@@ -31,6 +32,6 @@ public interface AgentJobJdbcRepository extends CrudRepository<AgentJobEntity, S
 
     @Modifying
     @Query("UPDATE sql_analyzer.agent_job SET status = 'CANCELLED', lease_until = NULL, last_error = 'cancelled by client' "
-            + "WHERE run_id = :runId AND status = 'QUEUED'")
+            + "WHERE run_id = :runId AND status IN ('QUEUED','RUNNING')")
     int cancelQueuedForRun(@Param("runId") String runId);
 }

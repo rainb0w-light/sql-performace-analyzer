@@ -39,7 +39,13 @@ public class ReportAssembler {
                           String statementId, String statementType, String contentHash,
                           String mybatisVersion) {}
 
-    public record Audit(String runId, String sessionId, String model) {}
+    public record Audit(String runId, String sessionId, String model,
+                        String datasourceProfileId, String contextFingerprint,
+                        boolean readOnly) {
+        public Audit(String runId, String sessionId, String model) {
+            this(runId, sessionId, model, null, null, true);
+        }
+    }
 
     public String assemble(Subject subject, Audit audit, ScenarioEngine.PlanResult plan,
                            ScenarioContextResolver.ContextBundle context, byte[] mapperXml) {
@@ -140,6 +146,9 @@ public class ReportAssembler {
         auditNode.put("profileSnapshotId", context.profileSnapshotId());
         auditNode.put("profileCollectedAt", (String) null);
         auditNode.put("model", audit.model());
+        auditNode.put("datasourceProfileId", audit.datasourceProfileId());
+        auditNode.put("contextFingerprint", audit.contextFingerprint());
+        auditNode.put("readOnly", audit.readOnly());
         auditNode.put("generatedAt", Instant.now().toString());
 
         return report.toString();

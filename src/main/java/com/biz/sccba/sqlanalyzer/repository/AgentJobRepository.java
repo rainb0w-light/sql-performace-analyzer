@@ -23,7 +23,7 @@ public interface AgentJobRepository {
     /** Extends the claim lease for long-running asynchronous executions. */
     void extendLease(String id, int minutes);
 
-    /** Cancels a job only while it is still queued; false if already running or finished. */
+    /** Requests cancellation for a queued/running job; executors must observe the Run state. */
     boolean cancelQueuedForRun(String runId);
 
     record Job(String id, String runId, String payloadJson) {}

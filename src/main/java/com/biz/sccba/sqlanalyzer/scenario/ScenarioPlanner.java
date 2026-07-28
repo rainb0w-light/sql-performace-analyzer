@@ -20,7 +20,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.TreeMap;
 
 /**
  * Business-semantics-driven scenario generation (development-guide §6.3). The planner only
@@ -282,9 +285,40 @@ public class ScenarioPlanner {
                                 Map<String, Object> params, List<String> expectedBranches,
                                 List<String> coverageNodes, List<String> goals, double confidence,
                                 PlannerInput input, int priority) {
-        return new Candidate(new ParameterScenario("scn_" + key + "_" + UUID.randomUUID().toString().substring(0, 8),
+        return new Candidate(new ParameterScenario(stableScenarioId(key, params, input),
                 name, description, source, params, expectedBranches, coverageNodes, goals, confidence,
                 input.knowledgeVersion(), input.profileSnapshotId(), priority));
+    }
+
+    private static String stableScenarioId(String key, Map<String, Object> params, PlannerInput input) {
+        String material = String.join("|", key, canonical(params),
+                String.valueOf(input.contentHash()), String.valueOf(input.knowledgeVersion()),
+                String.valueOf(input.profileSnapshotId()));
+        try {
+            String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(material.getBytes(StandardCharsets.UTF_8))).substring(0, 16);
+            return "scn_" + key.replaceAll("[^A-Za-z0-9_-]", "_") + "_" + hash;
+        } catch (Exception e) {
+            return "scn_" + key.replaceAll("[^A-Za-z0-9_-]", "_")
+                    + "_" + Integer.toHexString(material.hashCode());
+        }
+    }
+
+    private static String canonical(Object value) {
+        if (value == null) return "null";
+        if (value instanceof Map<?, ?> map) {
+            TreeMap<String, Object> sorted = new TreeMap<>();
+            map.forEach((key, item) -> sorted.put(String.valueOf(key), item));
+            return sorted.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + canonical(entry.getValue()))
+                    .collect(java.util.stream.Collectors.joining(",", "{", "}"));
+        }
+        if (value instanceof Iterable<?> iterable) {
+            List<String> items = new ArrayList<>();
+            iterable.forEach(item -> items.add(canonical(item)));
+            return String.join(",", items);
+        }
+        return value.getClass().getName() + ":" + value;
     }
 
     // ---- parameter construction ----

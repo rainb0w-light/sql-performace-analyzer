@@ -19,6 +19,9 @@ public interface AnalysisReportRepository {
 
     List<Report> listForClient(String clientId, int limit);
 
+    /** Stable created-at/id ordered page used by server-side Plugin history filtering. */
+    List<Report> listForClientPage(String clientId, int offset, int limit);
+
     record Report(String id, String clientId, String runId, String sessionId, String namespace,
                   String statementId, String schemaVersion, String severity, String reportJson,
                   String markdown, Instant createdAt) {}

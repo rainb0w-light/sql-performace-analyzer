@@ -3,6 +3,9 @@ package com.biz.sccba.sqlanalyzer.controller;
 import com.biz.sccba.sqlanalyzer.analysis.AnalysisRunOrchestrator;
 import com.biz.sccba.sqlanalyzer.analysis.IdempotentAnalysisRunService;
 import com.biz.sccba.sqlanalyzer.mybatis.DynamicNodeCatalog;
+import com.biz.sccba.sqlanalyzer.pluginapi.PluginApiModels;
+import com.biz.sccba.sqlanalyzer.pluginapi.PluginMapperPreparationService;
+import com.biz.sccba.sqlanalyzer.pluginapi.PluginTransientRuleService;
 import com.biz.sccba.sqlanalyzer.scenario.ScenarioEngine;
 import com.biz.sccba.sqlanalyzer.service.ArtifactService;
 import jakarta.validation.Valid;
@@ -36,14 +39,41 @@ public class MapperStatementController {
     private final IdempotentAnalysisRunService analysisRuns;
     private final DynamicNodeCatalog catalog;
     private final ArtifactService artifacts;
+    private final PluginMapperPreparationService preparation;
+    private final PluginTransientRuleService transientRules;
     private final BearerClients bearer;
 
     public MapperStatementController(IdempotentAnalysisRunService analysisRuns, DynamicNodeCatalog catalog,
-                                     ArtifactService artifacts, BearerClients bearer) {
+                                     ArtifactService artifacts, PluginMapperPreparationService preparation,
+                                     PluginTransientRuleService transientRules,
+                                     BearerClients bearer) {
         this.analysisRuns = analysisRuns;
         this.catalog = catalog;
         this.artifacts = artifacts;
+        this.preparation = preparation;
+        this.transientRules = transientRules;
         this.bearer = bearer;
+    }
+
+    @PostMapping("/default-parameters/suggest")
+    public PluginApiModels.SuggestionSet suggest(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody PluginApiModels.SuggestionRequest request) {
+        return preparation.suggest(bearer.clientId(authorization), request);
+    }
+
+    @PostMapping("/default-parameters/preview")
+    public PluginApiModels.BoundSqlPreview preview(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody PluginApiModels.BoundSqlPreviewRequest request) {
+        return preparation.preview(bearer.clientId(authorization), request);
+    }
+
+    @PostMapping("/transient-rules/preview")
+    public PluginApiModels.TransientRuleImpact previewTransientRules(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody PluginApiModels.TransientRulePreviewRequest request) {
+        return transientRules.preview(bearer.clientId(authorization), request);
     }
 
     /** Structural statement inventory of an uploaded mapper artifact. */
@@ -69,13 +99,14 @@ public class MapperStatementController {
     public ResponseEntity<AnalysisRunOrchestrator.RunHandle> analyze(
                           @RequestHeader(value = "Authorization", required = false) String authorization,
                           @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
-                          @Valid @RequestBody AnalyzeRequest request) {
+                          @Valid @RequestBody PluginApiModels.AnalyzeRequest request) {
         String clientId = bearer.clientId(authorization);
         var handle = analysisRuns.start(clientId, idempotencyKey, new AnalysisRunOrchestrator.Command(
                 request.artifactId(), request.statementId(), request.datasourceProfileId(),
                 request.projectId(), request.moduleId(), request.sessionId(),
                 request.mybatisConfigXml(), request.databaseId(), request.schemaName(), request.maxScenarios(),
-                request.userSamples()));
+                request.userSamples(), request.executionMode(), request.mainScenario(),
+                request.transientRules(), request.costThreshold()));
         return ResponseEntity.accepted().body(handle);
     }
 
@@ -83,15 +114,4 @@ public class MapperStatementController {
         return s == null ? "" : s;
     }
 
-    public record AnalyzeRequest(@NotBlank String statementId,
-                                 @NotBlank String artifactId,
-                                 @NotBlank String datasourceProfileId,
-                                 String sessionId,
-                                 String projectId,
-                                 String moduleId,
-                                 String mybatisConfigXml,
-                                 String databaseId,
-                                 String schemaName,
-                                 Integer maxScenarios,
-                                 List<Map<String, Object>> userSamples) {}
 }

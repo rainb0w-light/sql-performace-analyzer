@@ -9,7 +9,10 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /** Server-side, tenant-scoped history filtering without a Plugin report-delete API. */
 @Service
@@ -33,12 +36,19 @@ public class PluginReportHistoryService {
         int matched = 0;
         int offset = 0;
         List<HistoryItem> pageItems = new ArrayList<>();
+        Map<StatementKey, ContextKey> latestContexts = new HashMap<>();
         while (true) {
             List<AnalysisReportRepository.Report> batch =
                     reports.listForClientPage(clientId, offset, SCAN_BATCH);
             if (batch.isEmpty()) break;
             for (var report : batch) {
                 HistoryItem item = project(report);
+                StatementKey statement = StatementKey.from(item);
+                ContextKey context = ContextKey.from(item);
+                ContextKey latest = latestContexts.putIfAbsent(statement, context);
+                if (latest != null && !latest.equals(context)) {
+                    item = item.withStale(true);
+                }
                 if (!matches(item, filter)) continue;
                 if (matched >= fromIndex && pageItems.size() < size) {
                     pageItems.add(item);
@@ -120,9 +130,46 @@ public class PluginReportHistoryService {
                               String profileSnapshotId, String contextFingerprint,
                               boolean stale, String severity, Instant completedAt,
                               String reportJson) {
+        private HistoryItem withStale(boolean value) {
+            return new HistoryItem(reportId, runId, sessionId, projectId, moduleId,
+                    namespace, statementId, contentHash, datasourceProfileId,
+                    knowledgeVersion, profileSnapshotId, contextFingerprint,
+                    value, severity, completedAt, reportJson);
+        }
     }
 
     public record HistoryPage(List<HistoryItem> items, int page, int size,
                               long totalElements, int totalPages) {
+    }
+
+    private record StatementKey(String projectId, String moduleId, String namespace,
+                                String statementId) {
+        private static StatementKey from(HistoryItem item) {
+            return new StatementKey(item.projectId(), item.moduleId(), item.namespace(),
+                    item.statementId());
+        }
+    }
+
+    private record ContextKey(String contentHash, String datasourceProfileId,
+                              String knowledgeVersion, String profileSnapshotId) {
+        private static ContextKey from(HistoryItem item) {
+            return new ContextKey(item.contentHash(), item.datasourceProfileId(),
+                    item.knowledgeVersion(), item.profileSnapshotId());
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof ContextKey that)) return false;
+            return Objects.equals(contentHash, that.contentHash)
+                    && Objects.equals(datasourceProfileId, that.datasourceProfileId)
+                    && Objects.equals(knowledgeVersion, that.knowledgeVersion)
+                    && Objects.equals(profileSnapshotId, that.profileSnapshotId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(contentHash, datasourceProfileId,
+                    knowledgeVersion, profileSnapshotId);
+        }
     }
 }

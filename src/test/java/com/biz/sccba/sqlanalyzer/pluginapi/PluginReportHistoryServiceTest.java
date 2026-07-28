@@ -36,15 +36,45 @@ class PluginReportHistoryServiceTest {
                 .map(PluginReportHistoryService.HistoryItem::reportId).toList());
     }
 
+    @Test
+    void derivesStaleFromTheLatestKnownStatementContext() {
+        Instant now = Instant.parse("2026-07-28T10:00:00Z");
+        MemoryReports reports = new MemoryReports(List.of(
+                report("latest", "p1", "m1", "findLoan", "ds1", "HIGH",
+                        false, "hash-new", "kb@2", "snap-2", now),
+                report("old-content", "p1", "m1", "findLoan", "ds1", "HIGH",
+                        false, "hash-old", "kb@2", "snap-2", now.minusSeconds(1)),
+                report("old-datasource", "p1", "m1", "findLoan", "ds0", "HIGH",
+                        false, "hash-new", "kb@2", "snap-2", now.minusSeconds(2)),
+                report("other-statement", "p1", "m1", "other", "ds0", "LOW",
+                        false, "different", "kb@1", "snap-1", now.minusSeconds(3))));
+        var service = new PluginReportHistoryService(reports, new ObjectMapper());
+
+        var stale = service.search("client", new PluginReportHistoryService.Filter(
+                "p1", "m1", null, null, null, null, null, true, 0, 10));
+
+        assertEquals(List.of("old-content", "old-datasource"), stale.items().stream()
+                .map(PluginReportHistoryService.HistoryItem::reportId).toList());
+    }
+
     private static AnalysisReportRepository.Report report(
             String id, String project, String module, String statement,
             String datasource, String severity, boolean stale, Instant created) {
+        return report(id, project, module, statement, datasource, severity, stale,
+                "hash", "kb@1", "snap", created);
+    }
+
+    private static AnalysisReportRepository.Report report(
+            String id, String project, String module, String statement,
+            String datasource, String severity, boolean stale, String contentHash,
+            String knowledgeVersion, String profileSnapshotId, Instant created) {
         String json = """
                 {"subject":{"projectId":"%s","moduleId":"%s","namespace":"demo.M",
-                "statementId":"%s","contentHash":"hash"},
-                "audit":{"datasourceProfileId":"%s","knowledgeVersion":"kb@1",
-                "profileSnapshotId":"snap","contextFingerprint":"fp","stale":%s}}
-                """.formatted(project, module, statement, datasource, stale);
+                "statementId":"%s","contentHash":"%s"},
+                "audit":{"datasourceProfileId":"%s","knowledgeVersion":"%s",
+                "profileSnapshotId":"%s","contextFingerprint":"fp","stale":%s}}
+                """.formatted(project, module, statement, contentHash, datasource,
+                knowledgeVersion, profileSnapshotId, stale);
         return new AnalysisReportRepository.Report(id, "client", "run_" + id, "session",
                 "demo.M", statement, "1.1", severity, json, "", created);
     }

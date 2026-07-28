@@ -24,10 +24,10 @@ Plugin 的 `contractTest`、`verifyPluginStructure`、`buildPlugin` 和仓库
 
 最新自动化结果：
 
-- Backend：178 tests，0 failure/error，29 skipped；
+- Backend：179 tests，0 failure/error，29 skipped；
 - Plugin：45 tests，0 failure/error；
 - Plugin 包：`idea-plugin/build/distributions/sql-performance-analyzer-idea-plugin-0.1.0.zip`；
-- `scripts/acceptance.sh --local`：PASS（2026-07-28 22:05 Asia/Shanghai）。
+- `scripts/acceptance.sh --local`：PASS（2026-07-28 22:10 Asia/Shanghai）。
 
 ## 人工检查
 

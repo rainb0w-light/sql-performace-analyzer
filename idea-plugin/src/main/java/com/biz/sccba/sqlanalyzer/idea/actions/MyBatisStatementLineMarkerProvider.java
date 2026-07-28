@@ -1,6 +1,7 @@
 package com.biz.sccba.sqlanalyzer.idea.actions;
 
 import com.biz.sccba.sqlanalyzer.idea.mybatis.MyBatisStatementPsi;
+import com.biz.sccba.sqlanalyzer.idea.mybatis.GutterAnalysisState;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
 import com.intellij.icons.AllIcons;
@@ -17,16 +18,31 @@ public final class MyBatisStatementLineMarkerProvider implements LineMarkerProvi
     public @Nullable LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
         PsiElement anchor = anchor(element);
         if (anchor == null) return null;
-        return new LineMarkerInfo<>(anchor, anchor.getTextRange(), AllIcons.Actions.Execute,
-                ignored -> "分析 SQL 性能",
+        var project = anchor.getProject();
+        MyBatisStatementPsi.StatementRef ref = MyBatisStatementPsi.resolve(
+                project, anchor.getContainingFile(), anchor.getTextOffset());
+        if (ref == null) return null;
+        GutterAnalysisState.Entry state = project.getService(GutterAnalysisState.class)
+                .get(ref.locator(), ref.contentHash(), "");
+        javax.swing.Icon icon = switch (state.status()) {
+            case RUNNING -> AllIcons.Process.Step_1;
+            case COMPLETED -> AllIcons.General.InspectionsOK;
+            case FAILED, STALE -> AllIcons.General.Warning;
+            case READY -> AllIcons.Actions.Execute;
+        };
+        String tooltip = state.message() + (state.updatedAt() == null ? ""
+                : " · " + state.updatedAt()) + (state.severity().isBlank() ? ""
+                : " · " + state.severity());
+        return new LineMarkerInfo<>(anchor, anchor.getTextRange(), icon,
+                ignored -> tooltip,
                 (event, elt) -> {
                     PsiFile file = elt.getContainingFile();
                     if (file == null) return;
-                    var project = elt.getProject();
-                    var editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
+                    var targetProject = elt.getProject();
+                    var editor = FileEditorManager.getInstance(targetProject).getSelectedTextEditor();
                     if (editor != null) {
                         editor.getCaretModel().moveToOffset(elt.getTextOffset());
-                        AnalyzeStatementAction.startAnalysis(project, editor, file);
+                        AnalyzeStatementAction.startAnalysis(targetProject, editor, file);
                     }
                 },
                 GutterIconRenderer.Alignment.LEFT, () -> "分析 SQL 性能");

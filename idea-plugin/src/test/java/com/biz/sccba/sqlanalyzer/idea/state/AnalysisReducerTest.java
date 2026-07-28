@@ -49,6 +49,18 @@ public class AnalysisReducerTest {
     }
 
     @Test
+    public void automaticScenarioEventDoesNotRewindActiveRunButReviewPausesIt() {
+        AnalysisState running = AnalysisReducer.reduce(
+                AnalysisReducer.reduce(AnalysisState.idle(), new RunAccepted("s", "r", true)),
+                new RunStarted());
+        AnalysisState automatic = AnalysisReducer.reduce(running, new PlanReady(List.of(), false));
+        assertEquals(BusinessState.RUNNING, automatic.businessState());
+        AnalysisState review = AnalysisReducer.reduce(running, new PlanReady(List.of(), true));
+        assertEquals(BusinessState.AWAITING_REVIEW, review.businessState());
+        assertEquals("r", review.run().runId());
+    }
+
+    @Test
     public void allFiveBlockingGuardsForceReview() {
         List<Guard> guards = List.of(
                 guard(GuardType.DATASOURCE_MISSING),
@@ -89,4 +101,3 @@ public class AnalysisReducerTest {
                 !"SELECT".equals(type) && !"WITH".equals(type));
     }
 }
-

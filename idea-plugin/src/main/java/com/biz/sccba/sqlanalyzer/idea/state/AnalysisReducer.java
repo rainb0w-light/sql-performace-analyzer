@@ -47,8 +47,12 @@ public final class AnalysisReducer {
         if (event instanceof SuggestionsReady) return business(state, BusinessState.CONFIGURING_MAIN_SCENARIO);
         if (event instanceof MainScenarioConfirmed) return business(state, BusinessState.PLANNING);
         if (event instanceof PlanReady planned) {
-            BusinessState next = planned.reviewRequired() || planned.guards().stream().anyMatch(Guard::blocking)
-                    ? BusinessState.AWAITING_REVIEW : BusinessState.SUBMITTING;
+            boolean needsReview = planned.reviewRequired()
+                    || planned.guards().stream().anyMatch(Guard::blocking);
+            boolean activeRun = state.businessState() == BusinessState.QUEUED
+                    || state.businessState() == BusinessState.RUNNING;
+            BusinessState next = needsReview ? BusinessState.AWAITING_REVIEW
+                    : activeRun ? state.businessState() : BusinessState.SUBMITTING;
             return copy(state, next, state.connectionState(), state.statement(), state.run(), state.phase(),
                     state.lastEventId(), planned.guards(), null, state.draftPreserved());
         }
@@ -68,7 +72,7 @@ public final class AnalysisReducer {
             return copy(state, BusinessState.PROJECTING, state.connectionState(), state.statement(), run,
                     state.phase(), state.lastEventId(), state.guards(), null, state.draftPreserved());
         }
-        if (event instanceof ProjectionSucceeded) return business(state, BusinessState.COMPLETED);
+        if (event instanceof ProjectionSucceeded) return business(state, BusinessState.PROJECTING);
         if (event instanceof ProjectionFailed projection) {
             return copy(state, BusinessState.PROJECTION_FAILED, state.connectionState(), state.statement(), state.run(),
                     state.phase(), state.lastEventId(), state.guards(), projection.error(), state.draftPreserved());
@@ -103,4 +107,3 @@ public final class AnalysisReducer {
                 guards, error, draftPreserved);
     }
 }
-

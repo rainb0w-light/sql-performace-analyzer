@@ -3,6 +3,7 @@ package com.biz.sccba.sqlanalyzer.controller;
 import com.biz.sccba.sqlanalyzer.domain.Artifact;
 import com.biz.sccba.sqlanalyzer.service.ArtifactPipelineService;
 import com.biz.sccba.sqlanalyzer.service.ArtifactService;
+import com.biz.sccba.sqlanalyzer.pluginapi.StaticAnnotationMapperService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,11 +29,14 @@ public class ArtifactController {
 
     private final ArtifactService artifacts;
     private final ArtifactPipelineService pipeline;
+    private final StaticAnnotationMapperService annotationMappers;
     private final BearerClients bearer;
 
-    public ArtifactController(ArtifactService artifacts, ArtifactPipelineService pipeline, BearerClients bearer) {
+    public ArtifactController(ArtifactService artifacts, ArtifactPipelineService pipeline,
+                              StaticAnnotationMapperService annotationMappers, BearerClients bearer) {
         this.artifacts = artifacts;
         this.pipeline = pipeline;
+        this.annotationMappers = annotationMappers;
         this.bearer = bearer;
     }
 
@@ -71,6 +75,14 @@ public class ArtifactController {
         return pipeline.ingestMyBatisMapper(bearer.clientId(authorization), request.sessionId(), request.xmlContent(), request.namespace());
     }
 
+    @PostMapping("/artifacts/mybatis/annotation-index")
+    public ArtifactPipelineService.IndexedArtifact mybatisAnnotationAndIndex(
+            @RequestHeader("Authorization") String authorization,
+            @Valid @RequestBody MyBatisAnnotationArtifactRequest request) {
+        return annotationMappers.index(bearer.clientId(authorization), request.sessionId(),
+                request.javaContent(), request.namespace(), request.methodName());
+    }
+
     @PostMapping("/artifacts/evidence/index")
     public ArtifactPipelineService.IndexedArtifact evidenceAndIndex(
             @RequestHeader("Authorization") String authorization,
@@ -85,6 +97,10 @@ public class ArtifactController {
     }
 
     public record MyBatisArtifactRequest(@NotBlank String xmlContent, String sessionId, String namespace) {}
+
+    public record MyBatisAnnotationArtifactRequest(@NotBlank String javaContent, String sessionId,
+                                                   @NotBlank String namespace,
+                                                   @NotBlank String methodName) {}
 
     public record EvidenceArtifactRequest(@NotBlank String evidenceType, @NotBlank String content, String sessionId) {}
 }

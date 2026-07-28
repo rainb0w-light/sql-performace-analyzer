@@ -62,6 +62,41 @@ public class StatementAnalysisService {
     }
 
     @Transactional(transactionManager = "managementTransactionManager")
+    public AnalysisResult analyzePrepared(
+            String clientId, String runId, String sessionId, String reportId,
+            String projectId, String moduleId, String datasourceProfileId,
+            String contextFingerprint, byte[] mapperXml, String mapperPath,
+            StatementReferenceResolver.References refs, ScenarioEngine.PlanResult plan,
+            ScenarioContextResolver.ContextBundle bundle, ProgressListener progress) {
+        if (plan.loadError() != null) {
+            throw new IllegalArgumentException("Mapper 无法解析：" + plan.loadError());
+        }
+        ProgressListener listener = progress == null ? ProgressListener.NOOP : progress;
+        listener.scenariosReady(plan);
+        listener.assemblingReport();
+        String reportJson = assembler.assemble(reportId,
+                new ReportAssembler.Subject(projectId == null ? "default" : projectId,
+                        moduleId, mapperPath, refs.namespace(), refs.statementId(),
+                        refs.statementType(), null, null),
+                new ReportAssembler.Audit(runId, sessionId, "deterministic-analysis",
+                        datasourceProfileId, contextFingerprint, true),
+                plan, bundle, mapperXml);
+        validator.validate(reportJson);
+        String markdown = renderer.render(reportJson);
+        var report = new AnalysisReportRepository.Report(reportId, clientId, runId, sessionId,
+                refs.namespace(), refs.statementId(), "1.1", readSeverity(reportJson),
+                reportJson, markdown, Instant.now());
+        reports.save(report);
+        int recommendations;
+        try {
+            recommendations = recommendationProjector.project(runId, sessionId, reportJson);
+        } catch (Exception e) {
+            throw new IllegalStateException("建议投影失败：" + e.getMessage(), e);
+        }
+        return new AnalysisResult(report, recommendations);
+    }
+
+    @Transactional(transactionManager = "managementTransactionManager")
     public AnalysisResult analyze(String clientId, String runId, String sessionId, String projectId,
                                   byte[] mapperXml, String mapperPath, String statementId,
                                   String mybatisConfigXml, String databaseId,

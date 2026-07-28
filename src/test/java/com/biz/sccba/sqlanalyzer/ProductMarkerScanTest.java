@@ -37,7 +37,8 @@ class ProductMarkerScanTest {
 
     /** External AgentScope doc URL segment permitted on a hit line. */
     private static final String AGENTSCOPE_DOC_PATH = "java.agentscope.io/" + MARKER + "/";
-    private static final String AGENTSCOPE_GITHUB_TAG = "agentscope-java/blob/" + MARKER + ".0.0/";
+    private static final String AGENTSCOPE_GITHUB_DOC_PATH =
+            "github.com/agentscope-ai/agentscope-java/blob/" + MARKER;
     private static final String MERMAID_STATE_DIAGRAM = "stateDiagram-" + MARKER;
 
     private static final Set<String> ALLOWED_FILES = Set.of(
@@ -100,10 +101,10 @@ class ProductMarkerScanTest {
         List<String> lines = Files.readAllLines(file);
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            if (MARKER_PATTERN.matcher(line).find()
-                    && !line.contains(AGENTSCOPE_DOC_PATH)
-                    && !line.contains(AGENTSCOPE_GITHUB_TAG)
-                    && !line.contains(MERMAID_STATE_DIAGRAM)) {
+            boolean externalVersionedDoc = line.contains(AGENTSCOPE_DOC_PATH)
+                    || line.contains(AGENTSCOPE_GITHUB_DOC_PATH);
+            boolean mermaidSyntax = line.trim().equals(MERMAID_STATE_DIAGRAM);
+            if (MARKER_PATTERN.matcher(line).find() && !externalVersionedDoc && !mermaidSyntax) {
                 hits.add(normalized + ":" + (i + 1));
             }
         }

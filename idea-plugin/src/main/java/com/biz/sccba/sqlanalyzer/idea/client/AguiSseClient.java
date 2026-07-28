@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * </ul>
  */
 public final class AguiSseClient {
+    public enum ConnectionState { CONNECTING, STREAMING, BACKOFF, RESUMING, TERMINAL, ABORTED }
 
     /** Receives parsed events on the calling (background) thread. */
     public interface Listener {
@@ -35,6 +36,8 @@ public final class AguiSseClient {
         boolean onEvent(String id, String type, String json);
 
         default void onReconnect(int attempt, String lastEventId, String reason) {}
+        default void onConnectionState(ConnectionState state, int attempt,
+                                       String lastEventId, String reason) {}
     }
 
     private final String baseUrl;
@@ -42,20 +45,28 @@ public final class AguiSseClient {
     private final HttpClient http;
     private final long initialBackoffMs;
     private final long maxBackoffMs;
+    private final int maxReconnectAttempts;
     private final AtomicBoolean aborted = new AtomicBoolean(false);
     private volatile InputStream currentStream;
 
     public AguiSseClient(String baseUrl, String token) {
-        this(baseUrl, token, 500L, 30_000L);
+        this(baseUrl, token, 500L, 30_000L, 8);
     }
 
     /** Test-friendly constructor with tunable backoff. */
     public AguiSseClient(String baseUrl, String token, long initialBackoffMs, long maxBackoffMs) {
+        this(baseUrl, token, initialBackoffMs, maxBackoffMs, 8);
+    }
+
+    /** Test-friendly constructor with a bounded reconnect count. */
+    public AguiSseClient(String baseUrl, String token, long initialBackoffMs,
+                         long maxBackoffMs, int maxReconnectAttempts) {
         this.baseUrl = baseUrl.replaceAll("/+$", "");
         this.token = token == null ? "" : token;
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
         this.initialBackoffMs = Math.max(1, initialBackoffMs);
         this.maxBackoffMs = Math.max(this.initialBackoffMs, maxBackoffMs);
+        this.maxReconnectAttempts = Math.max(0, maxReconnectAttempts);
     }
 
     /** Stops streaming and closes any live connection. */
@@ -89,7 +100,12 @@ public final class AguiSseClient {
         while (!aborted.get()) {
             boolean deliveredAny = false;
             try {
-                if (attempt > 0) listener.onReconnect(attempt, lastEventId, lastFailure);
+                if (attempt > 0) {
+                    listener.onReconnect(attempt, lastEventId, lastFailure);
+                    listener.onConnectionState(ConnectionState.RESUMING, attempt, lastEventId, lastFailure);
+                } else {
+                    listener.onConnectionState(ConnectionState.CONNECTING, attempt, lastEventId, "");
+                }
                 HttpRequest.Builder builder = newRequest("GET", path, "req_" + UUID.randomUUID(), attempt).GET();
                 if (lastEventId != null) builder.header("Last-Event-ID", lastEventId);
                 HttpResponse<InputStream> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream());
@@ -98,8 +114,9 @@ public final class AguiSseClient {
                     try (InputStream errorBody = response.body()) {
                         body = new String(errorBody.readAllBytes(), StandardCharsets.UTF_8);
                     }
-                    throw new IOException("后端返回 HTTP " + response.statusCode() + ": " + body);
+                    throw statusFailure(response.statusCode(), body);
                 }
+                listener.onConnectionState(ConnectionState.STREAMING, attempt, lastEventId, "");
 
                 try (InputStream stream = response.body()) {
                     currentStream = stream;
@@ -107,9 +124,16 @@ public final class AguiSseClient {
                     deliveredAny = result.deliveredAny();
                     lastProcessed = result.lastProcessed();
                     if (result.lastEventId() != null) lastEventId = result.lastEventId();
-                    if (result.stopped()) return runId;
+                    if (result.stopped()) {
+                        listener.onConnectionState(ConnectionState.TERMINAL, attempt, lastEventId, "");
+                        return runId;
+                    }
                 }
                 lastFailure = "stream ended before terminal event";
+            } catch (SseException e) {
+                if (!e.retryable()) throw e;
+                if (aborted.get()) break;
+                lastFailure = e.getMessage() == null ? e.toString() : e.getMessage();
             } catch (IOException e) {
                 if (aborted.get()) break;
                 lastFailure = e.getMessage() == null ? e.toString() : e.getMessage();
@@ -119,8 +143,14 @@ public final class AguiSseClient {
 
             if (aborted.get()) break;
             attempt = deliveredAny ? 0 : attempt + 1;
+            if (attempt > maxReconnectAttempts) {
+                throw new SseException(0, "SSE_RETRY_EXHAUSTED",
+                        "SSE 重连次数已耗尽；Run 状态仍需通过服务端查询恢复", false);
+            }
+            listener.onConnectionState(ConnectionState.BACKOFF, attempt, lastEventId, lastFailure);
             backoff(attempt);
         }
+        listener.onConnectionState(ConnectionState.ABORTED, attempt, lastEventId, "用户取消连接");
         return runId;
     }
 
@@ -146,13 +176,17 @@ public final class AguiSseClient {
             try {
                 HttpRequest request;
                 if (runId == null) {
+                    listener.onConnectionState(ConnectionState.CONNECTING, attempt, lastEventId, "");
                     // Not a single event observed yet: replay the idempotent creation POST.
                     request = newRequest("POST", "/api/v1/agui/runs", requestId, attempt)
                             .header("Idempotency-Key", idempotencyKey)
                             .POST(HttpRequest.BodyPublishers.ofString(runAgentInputJson))
                             .build();
                 } else {
-                    if (attempt > 0) listener.onReconnect(attempt, lastEventId, lastFailure);
+                    if (attempt > 0) {
+                        listener.onReconnect(attempt, lastEventId, lastFailure);
+                        listener.onConnectionState(ConnectionState.RESUMING, attempt, lastEventId, lastFailure);
+                    }
                     HttpRequest.Builder builder = newRequest("GET", "/api/v1/agui/runs/" + runId + "/stream", requestId, attempt)
                             .GET();
                     if (lastEventId != null) builder.header("Last-Event-ID", lastEventId);
@@ -165,8 +199,9 @@ public final class AguiSseClient {
                     try (InputStream errorBody = response.body()) {
                         body = new String(errorBody.readAllBytes(), StandardCharsets.UTF_8);
                     }
-                    throw new IOException("后端返回 HTTP " + response.statusCode() + ": " + body);
+                    throw statusFailure(response.statusCode(), body);
                 }
+                listener.onConnectionState(ConnectionState.STREAMING, attempt, lastEventId, "");
 
                 try (InputStream stream = response.body()) {
                     currentStream = stream;
@@ -199,9 +234,16 @@ public final class AguiSseClient {
                             break;
                         }
                     }
-                    if (stopped) return runId;
+                    if (stopped) {
+                        listener.onConnectionState(ConnectionState.TERMINAL, attempt, lastEventId, "");
+                        return runId;
+                    }
                 }
                 lastFailure = "stream ended before terminal event";
+            } catch (SseException e) {
+                if (!e.retryable()) throw e;
+                if (aborted.get()) break;
+                lastFailure = e.getMessage() == null ? e.toString() : e.getMessage();
             } catch (IOException e) {
                 if (aborted.get()) break;
                 lastFailure = e.getMessage() == null ? e.toString() : e.getMessage();
@@ -211,6 +253,11 @@ public final class AguiSseClient {
 
             if (aborted.get()) break;
             attempt = deliveredAny ? 0 : attempt + 1;
+            if (attempt > maxReconnectAttempts) {
+                throw new SseException(0, "SSE_RETRY_EXHAUSTED",
+                        "SSE 重连次数已耗尽；Run 状态仍需通过服务端查询恢复", false);
+            }
+            listener.onConnectionState(ConnectionState.BACKOFF, attempt, lastEventId, lastFailure);
             long ceiling = Math.min(maxBackoffMs, initialBackoffMs * (1L << Math.min(attempt, 20)));
             long sleepMs = ThreadLocalRandom.current().nextLong(Math.max(1, ceiling));
             long slept = 0;
@@ -219,7 +266,16 @@ public final class AguiSseClient {
                 slept += 50;
             }
         }
+        listener.onConnectionState(ConnectionState.ABORTED, attempt, lastEventId, "用户取消连接");
         return runId;
+    }
+
+    private static SseException statusFailure(int status, String body) {
+        boolean retryable = status == 429 || status >= 500;
+        String code = status == 401 ? "UNAUTHORIZED"
+                : status == 429 ? "RATE_LIMITED" : "HTTP_" + status;
+        String detail = body == null || body.isBlank() ? "" : ": " + body;
+        return new SseException(status, code, "后端返回 HTTP " + status + detail, retryable);
     }
 
     private HttpRequest.Builder newRequest(String method, String path, String requestId, int attempt) {
@@ -305,6 +361,23 @@ public final class AguiSseClient {
         if (start < 0) return null;
         int end = json.indexOf('"', start + 1);
         return end < 0 ? null : json.substring(start + 1, end);
+    }
+
+    public static final class SseException extends IOException {
+        private final int status;
+        private final String code;
+        private final boolean retryable;
+
+        public SseException(int status, String code, String message, boolean retryable) {
+            super(message);
+            this.status = status;
+            this.code = code;
+            this.retryable = retryable;
+        }
+
+        public int status() { return status; }
+        public String code() { return code; }
+        public boolean retryable() { return retryable; }
     }
 
     /** Accumulates one SSE frame (id / event / data lines until the blank line). */

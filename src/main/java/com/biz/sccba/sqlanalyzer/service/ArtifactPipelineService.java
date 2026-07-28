@@ -63,7 +63,16 @@ public class ArtifactPipelineService {
 
     @Transactional(transactionManager = "managementTransactionManager")
     public IndexedArtifact ingestMyBatisMapper(String clientId, String sessionId, String xmlContent, String namespace) {
-        var artifact = artifactService.ingestText(clientId, sessionId, "MYBATIS_MAPPER_XML", xmlContent);
+        return ingestMyBatisMapper(clientId, sessionId, xmlContent, namespace,
+                "MYBATIS_MAPPER_XML", "{}");
+    }
+
+    @Transactional(transactionManager = "managementTransactionManager")
+    public IndexedArtifact ingestMyBatisMapper(String clientId, String sessionId, String xmlContent,
+                                               String namespace, String sourceType,
+                                               String metadataJson) {
+        var artifact = artifactService.ingest(clientId, sessionId, sourceType, null,
+                "application/xml", xmlContent.getBytes(StandardCharsets.UTF_8), metadataJson);
         var parsed = myBatisParser.parseMapper(xmlContent, namespace);
         byte[] mapperBytes = xmlContent.getBytes(StandardCharsets.UTF_8);
         try {

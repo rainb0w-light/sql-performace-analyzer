@@ -7,6 +7,7 @@ import com.biz.sccba.sqlanalyzer.repository.ProfilingRepository;
 import com.biz.sccba.sqlanalyzer.repository.RunEventRepository;
 import com.biz.sccba.sqlanalyzer.repository.SessionRepository;
 import com.biz.sccba.sqlanalyzer.service.ArtifactService;
+import com.biz.sccba.sqlanalyzer.pluginapi.PluginApiModels;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -81,6 +82,14 @@ public class AnalysisRunOrchestrator {
         putNullable(payload, "databaseId", command.databaseId());
         putNullable(payload, "schemaName", command.schemaName());
         payload.put("maxScenarios", command.maxScenarios() == null ? 20 : command.maxScenarios());
+        payload.put("executionMode", command.executionMode() == null
+                ? "AUTO" : command.executionMode().name());
+        payload.put("costThreshold", command.costThreshold() == null
+                ? "MEDIUM" : command.costThreshold().name());
+        payload.put("phase", "PLAN");
+        payload.set("mainScenario", objectMapper.valueToTree(command.mainScenario()));
+        payload.set("transientRules", objectMapper.valueToTree(
+                command.transientRules() == null ? List.of() : command.transientRules()));
         payload.set("userSamples", objectMapper.valueToTree(
                 command.userSamples() == null ? List.of() : command.userSamples()));
 
@@ -100,13 +109,29 @@ public class AnalysisRunOrchestrator {
     public record Command(String artifactId, String statementId, String datasourceProfileId,
                           String projectId, String moduleId, String sessionId,
                           String mybatisConfigXml, String databaseId, String schemaName, Integer maxScenarios,
-                          List<Map<String, Object>> userSamples) {
+                          List<Map<String, Object>> userSamples,
+                          PluginApiModels.ExecutionMode executionMode,
+                          PluginApiModels.MainScenario mainScenario,
+                          List<PluginApiModels.TransientRule> transientRules,
+                          PluginApiModels.CostLevel costThreshold) {
+        public Command(String artifactId, String statementId, String datasourceProfileId,
+                       String projectId, String moduleId, String sessionId,
+                       String mybatisConfigXml, String databaseId, String schemaName,
+                       Integer maxScenarios, List<Map<String, Object>> userSamples) {
+            this(artifactId, statementId, datasourceProfileId, projectId, moduleId, sessionId,
+                    mybatisConfigXml, databaseId, schemaName, maxScenarios, userSamples,
+                    PluginApiModels.ExecutionMode.AUTO, null, List.of(),
+                    PluginApiModels.CostLevel.MEDIUM);
+        }
+
         public Command(String artifactId, String statementId, String datasourceProfileId,
                        String projectId, String moduleId, String sessionId,
                        String mybatisConfigXml, String databaseId, Integer maxScenarios,
                        List<Map<String, Object>> userSamples) {
             this(artifactId, statementId, datasourceProfileId, projectId, moduleId, sessionId,
-                    mybatisConfigXml, databaseId, "public", maxScenarios, userSamples);
+                    mybatisConfigXml, databaseId, "public", maxScenarios, userSamples,
+                    PluginApiModels.ExecutionMode.AUTO, null, List.of(),
+                    PluginApiModels.CostLevel.MEDIUM);
         }
     }
 

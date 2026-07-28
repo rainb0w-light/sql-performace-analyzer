@@ -135,6 +135,22 @@ public final class PluginApiDtos {
         }
     }
 
+    public record TransientRulePreviewRequest(
+            String artifactId,
+            String statementId,
+            String datasourceProfileId,
+            String projectId,
+            String moduleId,
+            MainScenario mainScenario,
+            List<TransientRule> transientRules,
+            Integer maxScenarios,
+            CostLevel costThreshold
+    ) {
+        public TransientRulePreviewRequest {
+            transientRules = transientRules == null ? List.of() : List.copyOf(transientRules);
+        }
+    }
+
     public record GuardChange(String guard, String before, String after) {}
 
     public record TransientRuleImpact(

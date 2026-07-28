@@ -149,8 +149,14 @@ public final class AnalysisCoordinator implements Disposable {
         if (client == null || transientRules.isEmpty()) return;
         executor.execute(() -> {
             try {
-                TransientRuleImpact impact = client.previewTransientRules(Map.of(
-                        "statementId", statementRef.statementId(), "rules", List.copyOf(transientRules)));
+                String artifactId = settings.artifactForHash(statementRef.contentHash());
+                TransientRuleImpact impact = client.previewTransientRules(
+                        new TransientRulePreviewRequest(artifactId, statementRef.statementId(),
+                                state.statement().datasourceProfileId(), project.getLocationHash(),
+                                statementRef.moduleName(),
+                                mainScenario == null ? null : mainScenario.snapshot(),
+                                List.copyOf(transientRules), settings.maxScenarios(),
+                                parseCost(settings.costThreshold())));
                 if (success != null) com.intellij.openapi.application.ApplicationManager.getApplication()
                         .invokeLater(() -> success.accept(impact));
             } catch (Exception error) {

@@ -17,7 +17,8 @@ class StaticAnnotationMapperServiceTest {
     @Test
     void acceptsLiteralArraysAndIndexesSyntheticMapper() {
         ArtifactPipelineService pipeline = mock(ArtifactPipelineService.class);
-        when(pipeline.ingestMyBatisMapper(anyString(), anyString(), anyString(), anyString()))
+        when(pipeline.ingestMyBatisMapper(anyString(), anyString(), anyString(), anyString(),
+                anyString(), anyString()))
                 .thenReturn(new ArtifactPipelineService.IndexedArtifact("artifact_1", "document_1", 1));
         StaticAnnotationMapperService service = new StaticAnnotationMapperService(pipeline);
 
@@ -39,7 +40,9 @@ class StaticAnnotationMapperServiceTest {
         verify(pipeline).ingestMyBatisMapper(
                 org.mockito.ArgumentMatchers.eq("client_1"),
                 org.mockito.ArgumentMatchers.eq("session_1"),
-                xml.capture(), org.mockito.ArgumentMatchers.eq("demo.LoanMapper"));
+                xml.capture(), org.mockito.ArgumentMatchers.eq("demo.LoanMapper"),
+                org.mockito.ArgumentMatchers.eq("MYBATIS_ANNOTATION_MAPPER"),
+                org.mockito.ArgumentMatchers.contains("sourceContentHash"));
         assertTrue(xml.getValue().contains("<select id=\"find\">"));
         assertTrue(xml.getValue().contains("<if test=\"status != null\">"));
     }

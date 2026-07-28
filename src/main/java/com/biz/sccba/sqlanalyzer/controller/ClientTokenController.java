@@ -1,6 +1,7 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
 import com.biz.sccba.sqlanalyzer.service.TokenService;
+import com.biz.sccba.sqlanalyzer.repository.ClientRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -21,9 +22,12 @@ public class ClientTokenController {
 
     private final TokenService tokens;
     private final BearerClients bearer;
+    private final ClientRepository clients;
 
-    public ClientTokenController(TokenService tokens, BearerClients bearer) {
+    public ClientTokenController(TokenService tokens, ClientRepository clients,
+                                 BearerClients bearer) {
         this.tokens = tokens;
+        this.clients = clients;
         this.bearer = bearer;
     }
 
@@ -34,7 +38,10 @@ public class ClientTokenController {
 
     @GetMapping("/client")
     public Object current(@RequestHeader("Authorization") String authorization) {
-        return Map.of("clientId", bearer.clientId(authorization));
+        String clientId = bearer.clientId(authorization);
+        var client = clients.findById(clientId)
+                .orElseThrow(() -> new IllegalArgumentException("客户端不存在"));
+        return Map.of("id", client.id(), "name", client.name());
     }
 
     public record TokenApplyRequest(@NotBlank String clientName, @NotBlank String clientType, String deviceId) {}

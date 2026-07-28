@@ -105,6 +105,11 @@ public final class BackendClient {
                 request, true, true, TransientRuleImpact.class);
     }
 
+    public TransientRuleImpact previewTransientRules(TransientRulePreviewRequest request) throws Exception {
+        return typedRequest("POST", "/api/v1/mapper-statements/transient-rules/preview",
+                request, true, true, TransientRuleImpact.class);
+    }
+
     public AnalysisHandle analyzeStatement(AnalyzeRequest request, String idempotencyKey) throws Exception {
         JsonObject body = GSON.toJsonTree(request).getAsJsonObject();
         removeBlank(body, "projectId");

@@ -34,11 +34,30 @@ public final class ScenarioModels {
                                List<Map<String, Object>> userSamples,
                                String knowledgeVersion,
                                String profileSnapshotId,
-                               int maxScenarios) {
+                               int maxScenarios,
+                               String contentHash) {
+
+        public PlannerInput(Map<String, ParamInfo> parameters,
+                            List<ColumnKnowledge> knowledge,
+                            List<ColumnProfile> profiles,
+                            List<IndexInfo> indexes,
+                            List<ShardInfo> shards,
+                            List<Map<String, Object>> userSamples,
+                            String knowledgeVersion,
+                            String profileSnapshotId,
+                            int maxScenarios) {
+            this(parameters, knowledge, profiles, indexes, shards, userSamples,
+                    knowledgeVersion, profileSnapshotId, maxScenarios, null);
+        }
 
         public static PlannerInput defaults(int maxScenarios) {
             return new PlannerInput(Map.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                    null, null, maxScenarios);
+                    null, null, maxScenarios, null);
+        }
+
+        public PlannerInput withContentHash(String hash) {
+            return new PlannerInput(parameters, knowledge, profiles, indexes, shards, userSamples,
+                    knowledgeVersion, profileSnapshotId, maxScenarios, hash);
         }
     }
 

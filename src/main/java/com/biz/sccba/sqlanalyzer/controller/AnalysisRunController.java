@@ -2,6 +2,11 @@ package com.biz.sccba.sqlanalyzer.controller;
 
 import com.biz.sccba.sqlanalyzer.repository.RunEventRepository;
 import com.biz.sccba.sqlanalyzer.service.SessionService;
+import com.biz.sccba.sqlanalyzer.pluginapi.PluginApiModels;
+import com.biz.sccba.sqlanalyzer.pluginapi.PluginRunLifecycleService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,10 +33,13 @@ import java.util.concurrent.CompletableFuture;
 public class AnalysisRunController {
 
     private final SessionService sessions;
+    private final PluginRunLifecycleService pluginRuns;
     private final BearerClients bearer;
 
-    public AnalysisRunController(SessionService sessions, BearerClients bearer) {
+    public AnalysisRunController(SessionService sessions, PluginRunLifecycleService pluginRuns,
+                                 BearerClients bearer) {
         this.sessions = sessions;
+        this.pluginRuns = pluginRuns;
         this.bearer = bearer;
     }
 
@@ -68,6 +76,23 @@ public class AnalysisRunController {
     public SessionService.Cancellation cancel(@RequestHeader("Authorization") String authorization,
                                               @PathVariable String runId) {
         return sessions.cancel(bearer.clientId(authorization), runId);
+    }
+
+    @PostMapping("/runs/{runId}/confirm")
+    public ResponseEntity<PluginRunLifecycleService.ConfirmationResult> confirm(
+            @RequestHeader("Authorization") String authorization,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @PathVariable String runId,
+            @Valid @RequestBody PluginApiModels.ScenarioConfirmation confirmation) {
+        return ResponseEntity.accepted().body(pluginRuns.confirm(
+                bearer.clientId(authorization), runId, idempotencyKey, confirmation));
+    }
+
+    @GetMapping("/runs/{runId}")
+    public PluginRunLifecycleService.RunStatus status(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable String runId) {
+        return pluginRuns.status(bearer.clientId(authorization), runId);
     }
 
     private static long parseEventId(String value) {

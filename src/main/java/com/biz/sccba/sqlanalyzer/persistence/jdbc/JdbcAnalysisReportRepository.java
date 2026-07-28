@@ -52,6 +52,13 @@ public class JdbcAnalysisReportRepository implements AnalysisReportRepository {
         return jdbc.findAllForClient(clientId, Math.max(1, limit)).stream().map(JdbcAnalysisReportRepository::toDomain).toList();
     }
 
+    @Override
+    public List<Report> listForClientPage(String clientId, int offset, int limit) {
+        return jdbc.findPageForClient(clientId, Math.max(0, offset),
+                        Math.max(1, Math.min(limit, 500)))
+                .stream().map(JdbcAnalysisReportRepository::toDomain).toList();
+    }
+
     private static Report toDomain(AnalysisReportEntity e) {
         return new Report(e.getId(), e.getClientId(), e.getRunId(), e.getSessionId(), e.getNamespace(),
                 e.getStatementId(), e.getSchemaVersion(), e.getSeverity(), e.getReportJson(),

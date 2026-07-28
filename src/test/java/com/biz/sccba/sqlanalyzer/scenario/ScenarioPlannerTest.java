@@ -90,6 +90,16 @@ class ScenarioPlannerTest {
     }
 
     @Test
+    void scenarioIdsAreDeterministicForTheSameSnapshot() {
+        PlannerInput snapshot = input(20).withContentHash("mapper-hash");
+        var first = planner.plan(structure(), snapshot).stream()
+                .map(ParameterScenario::scenarioId).toList();
+        var second = planner.plan(structure(), snapshot).stream()
+                .map(ParameterScenario::scenarioId).toList();
+        assertEquals(first, second);
+    }
+
+    @Test
     void ifBranchesCoveredTrueAndFalse() {
         List<ParameterScenario> scenarios = planner.plan(structure(), input(20));
         var goals = scenarios.stream().flatMap(s -> s.coverageGoals().stream()).toList();

@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 
 /**
  * Conservative extractor for statically evaluable MyBatis statement annotations.
@@ -46,13 +49,17 @@ public class StaticAnnotationMapperService {
         String sql = parseLiteralExpression(match.expression());
         String body = scriptBody(sql);
         String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<!DOCTYPE mapper PUBLIC \"-//mybatis.org//DTD Mapper 3.0//EN\" "
+                + "\"https://mybatis.org/dtd/mybatis-3-mapper.dtd\">\n"
                 + "<mapper namespace=\"" + escapeAttribute(namespace) + "\">\n"
                 + "  <" + match.kind().toLowerCase(Locale.ROOT)
                 + " id=\"" + escapeAttribute(methodName) + "\">\n"
                 + body + "\n"
                 + "  </" + match.kind().toLowerCase(Locale.ROOT) + ">\n"
                 + "</mapper>";
-        return pipeline.ingestMyBatisMapper(clientId, sessionId, xml, namespace);
+        return pipeline.ingestMyBatisMapper(clientId, sessionId, xml, namespace,
+                "MYBATIS_ANNOTATION_MAPPER",
+                "{\"sourceContentHash\":\"" + sha256(javaContent) + "\"}");
     }
 
     private static List<Match> matchingAnnotations(String source, String methodName) {
@@ -223,6 +230,15 @@ public class StaticAnnotationMapperService {
 
     private static IllegalArgumentException unsupported(String detail) {
         return new IllegalArgumentException("UNSUPPORTED: " + detail);
+    }
+
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("无法计算 Java Mapper hash", e);
+        }
     }
 
     private record Match(String kind, String expression) {

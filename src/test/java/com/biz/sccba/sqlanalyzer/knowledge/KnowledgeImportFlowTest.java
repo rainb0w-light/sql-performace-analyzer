@@ -12,6 +12,7 @@ import com.biz.sccba.sqlanalyzer.domain.metadata.Metadata.Conflict;
 import com.biz.sccba.sqlanalyzer.domain.metadata.Metadata.IndexDef;
 import com.biz.sccba.sqlanalyzer.domain.metadata.Metadata.ShardDef;
 import com.biz.sccba.sqlanalyzer.metadata.MetadataService;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
 import com.biz.sccba.sqlanalyzer.repository.ArtifactRepository;
 import com.biz.sccba.sqlanalyzer.repository.KnowledgeSourceRepository;
 import com.biz.sccba.sqlanalyzer.repository.MetadataRepository;
@@ -134,11 +135,40 @@ class KnowledgeImportFlowTest {
     }
 
     @Test
-    void cannotPublishTwiceAndOwnershipIsEnforced() throws Exception {
+    void publishIsIdempotentAndOwnershipIsEnforced() throws Exception {
         var preview = service.importExcel("client_1", "业务知识", "kb.xlsx", twoVersionWorkbook("用途"));
-        service.publish("client_1", preview.versionId(), "alice");
-        assertThrows(IllegalStateException.class, () -> service.publish("client_1", preview.versionId(), "alice"));
+        var first = service.publish("client_1", preview.versionId(), "alice");
+        var replay = service.publish("client_1", preview.versionId(), "alice");
+        assertEquals(first.id(), replay.id());
+        assertEquals(first.publishedAt(), replay.publishedAt());
         assertThrows(IllegalArgumentException.class, () -> service.publish("client_2", preview.versionId(), "mallory"));
+    }
+
+    @Test
+    void indexFailureLeavesOldVersionCurrentAndVisible() throws Exception {
+        var first = service.importExcel("client_1", "业务知识", "kb.xlsx", twoVersionWorkbook("旧版用途"));
+        service.publish("client_1", first.versionId(), "alice");
+        var second = service.importExcel("client_1", "业务知识", "kb.xlsx", twoVersionWorkbook("新版用途"));
+
+        KnowledgeRetriever failing = new KnowledgeRetriever() {
+            @Override public boolean available() { return true; }
+            @Override public void index(String clientId, String sourceId, int versionNo, List<Chunk> chunks) {
+                throw new IllegalStateException("embedding timeout");
+            }
+            @Override public List<RetrievedFact> search(String clientId, String query, String sourceId, int limit) {
+                return List.of();
+            }
+        };
+        var failingService = new KnowledgeImportService(new ArtifactService(new InMemoryArtifactRepository()),
+                new ExcelKnowledgeParser(), knowledgeDao,
+                new MetadataService(new InMemoryMetadataRepository(), new ObjectMapper()),
+                new ObjectMapper(), provider(failing));
+
+        assertThrows(IllegalStateException.class,
+                () -> failingService.publish("client_1", second.versionId(), "alice"));
+        assertEquals(first.versionId(),
+                knowledgeDao.findSourceForClient("client_1", first.sourceId()).orElseThrow().currentVersionId());
+        assertTrue(queryService.tables("client_1", "orders").getFirst().text().contains("旧版用途"));
     }
 
     @Test

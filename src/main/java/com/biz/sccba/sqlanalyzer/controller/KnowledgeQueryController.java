@@ -1,17 +1,14 @@
 package com.biz.sccba.sqlanalyzer.controller;
 
 import com.biz.sccba.sqlanalyzer.knowledge.KnowledgeQueryService;
-import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
-import org.springframework.beans.factory.ObjectProvider;
+import com.biz.sccba.sqlanalyzer.knowledge.ActiveKnowledgeSearchService;
+import com.biz.sccba.sqlanalyzer.knowledge.KnowledgeOperationService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Structured knowledge retrieval (always available) plus optional semantic search (enabled with
@@ -23,14 +20,17 @@ import java.util.Map;
 public class KnowledgeQueryController {
 
     private final KnowledgeQueryService query;
-    private final ObjectProvider<KnowledgeRetriever> retrieverProvider;
+    private final ActiveKnowledgeSearchService activeSearch;
+    private final KnowledgeOperationService operations;
     private final BearerClients bearer;
 
     public KnowledgeQueryController(KnowledgeQueryService query,
-                                    ObjectProvider<KnowledgeRetriever> retrieverProvider,
+                                    ActiveKnowledgeSearchService activeSearch,
+                                    KnowledgeOperationService operations,
                                     BearerClients bearer) {
         this.query = query;
-        this.retrieverProvider = retrieverProvider;
+        this.activeSearch = activeSearch;
+        this.operations = operations;
         this.bearer = bearer;
     }
 
@@ -62,21 +62,32 @@ public class KnowledgeQueryController {
     }
 
     @GetMapping("/search")
-    public Map<String, Object> search(@RequestHeader("Authorization") String authorization,
-                                      @RequestParam String q,
-                                      @RequestParam(required = false) String sourceId,
-                                      @RequestParam(defaultValue = "8") int limit) {
-        String clientId = bearer.clientId(authorization);
-        var retriever = retrieverProvider.getIfAvailable();
-        Map<String, Object> out = new LinkedHashMap<>();
-        if (retriever == null || !retriever.available()) {
-            out.put("available", false);
-            out.put("results", java.util.List.of());
-            out.put("note", "语义检索未启用（embedding 未配置）；请使用结构化检索端点。");
-            return out;
+    public ActiveKnowledgeSearchService.SearchResponse search(
+            @RequestHeader("Authorization") String authorization,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
+            @RequestHeader(value = "X-Run-Id", required = false) String runId,
+            @RequestHeader(value = "X-Session-Id", required = false) String sessionId,
+            @RequestParam String q,
+            @RequestParam(required = false) String sourceId,
+            @RequestParam(defaultValue = "8") int limit) {
+        var actor = bearer.identity(authorization);
+        long started = System.nanoTime();
+        try {
+            var response = activeSearch.search(actor.clientId(), q, sourceId, limit);
+            var hitSources = response.results().stream()
+                    .map(ActiveKnowledgeSearchService.SearchHit::sourceId).distinct().toList();
+            operations.record(requestId, actor.clientId(), actor.actorId(), actor.role(), "RETRIEVE",
+                    sourceId, null, runId, sessionId,
+                    KnowledgeOperationService.querySummary(q, limit, sourceId, hitSources),
+                    "SUCCESS", null, response.durationMs(), response.results().size(), null);
+            return response;
+        } catch (RuntimeException exception) {
+            operations.record(requestId, actor.clientId(), actor.actorId(), actor.role(), "RETRIEVE",
+                    sourceId, null, runId, sessionId,
+                    KnowledgeOperationService.querySummary(q, limit, sourceId, java.util.List.of()),
+                    "FAILED", "RETRIEVAL_FAILED",
+                    Math.max(0, (System.nanoTime() - started) / 1_000_000), 0, null);
+            throw exception;
         }
-        out.put("available", true);
-        out.put("results", retriever.search(clientId, q, sourceId, limit));
-        return out;
     }
 }

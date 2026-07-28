@@ -68,6 +68,12 @@ public class JdbcArtifactRepository implements ArtifactRepository {
         return jdbc.findByIdAndClientId(artifactId, clientId).map(JdbcArtifactRepository::toDomain);
     }
 
+    @Override
+    public Optional<Artifact> findBySha256ForClient(String clientId, String sourceType, String sha256) {
+        return jdbc.findBySha256AndClientId(clientId, sourceType, sha256)
+                .map(JdbcArtifactRepository::toDomain);
+    }
+
     static Artifact toDomain(ArtifactEntity e) {
         return new Artifact(e.getId(), e.getClientId(), e.getSessionId(), e.getSourceType(), e.getFileName(),
                 e.getMediaType(), e.getSha256(), e.getByteSize() == null ? 0 : e.getByteSize(),

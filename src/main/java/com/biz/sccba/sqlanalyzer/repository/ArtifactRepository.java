@@ -14,4 +14,9 @@ public interface ArtifactRepository {
     Optional<byte[]> readAll(String clientId, String artifactId);
 
     Optional<Artifact> findByIdForClient(String artifactId, String clientId);
+
+    /** Content-addressed reuse for the same tenant and artifact purpose. */
+    default Optional<Artifact> findBySha256ForClient(String clientId, String sourceType, String sha256) {
+        return Optional.empty();
+    }
 }

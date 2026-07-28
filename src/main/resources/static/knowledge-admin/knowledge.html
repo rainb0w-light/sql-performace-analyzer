@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>知识库</title><link rel="stylesheet" href="admin.css"></head>
+<body>
+<header><strong>SQL Performance Analyzer · 知识服务</strong><nav>
+  <a aria-current="page" href="knowledge.html">知识库</a>
+  <a href="sample.html">抽检工作台</a>
+  <a href="observability.html">观测中心</a>
+</nav></header>
+<main>
+  <div class="topline"><div><h1>知识库</h1><p>上传文件形成草稿，索引成功后才切换为当前生效版本。</p></div>
+    <label>Bearer Token<input id="token" type="password" autocomplete="off"></label></div>
+  <section class="card"><h2>上传知识文件</h2>
+    <form id="upload"><div class="grid">
+      <label>知识源名称<input name="sourceName" placeholder="例如：图书借阅规则"></label>
+      <label>文件（Markdown、Text、PDF、Excel）<input name="file" type="file" accept=".md,.txt,.pdf,.xlsx" required></label>
+      <div class="actions"><button>上传并解析</button></div>
+    </div></form>
+  </section>
+  <section class="card"><div class="topline"><div><h2>知识源</h2><p>草稿不会进入 Agent 检索范围。</p></div><button class="secondary" id="refresh">刷新</button></div>
+    <table><thead><tr><th>名称</th><th>文件</th><th>状态</th><th>Chunk</th><th>当前版本</th><th>更新时间</th><th></th></tr></thead><tbody id="sources"></tbody></table>
+  </section>
+</main><div id="notice"></div><script src="admin.js"></script>
+<script>
+async function loadSources() {
+  try {
+    const page = await api.call("/api/v1/admin/knowledge-sources?page=0&size=100");
+    document.querySelector("#sources").innerHTML = page.items.map(source => `<tr>
+      <td>${html(source.name)}</td><td>${html(source.fileName || source.sourceType)}</td>
+      <td><span class="pill">${html(source.status || "EMPTY")}</span></td><td>${source.chunkCount}</td>
+      <td>${source.currentVersionId ? `<span class="pill">${html(source.currentVersionId)}</span>` : "尚未发布"}</td>
+      <td>${html(source.updatedAt || "")}</td>
+      <td>${source.status === "READY" ? `<button data-version="${html(source.latestVersionId)}" class="publish">发布</button>` : ""}</td></tr>`).join("");
+    document.querySelectorAll("button.publish").forEach(button =>
+      button.addEventListener("click", () => publishVersion(button.dataset.version)));
+  } catch (error) { notice(error.message); }
+}
+async function publishVersion(versionId) {
+  try {
+    const result = await api.call(`/api/v1/admin/knowledge-versions/${versionId}/publish`, {
+      method: "POST", headers: {"Idempotency-Key": `publish-${versionId}`}
+    });
+    notice(`发布完成：${result.status}`);
+    await loadSources();
+  } catch (error) { notice(error.message); }
+}
+document.querySelector("#upload").addEventListener("submit", async event => {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  try {
+    const result = await api.call("/api/v1/admin/knowledge-sources/imports", {
+      method: "POST", headers: {"Idempotency-Key": crypto.randomUUID()}, body: data
+    });
+    notice(`解析完成：${result.status}，${result.chunkCount} chunks`);
+    await loadSources();
+  } catch (error) { notice(error.message); }
+});
+document.querySelector("#refresh").addEventListener("click", loadSources);
+window.addEventListener("DOMContentLoaded", loadSources);
+</script></body></html>

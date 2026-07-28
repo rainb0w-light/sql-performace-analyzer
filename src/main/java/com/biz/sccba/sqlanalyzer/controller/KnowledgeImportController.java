@@ -40,14 +40,15 @@ public class KnowledgeImportController {
 
     @GetMapping("/knowledge-sources")
     public List<Source> sources(@RequestHeader("Authorization") String authorization) {
-        return knowledge.listSources(bearer.clientId(authorization));
+        var actor = bearer.requireAny(authorization, "KNOWLEDGE_ADMIN", "KNOWLEDGE_VIEWER");
+        return knowledge.listSources(actor.clientId());
     }
 
     @PostMapping(value = "/knowledge-sources/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> importExcel(@RequestHeader("Authorization") String authorization,
                                            @RequestParam MultipartFile file,
                                            @RequestParam(required = false) String sourceName) throws IOException {
-        String clientId = bearer.clientId(authorization);
+        String clientId = bearer.requireAny(authorization, "KNOWLEDGE_ADMIN").clientId();
         var preview = imports.importExcel(clientId, sourceName, file.getOriginalFilename(), file.getBytes());
         return Map.of(
                 "sourceId", preview.sourceId(),
@@ -66,13 +67,15 @@ public class KnowledgeImportController {
     @GetMapping("/knowledge-sources/{sourceId}/versions")
     public List<Version> versions(@RequestHeader("Authorization") String authorization,
                                   @PathVariable String sourceId) {
-        return imports.listVersions(bearer.clientId(authorization), sourceId);
+        var actor = bearer.requireAny(authorization, "KNOWLEDGE_ADMIN", "KNOWLEDGE_VIEWER");
+        return imports.listVersions(actor.clientId(), sourceId);
     }
 
     @GetMapping("/knowledge-versions/{versionId}/preview")
     public Map<String, Object> preview(@RequestHeader("Authorization") String authorization,
                                        @PathVariable String versionId) {
-        Version version = imports.preview(bearer.clientId(authorization), versionId);
+        var actor = bearer.requireAny(authorization, "KNOWLEDGE_ADMIN", "KNOWLEDGE_VIEWER");
+        Version version = imports.preview(actor.clientId(), versionId);
         return Map.of("versionId", version.id(), "status", version.status(),
                 "preview", version.previewJson(), "errors", version.errorJson());
     }
@@ -81,14 +84,16 @@ public class KnowledgeImportController {
     public Version publish(@RequestHeader("Authorization") String authorization,
                            @PathVariable String versionId,
                            @Valid @RequestBody PublishRequest request) {
-        return imports.publish(bearer.clientId(authorization), versionId, request.publishedBy());
+        var identity = bearer.requireAny(authorization, "KNOWLEDGE_ADMIN");
+        return imports.publish(identity.clientId(), versionId, identity.actorId());
     }
 
     @PostMapping("/knowledge-sources/{sourceId}/rollback")
     public Version rollback(@RequestHeader("Authorization") String authorization,
                             @PathVariable String sourceId,
                             @Valid @RequestBody RollbackRequest request) {
-        return imports.rollback(bearer.clientId(authorization), sourceId, request.targetVersionId());
+        var actor = bearer.requireAny(authorization, "KNOWLEDGE_ADMIN");
+        return imports.rollback(actor.clientId(), sourceId, request.targetVersionId());
     }
 
     public record PublishRequest(String publishedBy) {}

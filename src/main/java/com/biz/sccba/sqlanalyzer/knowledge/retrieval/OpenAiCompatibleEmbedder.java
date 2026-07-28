@@ -20,14 +20,22 @@ public final class OpenAiCompatibleEmbedder implements Embedder {
     private final String baseUrl;
     private final String model;
     private final int dimensions;
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final HttpClient http;
+    private final Duration requestTimeout;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public OpenAiCompatibleEmbedder(String apiKey, String baseUrl, String model, int dimensions) {
+        this(apiKey, baseUrl, model, dimensions, Duration.ofSeconds(10), Duration.ofSeconds(30));
+    }
+
+    OpenAiCompatibleEmbedder(String apiKey, String baseUrl, String model, int dimensions,
+                              Duration connectTimeout, Duration requestTimeout) {
         this.apiKey = apiKey;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.model = model;
         this.dimensions = dimensions;
+        this.http = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
+        this.requestTimeout = requestTimeout;
     }
 
     @Override
@@ -38,7 +46,7 @@ public final class OpenAiCompatibleEmbedder implements Embedder {
             HttpResponse<String> response = http.send(HttpRequest.newBuilder(URI.create(baseUrl + "/embeddings"))
                             .header("Authorization", "Bearer " + apiKey)
                             .header("Content-Type", "application/json")
-                            .timeout(Duration.ofSeconds(30))
+                            .timeout(requestTimeout)
                             .POST(HttpRequest.BodyPublishers.ofString(body))
                             .build(),
                     HttpResponse.BodyHandlers.ofString());

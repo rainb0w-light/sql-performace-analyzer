@@ -2,6 +2,7 @@ package com.biz.sccba.sqlanalyzer.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import com.biz.sccba.sqlanalyzer.api.ApiAuthenticationException;
+import com.biz.sccba.sqlanalyzer.api.ApiForbiddenException;
 import com.biz.sccba.sqlanalyzer.api.IdempotencyConflictException;
 import com.biz.sccba.sqlanalyzer.api.ResourceNotFoundException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,6 +35,13 @@ public class ApiErrorHandler {
                                                             HttpServletRequest request) {
         return problem(HttpStatus.UNAUTHORIZED, "unauthorized", "UNAUTHORIZED",
                 exception.getMessage() == null ? "认证失败" : exception.getMessage(), false, request);
+    }
+
+    @ExceptionHandler(ApiForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> forbidden(ApiForbiddenException exception,
+                                                         HttpServletRequest request) {
+        return problem(HttpStatus.FORBIDDEN, "forbidden", "FORBIDDEN",
+                exception.getMessage() == null ? "无权执行该操作" : exception.getMessage(), false, request);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

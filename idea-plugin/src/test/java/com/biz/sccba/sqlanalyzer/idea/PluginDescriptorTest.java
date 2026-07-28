@@ -31,6 +31,8 @@ public class PluginDescriptorTest {
                 xml.contains("MyBatisStatementLineMarkerProvider"));
         assertTrue("Alt/Option+Enter must expose an Intention",
                 xml.contains("AnalyzeStatementIntention"));
+        assertTrue("project settings must be searchable under Tools",
+                xml.contains("<projectConfigurable id=\"tools.sql.analyzer\""));
         assertFalse("the plugin must not occupy IntelliJ's Ctrl/Cmd+Shift+A shortcut",
                 xml.contains("first-keystroke=\"control shift A\"")
                         || xml.contains("first-keystroke=\"meta shift A\""));

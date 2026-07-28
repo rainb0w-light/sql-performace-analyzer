@@ -17,6 +17,10 @@
         <applicationService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.settings.TokenStore" />
         <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.settings.ProjectAnalyzerSettings" />
         <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.mybatis.MyBatisMapperWatcher" />
+        <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.state.AnalysisCoordinator" />
+        <projectService serviceImplementation="com.biz.sccba.sqlanalyzer.idea.mybatis.GutterAnalysisState" />
+        <projectConfigurable id="tools.sql.analyzer" displayName="SQL Analyzer"
+                instance="com.biz.sccba.sqlanalyzer.idea.settings.SqlAnalyzerConfigurable" />
         <codeInsight.lineMarkerProvider language="XML"
                 implementationClass="com.biz.sccba.sqlanalyzer.idea.actions.MyBatisStatementLineMarkerProvider" />
         <codeInsight.lineMarkerProvider language="JAVA"

@@ -132,4 +132,3 @@ public record AnalysisState(
         }
     }
 }
-

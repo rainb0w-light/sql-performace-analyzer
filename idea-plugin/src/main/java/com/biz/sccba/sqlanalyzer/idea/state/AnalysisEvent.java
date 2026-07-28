@@ -67,4 +67,3 @@ public sealed interface AnalysisEvent permits
 
     enum TerminalStatus { COMPLETED, CANCELLED, FAILED }
 }
-

@@ -54,4 +54,3 @@ public record ContextFingerprint(
 
     private static String text(String value) { return Objects.requireNonNullElse(value, ""); }
 }
-

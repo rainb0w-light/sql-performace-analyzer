@@ -24,4 +24,3 @@ public final class ReportNavigation {
     }
     public void clear() { back.clear(); current = null; }
 }
-

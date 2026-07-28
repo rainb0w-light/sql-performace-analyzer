@@ -1,7 +1,7 @@
 # IDEA Plugin UI/UX P1 实现矩阵
 
-基线：`origin/master@ea30131`  
-权威设计：`docs/idea-plugin-ui-ux-design.md`  
+基线：`origin/master@ea30131`
+权威设计：`docs/idea-plugin-ui-ux-design.md`
 范围：仅 `idea-plugin/**`；Knowledge worktree 保持只读、无修改。
 
 ## 编码前审计结论
@@ -33,4 +33,3 @@
 - Plugin 只做 PSI 定位、类型化 UI 数据建模、字段级客户端预校验、状态投影与安全守卫展示。
 - P1 缺失服务端能力先按 `idea-plugin/docs/p1-plugin-api-contract.md` 冻结，并由 Fake Gateway 覆盖；不得用本地硬编码成功结果冒充后端。
 - 不修改 Knowledge/Admin Web、Profiling、Metadata、Flyway、RBAC 或 `BearerClients`。
-

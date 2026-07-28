@@ -156,4 +156,3 @@ public record ReportViewModel(
         return values == null ? List.of() : List.copyOf(values);
     }
 }
-

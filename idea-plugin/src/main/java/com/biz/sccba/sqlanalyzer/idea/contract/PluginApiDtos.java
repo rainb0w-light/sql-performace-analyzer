@@ -191,4 +191,3 @@ public final class PluginApiDtos {
 
     public record ExcludedScenario(String scenarioId, String reason) {}
 }
-

@@ -1,6 +1,6 @@
 # IDEA Plugin P1 API 契约冻结
 
-状态：Plugin consumer contract，等待服务端实现。  
+状态：Plugin consumer contract，等待服务端实现。
 基路径：`/api/v1`。所有上行请求携带 `X-Request-Id`；创建/变更请求携带可重放的 `Idempotency-Key`。
 
 ## 1. 默认参数建议
@@ -53,7 +53,7 @@ Java 注解 Mapper 在 PSI 能唯一解析时，Plugin 使用
 }
 ```
 
-`kind ∈ IF | CHOOSE_WHEN | CHOOSE_OTHERWISE | FOREACH | STRUCTURE`。  
+`kind ∈ IF | CHOOSE_WHEN | CHOOSE_OTHERWISE | FOREACH | STRUCTURE`。
 `category ∈ ROUTING | FILTER | SORT_PAGE | JOIN | OTHER`。未知/缺失分类由客户端按结构确定性回退为 `OTHER`，不猜业务语义。
 
 ## 2. BoundSql 预览

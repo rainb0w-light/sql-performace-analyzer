@@ -37,4 +37,3 @@ public final class ScenarioReviewModel {
     public Set<String> includedIds() { return Set.copyOf(included); }
     public Map<String, String> exclusions() { return Map.copyOf(exclusions); }
 }
-

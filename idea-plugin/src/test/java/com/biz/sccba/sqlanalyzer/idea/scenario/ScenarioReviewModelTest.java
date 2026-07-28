@@ -22,4 +22,3 @@ public class ScenarioReviewModelTest {
         assertEquals("cost", model.exclusions().get("optional"));
     }
 }
-

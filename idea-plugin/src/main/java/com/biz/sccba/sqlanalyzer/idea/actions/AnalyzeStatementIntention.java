@@ -27,4 +27,3 @@ public final class AnalyzeStatementIntention extends PsiElementBaseIntentionActi
 
     @Override public boolean startInWriteAction() { return false; }
 }
-

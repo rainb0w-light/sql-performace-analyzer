@@ -35,4 +35,3 @@ public final class BoundedReportCache {
     public synchronized void clear() { values.clear(); bytes = 0; }
     private static long size(String value) { return value.getBytes(StandardCharsets.UTF_8).length; }
 }
-

@@ -131,4 +131,3 @@ public final class SqlAnalyzerConfigurable implements SearchableConfigurable {
         root.add(component, c);
     }
 }
-

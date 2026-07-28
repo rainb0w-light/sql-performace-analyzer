@@ -2,7 +2,7 @@
 
 日期：2026-07-28
 
-分支/提交：`codex/idea-plugin-ui-ux` / `50783e1`（本记录提交前）
+分支/提交：`codex/idea-plugin-ui-ux` / `a0a030c`（最终功能提交）
 
 IDE：IntelliJ IDEA Community 2025.1.3（runIde sandbox）
 
@@ -21,6 +21,13 @@ IDE：IntelliJ IDEA Community 2025.1.3（runIde sandbox）
 Plugin 的 `contractTest`、`verifyPluginStructure`、`buildPlugin` 和仓库
 `scripts/acceptance.sh --local` 均已真实通过。因当前执行环境没有可访问图形会话，以下项目不冒充人工
 成功；需在有 GUI + Accessibility 权限的 macOS 会话复验。
+
+最终自动化结果：
+
+- Backend：165 tests，0 failure/error，29 skipped；
+- Plugin：45 tests，0 failure/error；
+- Plugin 包：`idea-plugin/build/distributions/sql-performance-analyzer-idea-plugin-0.1.0.zip`；
+- `scripts/acceptance.sh --local`：PASS（2026-07-28 18:47 Asia/Shanghai）。
 
 ## 人工检查
 

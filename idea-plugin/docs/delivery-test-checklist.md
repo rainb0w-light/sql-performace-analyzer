@@ -1,45 +1,70 @@
-# IDEA 插件交付测试清单
+# IDEA Plugin P1 交付测试清单
 
-## 自动化验收
+## 自动化门禁
 
-在 `idea-plugin` 目录执行：
+在仓库根目录执行：
 
 ```bash
-../gradlew clean check buildPlugin --no-daemon --console=plain
+./gradlew clean test bootJar --no-daemon --console=plain
+cd idea-plugin
+../gradlew clean check buildPlugin verifyPluginStructure --no-daemon --console=plain
+cd ..
+bash scripts/acceptance.sh --local
 ```
 
-验收点：
+Plugin `contractTest` 覆盖：
 
-- `contractTest` / `BackendClientTest` 覆盖 Token 申请、Bearer 鉴权、请求体转义、Run 事件和非 2xx 错误。
-- `PluginDescriptorTest` 校验插件 ID、Tool Window 和持久化设置服务声明。
-- `buildPlugin` 成功并生成 `build/distributions/*.zip`。
+- UI reducer 与业务 Run/SSE 连接正交状态；
+- `<if>`、`<choose>`、`<foreach>`、嵌套、共享参数和类型冲突；
+- 默认建议来源、低置信度文字标签和 `␠ 1个空格`；
+- BoundSql preview、临时规则 preview、Run confirm 的 consumer contract；
+- statement/module/project 数据源优先级、缺失与歧义；
+- 五类强制守卫、required/main path/guard 场景不可排除；
+- SSE Last-Event-ID 续传、去重、取消、401 与有界重连；
+- 网络/429/retryable 5xx 幂等重试及 validation/401 非重试；
+- 报告上下文指纹、风险—场景—证据导航和真实 EXPLAIN 门禁；
+- PasswordSafe/Token 泄露负例、Action/Keymap、DML 固定只读提示；
+- Markdown/标准 JSON 导出、本地缓存上限和无服务端硬删除。
 
-## 手工验收
+## runIde 自动冒烟
 
-1. 启动后端 PostgreSQL，并开启 persistence 和 Worker（SQL_ANALYZER_PERSISTENCE_ENABLED=true、SQL_ANALYZER_WORKER_ENABLED=true）。
-2. 执行 `../gradlew runIde`。
-3. 打开 `View -> Tool Windows -> SQL Analyzer`。
-4. 点击“申请 Token”，确认状态变为“Token 已保存”。
-5. 在编辑器中选中 SQL 或 MyBatis XML，点击“分析编辑器选中内容”。
-6. 确认出现 Session、Run，并能看到 `RUN_QUEUED`/后续 Agent 事件。
-7. 重启 IDE，确认 Token 仍存在。
-8. 修改一个 MyBatis Mapper XML，确认 VFS watcher 自动上传 Mapper Artifact。
-9. 重启 IDE 后点击“加载会话历史”，确认用户消息和 Agent 回答仍可恢复。
-
-## 自动化 runIde UI 验收
-
-在已登录 macOS 桌面会话、并给 Terminal/IDE 开启 Accessibility 权限的机器上执行：
+在已登录 macOS 桌面会话且 Terminal/Codex 有 Accessibility 权限时执行：
 
 ```bash
+cd idea-plugin
 ../gradlew uiSmoke --no-daemon --console=plain
 ```
 
-该任务会启动隔离的 `runIde`，使用 AppleScript 自动打开 `View -> Tool Windows -> SQL Analyzer`，检查 Tool Window、后端地址、Token 按钮和分析按钮是否实际渲染，然后退出 IDE。
+脚本启动隔离 `runIde` sandbox，经 `View -> Tool Windows -> SQL Analyzer` 打开 Tool
+Window，并确认 IntelliJ 主窗口和可访问 UI 树仍存在。无 GUI/Accessibility 时以环境前置条件失败，
+不得记成功。
 
-当前无图形会话时会明确失败并提示：`No accessible macOS GUI session is available`；这是环境前置条件，不是插件功能断言失败。
+## 真实 IntelliJ 人工验收
 
-## 当前已知范围
+记录每项的 IntelliJ build、Light/Darcula、缩放、结果与证据：
 
-- Recommendation 查询和接受/拒绝反馈已接入；结果展示已转换为结构化摘要，完整卡片式证据展示属于下一阶段 UI 工作。
-- Mapper watcher 已实现自动上传；服务端解析结果进入 Artifact/Document/Chunk 管线。
-- 后端运行时使用 AgentScope HarnessAgent，不保留 legacy orchestrator 兼容适配器。
+1. 空状态显示“报告/场景矩阵/证据/运行日志”四 Tab；不显示 Token、namespace、
+   statementId、runId 文本输入框。
+2. XML statement 的 Gutter、右键和 Alt/Option+Enter Intention 均可发起；Action 出现在
+   Keymap 且没有占用 Ctrl/Cmd+Shift+A。
+3. 单个静态 `@Select/@Update/@Insert/@Delete` Java 方法可识别；动态注解表达式或多个注解
+   安全禁用。
+4. 数据源缺失/歧义显示持久守卫卡；module 名来自 PSI 且不可编辑。
+5. 两个以上动态条件显示一次主场景；IF 复选、CHOOSE 单选、FOREACH 空/单/多值和父子禁用正确。
+6. 低置信度同时显示警告图标、文字和原因，默认不勾选；空格 fallback 显示 `␠ 1个空格`。
+7. “预览 BoundSql”仅显式点击请求，显示脱敏 SQL、命中 nodeId 和逐字段错误，不创建 Run。
+8. 五类强制守卫均不能绕过；required/main path/guard 场景不可排除。
+9. Run 业务状态和 SSE 连接状态分别显示；断线后沿 Last-Event-ID 恢复，不重复事件。
+10. 取消在 SSE 断线时仍可用且 single-flight；NOT_CANCELLABLE 恢复运行状态。
+11. 报告显示卡片摘要、风险、建议、限制；风险—场景—证据可往返；无 EXPLAIN 时完整计划禁用。
+12. Recommendation 拒绝空原因不可提交；成功后显示服务端审计反馈。
+13. Mapper/data source/knowledge/profile 任一指纹变化显示“报告已过期”。
+14. “重新分析”三个选项分别沿用参数、刷新上下文、切换数据源，并创建新 Run。
+15. 导出只有 Markdown 和标准 JSON；无 PDF；后端未给授权 URL 时无分享链接。
+16. 历史由服务端筛选；清理本地缓存明确不删除服务端报告。
+17. Token 只显示状态；仅后端返回 `expiresAt` 时显示时间；401 后主场景/临时规则草稿保留。
+18. UPDATE/INSERT/DELETE 在运行前、中、后持续显示固定只读横幅。
+19. Tab/方向键/Enter/Esc 可操作；状态不只靠颜色；Light/Darcula 与 100%/150% 缩放无截断。
+20. 网络与解析期间编辑器/Tool Window 保持响应，EDT 无阻塞。
+
+实际记录写入 `idea-plugin/docs/p1-runide-acceptance-record.md`。

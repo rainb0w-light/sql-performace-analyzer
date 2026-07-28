@@ -21,6 +21,8 @@ public class BackendClientTest {
     private HttpServer server;
     private final List<RequestRecord> requests = new ArrayList<>();
     private final AtomicInteger suggestionAttempts = new AtomicInteger();
+    private volatile boolean multipleProfiles;
+    private volatile boolean validationFailure;
 
     @Before
     public void setUp() throws IOException {
@@ -47,12 +49,21 @@ public class BackendClientTest {
         server.createContext("/api/v1/artifacts/mybatis/index", exchange -> respond(exchange, 200,
                 "{\"artifactId\":\"artifact_test\",\"documentId\":\"document_test\"}"));
         server.createContext("/api/v1/datasource-profiles", exchange -> respond(exchange, 200,
-                "[{\"id\":\"dsp_test\",\"name\":\"library\",\"dialect\":\"H2\"}]"));
+                multipleProfiles
+                        ? "[{\"id\":\"dsp_test\",\"name\":\"library\",\"dialect\":\"H2\"},"
+                        + "{\"id\":\"dsp_other\",\"name\":\"archive\",\"dialect\":\"H2\"}]"
+                        : "[{\"id\":\"dsp_test\",\"name\":\"library\",\"dialect\":\"H2\"}]"));
         server.createContext("/api/v1/mapper-statements/analyze", exchange -> respond(exchange, 202,
                 "{\"sessionId\":\"session_analysis\",\"runId\":\"run_analysis\","
                         + "\"status\":\"QUEUED\",\"streamUrl\":\"/api/v1/agui/runs/run_analysis/stream\"}"));
         server.createContext("/api/v1/mapper-statements/default-parameters/suggest", exchange -> {
-            if (suggestionAttempts.incrementAndGet() == 1) {
+            int attempt = suggestionAttempts.incrementAndGet();
+            if (validationFailure) {
+                respond(exchange, 400, "{\"code\":\"VALIDATION_FAILED\",\"retryable\":false,"
+                        + "\"detail\":\"bad\",\"errors\":[{\"field\":\"statementId\",\"message\":\"required\"}]}");
+                return;
+            }
+            if (attempt == 1) {
                 respond(exchange, 429, "{\"code\":\"RATE_LIMITED\",\"retryable\":true,\"detail\":\"slow\"}");
             } else {
                 respond(exchange, 200, """
@@ -235,6 +246,31 @@ public class BackendClientTest {
         assertEquals(BackendClient.DatasourceResolutionStatus.RESOLVED, resolution.status());
         assertEquals("STATEMENT_TEMPORARY", resolution.bindingSource());
         assertEquals("dsp_test", resolution.selected().id());
+
+        multipleProfiles = true;
+        BackendClient.DatasourceResolution ambiguous = client.resolveDatasource("", "", "");
+        assertEquals(BackendClient.DatasourceResolutionStatus.AMBIGUOUS, ambiguous.status());
+        assertEquals(2, ambiguous.candidates().size());
+        BackendClient.DatasourceResolution module = client.resolveDatasource("", "dsp_other", "dsp_test");
+        assertEquals("dsp_other", module.selected().id());
+        assertEquals("MODULE_DEFAULT", module.bindingSource());
+    }
+
+    @Test
+    public void validationFailureIsNotRetriedAndKeepsFieldErrors() throws Exception {
+        validationFailure = true;
+        BackendClient client = new BackendClient(baseUrl(), "spa_saved",
+                new BackendClient.RetryPolicy(4, 0, 0, millis -> {}));
+        try {
+            client.suggestDefaultParameters(new SuggestionRequest(
+                    "a", "s", "d", "p", "m", "h"));
+            fail("expected validation failure");
+        } catch (BackendClient.BackendException expected) {
+            assertEquals("VALIDATION_FAILED", expected.code());
+            assertFalse(expected.retryable());
+            assertEquals("statementId", expected.fieldProblems().get(0).field());
+        }
+        assertEquals(1, suggestionAttempts.get());
     }
 
     private BackendClient client(String token) {

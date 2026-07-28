@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.components.*;
 import com.intellij.ui.table.JBTable;
+import com.intellij.util.ui.JBUI;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -46,7 +47,7 @@ public final class TransientRulesDialog extends DialogWrapper {
     @Override
     protected @Nullable JComponent createCenterPanel() {
         JBPanel<?> root = new JBPanel<>(new BorderLayout());
-        root.setPreferredSize(new Dimension(720, 420));
+        root.setPreferredSize(JBUI.size(720, 420));
         root.add(new JBLabel("仅作用于当前 Run；终态后清除；不会进入知识库或 Agent 长期记忆。"),
                 BorderLayout.NORTH);
         root.add(new JBScrollPane(table), BorderLayout.CENTER);

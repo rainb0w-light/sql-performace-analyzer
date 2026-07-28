@@ -204,6 +204,8 @@ public final class BackendClient {
         appendQuery(path, "statement", filter == null ? "" : filter.statement());
         appendQuery(path, "datasourceProfileId", filter == null ? "" : filter.datasourceProfileId());
         appendQuery(path, "severity", filter == null ? "" : filter.severity());
+        appendQuery(path, "completedFrom", filter == null ? "" : filter.completedFrom());
+        appendQuery(path, "completedTo", filter == null ? "" : filter.completedTo());
         appendQuery(path, "stale", filter == null || filter.stale() == null ? "" : filter.stale().toString());
         appendQuery(path, "page", String.valueOf(filter == null ? 0 : filter.page()));
         appendQuery(path, "size", String.valueOf(filter == null ? 10 : filter.size()));
@@ -416,7 +418,8 @@ public final class BackendClient {
     public record RunStatus(String runId, String status, String lastEventId,
                             String reportId, boolean cancellable) {}
     public record HistoryFilter(String projectId, String moduleId, String statement,
-                                String datasourceProfileId, String severity, Boolean stale,
+                                String datasourceProfileId, String severity,
+                                String completedFrom, String completedTo, Boolean stale,
                                 int page, int size) {}
     public record FieldProblem(String field, String message) {}
 

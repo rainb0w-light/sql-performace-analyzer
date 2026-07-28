@@ -233,7 +233,8 @@ public class BackendClientTest {
         client.confirmRun("run_analysis",
                 new ScenarioConfirmation(List.of("scn_main"), List.of()), "confirm_key");
         assertTrue(client.reports(new BackendClient.HistoryFilter(
-                "project_1", "library-module", "findOverdue", "", "HIGH", false, 0, 10))
+                "project_1", "library-module", "findOverdue", "", "HIGH",
+                "2026-07-01T00:00:00Z", "2026-08-01T00:00:00Z", false, 0, 10))
                 .contains("\"total\":0"));
         assertEquals("2026-08-01T00:00:00Z", client.clientStatus().expiresAt());
     }

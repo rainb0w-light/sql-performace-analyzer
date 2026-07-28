@@ -22,6 +22,9 @@ import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.wm.ToolWindow;
 import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.openapi.vfs.VirtualFileWrapper;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VfsUtilCore;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.ui.JBSplitter;
 import com.intellij.ui.TitledSeparator;
 import com.intellij.ui.components.*;
@@ -41,6 +44,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import com.google.gson.*;
 
 /** State-driven P1 Tool Window with report, scenario, evidence and run-log tabs. */
 public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
@@ -118,6 +122,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
                 new String[]{"Markdown", "标准 JSON"});
         private final JButton exportButton = new JButton("导出");
         private final JButton transientRulesButton = new JButton("本次分析补充…");
+        private final JButton locateMapperButton = new JButton("在编辑器中定位");
         private final JBLabel authStatus = new JBLabel("Token: 未检查");
 
         private AnalysisState state = AnalysisState.idle();
@@ -177,6 +182,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
             toolbar.add(connectButton);
             toolbar.add(authStatus);
             toolbar.add(transientRulesButton);
+            toolbar.add(locateMapperButton);
             toolbar.add(reanalysisMode);
             toolbar.add(reanalyzeButton);
             toolbar.add(exportFormat);
@@ -229,6 +235,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
             JButton evidenceButton = new JButton("查看证据");
             evidenceButton.addActionListener(event -> openScenarioEvidence());
             fullPlanButton.setEnabled(false);
+            fullPlanButton.addActionListener(event -> openFullPlan());
             actions.add(evidenceButton); actions.add(fullPlanButton);
             detail.add(actions, BorderLayout.SOUTH);
             splitter.setSecondComponent(detail);
@@ -283,6 +290,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
             cancelButton.addActionListener(event -> coordinator.cancel());
             transientRulesButton.addActionListener(event -> new TransientRulesDialog(project, List.of(),
                     coordinator::replaceTransientRules, coordinator::previewTransientRules).show());
+            locateMapperButton.addActionListener(event -> locateMapper());
             reanalyzeButton.addActionListener(event -> {
                 int selected = reanalysisMode.getSelectedIndex();
                 AnalysisCoordinator.ReanalysisMode mode = selected == 0
@@ -352,7 +360,8 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         @Override
         public void onMainScenario(MainScenarioModel model) {
             mainScenarioPanel = new MainScenarioPanel(model, coordinator::previewBoundSql,
-                    coordinator::confirmMainScenario);
+                    coordinator::confirmMainScenario, coordinator::refreshSuggestions,
+                    coordinator::cancelPreparation);
             mainScenarioSlot.removeAll();
             mainScenarioSlot.add(mainScenarioPanel, BorderLayout.CENTER);
             mainScenarioSlot.revalidate();
@@ -402,6 +411,54 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         }
 
         @Override
+        public void onScenarioMatrix(String planJson) {
+            try {
+                JsonObject root = JsonParser.parseString(planJson).getAsJsonObject();
+                JsonArray items = root.has("scenarios") && root.get("scenarios").isJsonArray()
+                        ? root.getAsJsonArray("scenarios") : new JsonArray();
+                Object[][] rows = new Object[items.size()][7];
+                boolean[] locked = new boolean[items.size()];
+                for (int index = 0; index < items.size(); index++) {
+                    JsonObject item = items.get(index).getAsJsonObject();
+                    boolean required = jsonBool(item, "required");
+                    boolean main = jsonBool(item, "mainPath");
+                    boolean guard = jsonBool(item, "guardScenario");
+                    boolean excludable = !item.has("excludable") || jsonBool(item, "excludable");
+                    locked[index] = required || main || guard || !excludable;
+                    rows[index] = new Object[]{Boolean.TRUE, jsonText(item, "scenarioId"),
+                            jsonText(item, "name"), jsonText(item, "costLevel"),
+                            required ? "必选" : "可选", main ? "主路径" : "",
+                            guard ? "守卫" : ""};
+                }
+                scenarioTable.setModel(new DefaultTableModel(rows,
+                        new Object[]{"包含", "scenarioId", "场景", "成本", "约束", "主路径", "守卫"}) {
+                    @Override public Class<?> getColumnClass(int column) {
+                        return column == 0 ? Boolean.class : String.class;
+                    }
+                    @Override public boolean isCellEditable(int row, int column) {
+                        return column == 0 && !locked[row];
+                    }
+                    @Override public void setValueAt(Object value, int row, int column) {
+                        if (column != 0) return;
+                        boolean include = Boolean.TRUE.equals(value);
+                        String id = String.valueOf(getValueAt(row, 1));
+                        String reason = "";
+                        if (!include) {
+                            reason = Messages.showInputDialog(project,
+                                    "排除场景原因（写入本 Run 审计）", "排除场景", null);
+                            if (reason == null || reason.isBlank()) return;
+                        }
+                        if (coordinator.includeScenario(id, include, reason)) {
+                            super.setValueAt(value, row, column);
+                        }
+                    }
+                });
+            } catch (RuntimeException error) {
+                onStreamText("场景规划投影失败：" + error.getMessage());
+            }
+        }
+
+        @Override
         public void onStreamText(String text) {
             if (text == null || text.isBlank()) return;
             for (String line : text.split("\\R")) if (!line.isBlank()) logs.addElement(line);
@@ -436,7 +493,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
 
         private void scenarioSelected(ListSelectionEvent event) {
             if (event.getValueIsAdjusting() || reportModel == null || scenarioTable.getSelectedRow() < 0) return;
-            String id = String.valueOf(scenarioTable.getValueAt(scenarioTable.getSelectedRow(), 0));
+            String id = scenarioIdAt(scenarioTable.getSelectedRow());
             reportModel.scenarios().stream().filter(scenario -> id.equals(scenario.scenarioId())).findFirst()
                     .ifPresent(scenario -> {
                         navigation.go(new ReportNavigation.Target(
@@ -468,15 +525,40 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
 
         private void openScenarioEvidence() {
             if (reportModel == null || scenarioTable.getSelectedRow() < 0) return;
-            String id = String.valueOf(scenarioTable.getValueAt(scenarioTable.getSelectedRow(), 0));
+            String id = scenarioIdAt(scenarioTable.getSelectedRow());
             reportModel.scenarios().stream().filter(item -> id.equals(item.scenarioId())).findFirst()
                     .filter(item -> !item.evidenceIds().isEmpty())
                     .ifPresent(item -> selectEvidence(item.evidenceIds().get(0)));
         }
 
+        private void openFullPlan() {
+            if (reportModel == null || scenarioTable.getSelectedRow() < 0) return;
+            String id = scenarioIdAt(scenarioTable.getSelectedRow());
+            reportModel.scenarios().stream().filter(item -> id.equals(item.scenarioId()))
+                    .filter(ReportViewModel.Scenario::hasExplainEvidence)
+                    .flatMap(item -> item.evidenceIds().stream())
+                    .map(evidenceId -> reportModel.evidence().stream()
+                            .filter(item -> evidenceId.equals(item.evidenceId())
+                                    && "EXPLAIN".equals(item.sourceType())).findFirst().orElse(null))
+                    .filter(Objects::nonNull).findFirst()
+                    .ifPresent(item -> selectEvidence(item.evidenceId()));
+        }
+
+        private void locateMapper() {
+            String path = state.statement().mapperPath();
+            if (path.isBlank() || project.getBaseDir() == null) return;
+            var file = LocalFileSystem.getInstance().findFileByPath(path);
+            if (file == null || !VfsUtilCore.isAncestor(project.getBaseDir(), file, false)) {
+                Messages.showWarningDialog(project,
+                        "Mapper 不存在或不属于当前项目：" + path, "无法定位 Mapper");
+                return;
+            }
+            new OpenFileDescriptor(project, file).navigate(true);
+        }
+
         private void selectScenario(String id) {
             for (int row = 0; row < scenarioTable.getRowCount(); row++) {
-                if (id.equals(String.valueOf(scenarioTable.getValueAt(row, 0)))) {
+                if (id.equals(scenarioIdAt(row))) {
                     tabs.setSelectedComponent(scenarioTab);
                     scenarioTable.setRowSelectionInterval(row, row);
                     return;
@@ -566,12 +648,14 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         }
 
         private void loadHistory() {
+            HistoryFilterDialog filterDialog = new HistoryFilterDialog(project, project.getLocationHash(),
+                    state.statement().moduleName(), state.statement().statementId(),
+                    state.statement().datasourceProfileId());
+            if (!filterDialog.showAndGet()) return;
+            BackendClient.HistoryFilter filter = filterDialog.filter();
             CompletableFuture.supplyAsync(() -> {
                 try {
-                    return new BackendClient(settings.endpoint(), tokenStore.token()).reports(
-                            new BackendClient.HistoryFilter(project.getLocationHash(),
-                                    state.statement().moduleName(), state.statement().statementId(),
-                                    state.statement().datasourceProfileId(), "", null, 0, 10));
+                    return new BackendClient(settings.endpoint(), tokenStore.token()).reports(filter);
                 } catch (Exception error) { throw new RuntimeException(error); }
             }).whenComplete((json, error) -> ApplicationManager.getApplication().invokeLater(() -> {
                 if (error != null) Messages.showErrorDialog(project, rootMessage(error), "历史报告加载失败");
@@ -650,6 +734,21 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
             Throwable root = error;
             while (root.getCause() != null) root = root.getCause();
             return root.getMessage() == null ? root.toString() : root.getMessage();
+        }
+
+        private String scenarioIdAt(int row) {
+            if (row < 0 || row >= scenarioTable.getRowCount()) return "";
+            int column = scenarioTable.getColumnClass(0) == Boolean.class ? 1 : 0;
+            return String.valueOf(scenarioTable.getValueAt(row, column));
+        }
+
+        private static String jsonText(JsonObject object, String field) {
+            return object.has(field) && !object.get(field).isJsonNull()
+                    ? object.get(field).getAsString() : "";
+        }
+        private static boolean jsonBool(JsonObject object, String field) {
+            try { return object.has(field) && object.get(field).getAsBoolean(); }
+            catch (RuntimeException ignored) { return false; }
         }
 
         private static <T> void replace(DefaultListModel<T> model, List<T> values) {

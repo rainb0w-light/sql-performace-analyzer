@@ -4,6 +4,7 @@ import com.biz.sccba.sqlanalyzer.idea.contract.PluginApiDtos.*;
 import com.biz.sccba.sqlanalyzer.idea.scenario.MainScenarioModel;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.ui.ComboBox;
+import com.intellij.ui.TitledSeparator;
 import com.intellij.ui.components.*;
 import com.intellij.util.ui.JBUI;
 
@@ -16,21 +17,31 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
     private final MainScenarioModel model;
     private final Runnable preview;
     private final Runnable confirm;
+    private final Runnable refreshSuggestions;
+    private final Runnable cancel;
     private final Map<String, JComponent> controls = new LinkedHashMap<>();
     private final Map<String, JComponent> valueControls = new LinkedHashMap<>();
     private final Map<String, ButtonGroup> chooseGroups = new HashMap<>();
     private final JBTextArea previewText = new JBTextArea();
     private final JButton confirmButton = new JButton("确认主场景并分析");
 
-    public MainScenarioPanel(MainScenarioModel model, Runnable preview, Runnable confirm) {
+    public MainScenarioPanel(MainScenarioModel model, Runnable preview, Runnable confirm,
+                             Runnable refreshSuggestions, Runnable cancel) {
         super(new BorderLayout());
         this.model = Objects.requireNonNull(model);
         this.preview = preview;
         this.confirm = confirm;
+        this.refreshSuggestions = refreshSuggestions;
+        this.cancel = cancel;
         setBorder(BorderFactory.createTitledBorder("配置本次主场景"));
         add(header(), BorderLayout.NORTH);
         add(new JBScrollPane(rows()), BorderLayout.CENTER);
         add(footer(), BorderLayout.SOUTH);
+        getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+                .put(KeyStroke.getKeyStroke("ESCAPE"), "cancel-main-scenario");
+        getActionMap().put("cancel-main-scenario", new AbstractAction() {
+            @Override public void actionPerformed(java.awt.event.ActionEvent event) { cancel.run(); }
+        });
         refreshEnabledState();
     }
 
@@ -55,6 +66,9 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
         long dynamicCount = model.nodes().stream().filter(SuggestionNode::assignable).count();
         panel.add(new JBLabel("检测到 " + dynamicCount + " 个可赋值动态条件；系统覆盖场景保持独立。"),
                 BorderLayout.WEST);
+        JButton refresh = new JButton("刷新建议");
+        refresh.addActionListener(event -> refreshSuggestions.run());
+        panel.add(refresh, BorderLayout.EAST);
         return panel;
     }
 
@@ -72,7 +86,16 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
 
         Set<String> renderedParameters = new HashSet<>();
         int row = 1;
+        ConditionCategory currentCategory = null;
         for (SuggestionNode node : model.nodes()) {
+            if (node.category() != currentCategory) {
+                currentCategory = node.category();
+                c.gridy = row++;
+                c.gridx = 0; c.gridwidth = 5; c.weightx = 1;
+                panel.add(new TitledSeparator("分类：" + categoryName(currentCategory)
+                        + " · " + node.categorySource()), c);
+                c.gridwidth = 1;
+            }
             c.gridy = row++;
             c.gridx = 0; c.weightx = 0;
             JComponent selector = selector(node);
@@ -169,7 +192,11 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
         JBPanel<?> actions = new JBPanel<>(new FlowLayout(FlowLayout.RIGHT));
         JButton previewButton = new JButton("预览 BoundSql");
         previewButton.addActionListener(event -> preview.run());
+        JButton cancelButton = new JButton("取消本次分析");
+        cancelButton.addActionListener(event -> cancel.run());
         confirmButton.addActionListener(event -> confirm.run());
+        confirmButton.setMnemonic('A');
+        actions.add(cancelButton);
         actions.add(previewButton);
         actions.add(confirmButton);
         footer.add(actions, BorderLayout.SOUTH);
@@ -198,4 +225,13 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
     }
 
     private static String safe(String value) { return value == null ? "" : value; }
+    private static String categoryName(ConditionCategory category) {
+        return switch (category) {
+            case ROUTING -> "路由";
+            case FILTER -> "过滤";
+            case SORT_PAGE -> "排序/分页";
+            case JOIN -> "关联";
+            case OTHER -> "其他";
+        };
+    }
 }

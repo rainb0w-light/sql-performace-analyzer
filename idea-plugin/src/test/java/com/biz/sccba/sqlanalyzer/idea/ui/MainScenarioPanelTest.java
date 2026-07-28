@@ -20,6 +20,8 @@ public class MainScenarioPanelTest {
         assertTrue(source.contains("new JBRadioButton()"));
         assertTrue(source.contains("new ComboBox<>(CollectionMode.values())"));
         assertTrue(source.contains("new ButtonGroup()"));
+        assertTrue(source.contains("刷新建议"));
+        assertTrue(source.contains("分类："));
         assertTrue(source.contains("getAccessibleContext().setAccessibleName"));
         assertTrue(source.contains("model.enabled(node.nodeId())"));
         assertTrue(source.contains("confirmButton.setEnabled(model.valid())"));

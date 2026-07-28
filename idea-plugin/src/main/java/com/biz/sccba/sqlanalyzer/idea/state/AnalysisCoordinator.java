@@ -131,6 +131,20 @@ public final class AnalysisCoordinator implements Disposable {
         });
     }
 
+    public void refreshSuggestions() {
+        suggestionCacheKey = "";
+        cachedSuggestions = null;
+        executor.execute(() -> prepare(state.statement()));
+    }
+
+    public void cancelPreparation() {
+        if (state.run().runId().isBlank()) {
+            mainScenario = null;
+            transientRules.clear();
+            dispatch(new AnalysisEvent.Reset());
+        }
+    }
+
     public void previewTransientRules(Consumer<TransientRuleImpact> success) {
         if (client == null || transientRules.isEmpty()) return;
         executor.execute(() -> {
@@ -182,6 +196,11 @@ public final class AnalysisCoordinator implements Disposable {
                 handleError(error, "场景确认失败", "检查 required 场景和排除原因");
             }
         });
+    }
+
+    public boolean includeScenario(String scenarioId, boolean included, String reason) {
+        ScenarioReviewModel model = reviewModel;
+        return model != null && model.include(scenarioId, included, reason);
     }
 
     /** Continues the preserved draft after 401 without clearing main scenario or transient rules. */

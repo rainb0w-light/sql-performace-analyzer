@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>观测中心</title><link rel="stylesheet" href="admin.css"></head>
+<body>
+<header><strong>SQL Performance Analyzer · 知识服务</strong><nav>
+  <a href="knowledge.html">知识库</a>
+  <a href="sample.html">抽检工作台</a>
+  <a aria-current="page" href="observability.html">观测中心</a>
+</nav></header>
+<main><div class="topline"><div><h1>观测中心</h1><p>脱敏操作日志、检索指标和安全 CSV。</p></div>
+  <label>Bearer Token<input id="token" type="password" autocomplete="off"></label></div>
+<section class="grid" id="metrics"></section>
+<section class="card"><div class="topline"><div><h2>最近操作</h2><p>按 createdAt、id 稳定倒序。</p></div>
+  <div class="actions"><button class="secondary" id="refresh">刷新</button><button id="export">导出 CSV</button></div></div>
+  <table><thead><tr><th>时间</th><th>操作者</th><th>类型</th><th>状态</th><th>耗时</th><th>Trace</th></tr></thead><tbody id="logs"></tbody></table>
+</section></main><div id="notice"></div><script src="admin.js"></script><script>
+async function load() {
+  try {
+    const [stats, logs] = await Promise.all([
+      api.call("/api/v1/admin/knowledge-operations/stats"),
+      api.call("/api/v1/admin/knowledge-operations?page=0&size=10")
+    ]);
+    const cards = [
+      ["今日管理操作", stats.todayManagementOperations],
+      ["Agent 检索", stats.agentRetrievals],
+      ["检索成功率", `${(stats.agentRetrievalSuccessRate * 100).toFixed(1)}%`],
+      ["P50 / P95", `${stats.retrieveP50Ms} / ${stats.retrieveP95Ms} ms`]
+    ];
+    document.querySelector("#metrics").innerHTML = cards.map(c => `<div class="card"><div class="meta">${c[0]}</div><div class="metric">${c[1]}</div></div>`).join("");
+    document.querySelector("#logs").innerHTML = logs.items.map(log => `<tr><td>${html(log.createdAt)}</td><td>${html(log.actorId)}</td>
+      <td>${html(log.operationType)}</td><td><span class="pill">${html(log.responseStatus)}</span></td>
+      <td>${log.durationMs} ms</td><td>${html(log.traceId)}</td></tr>`).join("");
+  } catch (error) { notice(error.message); }
+}
+document.querySelector("#refresh").addEventListener("click", load);
+document.querySelector("#export").addEventListener("click", async () => {
+  try {
+    const response = await api.call("/api/v1/admin/knowledge-operations/export.csv");
+    const blob = await response.blob(), link = document.createElement("a");
+    link.href = URL.createObjectURL(blob); link.download = "knowledge-operations.csv"; link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (error) { notice(error.message); }
+});
+window.addEventListener("DOMContentLoaded", load);
+</script></body></html>

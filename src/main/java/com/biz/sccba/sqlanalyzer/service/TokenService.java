@@ -42,11 +42,23 @@ public class TokenService {
     }
 
     public String resolveClientId(String rawToken) {
+        return resolveIdentity(rawToken).clientId();
+    }
+
+    public AuthenticatedClient resolveIdentity(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) throw new IllegalArgumentException("缺少 Bearer Token");
         var token = tokenDao.findActiveByHash(hash(rawToken)).orElseThrow(() -> new IllegalArgumentException("Token 无效或已吊销"));
         tokenDao.touch(token.id());
         clientDao.touch(token.clientId());
-        return token.clientId();
+        Client client = clientDao.findById(token.clientId())
+                .orElseThrow(() -> new IllegalArgumentException("Token 对应客户端不存在"));
+        String role = switch (client.type()) {
+            case "KNOWLEDGE_ADMIN" -> "KNOWLEDGE_ADMIN";
+            case "KNOWLEDGE_VIEWER" -> "KNOWLEDGE_VIEWER";
+            case "AGENT_CLIENT" -> "AGENT_CLIENT";
+            default -> "AGENT_CLIENT"; // all existing IDEA Plugin tokens remain read-only agents
+        };
+        return new AuthenticatedClient(client.id(), client.id(), role);
     }
 
     public void revoke(String clientId, String rawToken) {
@@ -73,4 +85,6 @@ public class TokenService {
     }
 
     public record IssuedToken(Client client, String accessToken) {}
+
+    public record AuthenticatedClient(String clientId, String actorId, String role) {}
 }

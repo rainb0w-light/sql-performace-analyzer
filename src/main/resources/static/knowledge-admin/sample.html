@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>抽检工作台</title><link rel="stylesheet" href="admin.css"></head>
+<body>
+<header><strong>SQL Performance Analyzer · 知识服务</strong><nav>
+  <a href="knowledge.html">知识库</a>
+  <a aria-current="page" href="sample.html">抽检工作台</a>
+  <a href="observability.html">观测中心</a>
+</nav></header>
+<main><div class="topline"><div><h1>抽检工作台</h1><p>与 Agent 分析共用当前生效版本的 KnowledgeRetriever。</p></div>
+  <label>Bearer Token<input id="token" type="password" autocomplete="off"></label></div>
+<section class="card"><form id="sample"><div class="grid">
+  <label>知识范围<input name="sourceId" placeholder="留空 = 当前全部生效知识"></label>
+  <label>Top-K<select name="topK"><option>5</option><option>10</option></select></label>
+</div><label>Query<textarea name="query" required placeholder="输入需要验证的业务问题"></textarea></label>
+<div class="actions"><button>执行抽检</button></div></form></section>
+<section class="card"><h2>检索结果</h2><div id="summary" class="meta"></div><div id="results"></div></section>
+</main><div id="notice"></div><script src="admin.js"></script><script>
+document.querySelector("#sample").addEventListener("submit", async event => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.target));
+  values.topK = Number(values.topK);
+  if (!values.sourceId) delete values.sourceId;
+  try {
+    const response = await api.call("/api/v1/admin/knowledge-samples", {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(values)
+    });
+    document.querySelector("#summary").textContent = `${response.results.length} 条 · ${response.durationMs} ms`;
+    document.querySelector("#results").innerHTML = response.results.map((hit, index) => `<article class="result">
+      <strong>${index + 1}. score ${hit.score.toFixed(4)} · ${html(hit.name || hit.kind)}</strong>
+      <pre>${html(hit.text)}</pre><div class="meta">${html(hit.sourceId)} @${hit.versionNo} · ${html(hit.locator)}</div></article>`).join("");
+  } catch (error) { notice(error.message); }
+});
+</script></body></html>

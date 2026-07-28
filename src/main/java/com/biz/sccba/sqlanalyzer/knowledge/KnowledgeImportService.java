@@ -95,20 +95,31 @@ public class KnowledgeImportService {
     @Transactional(transactionManager = "managementTransactionManager")
     public Version publish(String clientId, String versionId, String publishedBy) {
         Version version = requireOwnedVersion(clientId, versionId);
-        if (!"DRAFT".equals(version.status())) {
-            throw new IllegalStateException("只有 DRAFT 版本可以发布，当前状态：" + version.status());
+        if (version.isPublished() || "ACTIVE".equals(version.status())) {
+            return version; // publish is intentionally idempotent
         }
-        Facts facts = factsOf(version);
-        knowledge.insertTables(version.sourceId(), version.id(), withIds(facts.tables()));
-        knowledge.insertColumns(version.sourceId(), version.id(), withColumnIds(facts.columns()));
-        knowledge.insertRules(version.sourceId(), version.id(), withRuleIds(facts.rules()));
-        knowledge.insertEnums(version.sourceId(), version.id(), withEnumIds(facts.enums()));
-        knowledge.insertAliases(version.sourceId(), version.id(), withAliasIds(facts.aliases()));
+        if (!"DRAFT".equals(version.status()) && !"READY".equals(version.status())
+                && !"PUBLISHING".equals(version.status())) {
+            throw new IllegalStateException("只有 READY 草稿可以发布，当前状态：" + version.status());
+        }
+
+        if (isDocumentDraft(version)) {
+            indexDocumentOrThrow(clientId, version);
+        } else {
+            Facts facts = factsOf(version);
+            knowledge.insertTables(version.sourceId(), version.id(), withIds(facts.tables()));
+            knowledge.insertColumns(version.sourceId(), version.id(), withColumnIds(facts.columns()));
+            knowledge.insertRules(version.sourceId(), version.id(), withRuleIds(facts.rules()));
+            knowledge.insertEnums(version.sourceId(), version.id(), withEnumIds(facts.enums()));
+            knowledge.insertAliases(version.sourceId(), version.id(), withAliasIds(facts.aliases()));
+            indexOrThrow(clientId, version, chunksForStructuredFacts(clientId, version, facts), false);
+            metadata.ingestShardsFromExcel(clientId, facts.shards());
+        }
+
+        // The externally visible switch is last. Any indexing exception above aborts this
+        // transaction, so the old currentVersion remains effective.
         knowledge.publishVersion(clientId, version.sourceId(), version.id(), publishedBy);
-        metadata.ingestShardsFromExcel(clientId, facts.shards());
-        Version published = knowledge.findVersionForClient(clientId, versionId).orElseThrow();
-        indexSafely(clientId, published, facts);
-        return published;
+        return knowledge.findVersionForClient(clientId, versionId).orElseThrow();
     }
 
     @Transactional(transactionManager = "managementTransactionManager")
@@ -120,11 +131,14 @@ public class KnowledgeImportService {
         if (current != null && !current.equals(target.id())) {
             knowledge.markRolledBack(clientId, current);
         }
+        if (isDocumentDraft(target)) {
+            indexDocumentOrThrow(clientId, target);
+        } else {
+            indexOrThrow(clientId, target, chunksForStructuredFacts(clientId, target, factsOf(target)), false);
+        }
         // Reactivate the target version's already-persisted facts (publish deactivates all others).
         knowledge.publishVersion(clientId, source.id(), target.id(), "rollback:" + clientId);
-        Version rolled = knowledge.findVersionForClient(clientId, targetVersionId).orElseThrow();
-        indexSafely(clientId, rolled, factsOf(rolled));
-        return rolled;
+        return knowledge.findVersionForClient(clientId, targetVersionId).orElseThrow();
     }
 
     public List<Version> listVersions(String clientId, String sourceId) {
@@ -135,49 +149,80 @@ public class KnowledgeImportService {
         return requireOwnedVersion(clientId, versionId);
     }
 
-    /**
-     * Syncs a published version into the semantic retrieval layer through the vendor-neutral
-     * KnowledgeRetriever port: the canonical Markdown is derived from the published facts (Excel
-     * and Markdown never diverge), chunked with stable locators, and indexed together with the
-     * structured fact chunks (each carrying its Excel Sheet/row locator). Best-effort: structured
-     * facts remain the source of truth.
-     */
-    private void indexSafely(String clientId, Version version, Facts facts) {
-        var retriever = retrieverProvider.getIfAvailable();
-        if (retriever == null || !retriever.available()) return;
+    private void indexDocumentOrThrow(String clientId, Version version) {
         try {
-            String sourceName = knowledge.findSourceForClient(clientId, version.sourceId())
-                    .map(s -> s.name()).orElse("业务知识");
-            List<KnowledgeRetriever.Chunk> chunks = new ArrayList<>();
-            String markdown = normalizer.normalize(sourceName, facts);
-            chunks.addAll(chunker.chunk("knowledge.md", markdown));
-            for (var t : facts.tables()) {
-                chunks.add(new KnowledgeRetriever.Chunk("TABLE", t.tableName(), t.sheetLocator(),
-                        "表 " + t.tableName() + (isBlank(t.businessName()) ? "" : "（" + t.businessName() + "）")
-                                + (isBlank(t.purpose()) ? "" : "：" + t.purpose())));
-            }
-            for (var c : facts.columns()) {
-                chunks.add(new KnowledgeRetriever.Chunk("COLUMN", c.tableName() + "." + c.columnName(),
-                        c.sheetLocator(), "字段 " + c.tableName() + "." + c.columnName()
-                        + (isBlank(c.businessMeaning()) ? "" : "：" + c.businessMeaning())
-                        + "，敏感策略 " + c.sensitivityPolicy()));
-            }
-            for (var r : facts.rules()) {
-                chunks.add(new KnowledgeRetriever.Chunk("RULE", isBlank(r.ruleKey()) ? r.target() : r.ruleKey(),
-                        r.sheetLocator(), "规则：" + r.description()));
-            }
-            for (var e : facts.enums()) {
-                chunks.add(new KnowledgeRetriever.Chunk("ENUM", e.enumCode(), e.sheetLocator(),
-                        "枚举 " + e.enumCode() + (isBlank(e.displayName()) ? "" : "（" + e.displayName() + "）")));
-            }
-            for (var s : facts.shards()) {
-                chunks.add(new KnowledgeRetriever.Chunk("SHARD", s.logicalTable(), s.sheetLocator(),
-                        s.logicalTable() + " 主分片键 " + s.shardKey() + "，二级分片键 " + s.secondaryShardKey()));
-            }
-            retriever.index(clientId, version.sourceId(), version.versionNo(), chunks);
-        } catch (RuntimeException e) {
-            // Retrieval sync is best-effort; structured facts remain the source of truth.
+            KnowledgeAdminService.DocumentDraft draft =
+                    objectMapper.readValue(version.previewJson(), KnowledgeAdminService.DocumentDraft.class);
+            List<KnowledgeRetriever.Chunk> chunks = draft.chunks().stream()
+                    .map(chunk -> new KnowledgeRetriever.Chunk(
+                            chunk.kind(), chunk.name(), chunk.locator(), chunk.text()))
+                    .toList();
+            indexOrThrow(clientId, version, chunks, true);
+        } catch (RuntimeException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("文档草稿无法读取", exception);
         }
+    }
+
+    private boolean isDocumentDraft(Version version) {
+        try {
+            return "UNSTRUCTURED".equals(objectMapper.readTree(version.previewJson()).path("format").asText());
+        } catch (Exception exception) {
+            throw new IllegalStateException("版本预览无法读取", exception);
+        }
+    }
+
+    /**
+     * Builds deterministic chunks from the controlled Excel facts. This preserves the old
+     * template path while the new Web upload path uses AgentScope Reader chunks directly.
+     */
+    private List<KnowledgeRetriever.Chunk> chunksForStructuredFacts(
+            String clientId, Version version, Facts facts) {
+        String sourceName = knowledge.findSourceForClient(clientId, version.sourceId())
+                .map(s -> s.name()).orElse("业务知识");
+        List<KnowledgeRetriever.Chunk> chunks = new ArrayList<>();
+        String markdown = normalizer.normalize(sourceName, facts);
+        chunks.addAll(chunker.chunk("knowledge.md", markdown));
+        for (var t : facts.tables()) {
+            chunks.add(new KnowledgeRetriever.Chunk("TABLE", t.tableName(), t.sheetLocator(),
+                    "表 " + t.tableName() + (isBlank(t.businessName()) ? "" : "（" + t.businessName() + "）")
+                            + (isBlank(t.purpose()) ? "" : "：" + t.purpose())));
+        }
+        for (var c : facts.columns()) {
+            chunks.add(new KnowledgeRetriever.Chunk("COLUMN", c.tableName() + "." + c.columnName(),
+                    c.sheetLocator(), "字段 " + c.tableName() + "." + c.columnName()
+                    + (isBlank(c.businessMeaning()) ? "" : "：" + c.businessMeaning())
+                    + "，敏感策略 " + c.sensitivityPolicy()));
+        }
+        for (var r : facts.rules()) {
+            chunks.add(new KnowledgeRetriever.Chunk("RULE", isBlank(r.ruleKey()) ? r.target() : r.ruleKey(),
+                    r.sheetLocator(), "规则：" + r.description()));
+        }
+        for (var e : facts.enums()) {
+            chunks.add(new KnowledgeRetriever.Chunk("ENUM", e.enumCode(), e.sheetLocator(),
+                    "枚举 " + e.enumCode() + (isBlank(e.displayName()) ? "" : "（" + e.displayName() + "）")));
+        }
+        for (var s : facts.shards()) {
+            chunks.add(new KnowledgeRetriever.Chunk("SHARD", s.logicalTable(), s.sheetLocator(),
+                    s.logicalTable() + " 主分片键 " + s.shardKey() + "，二级分片键 " + s.secondaryShardKey()));
+        }
+        return chunks;
+    }
+
+    /**
+     * Index failures are part of publish correctness and must never be swallowed. Structured
+     * Excel remains publishable when semantic retrieval is deliberately disabled; unstructured
+     * documents require an available retrieval backend because they have no alternate fact path.
+     */
+    private void indexOrThrow(String clientId, Version version,
+                              List<KnowledgeRetriever.Chunk> chunks, boolean required) {
+        var retriever = retrieverProvider.getIfAvailable();
+        if (retriever == null || !retriever.available()) {
+            if (required) throw new IllegalStateException("知识检索后端未启用，文档不能发布");
+            return;
+        }
+        retriever.index(clientId, version.sourceId(), version.versionNo(), chunks);
     }
 
     private static boolean isBlank(String s) {

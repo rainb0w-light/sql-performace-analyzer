@@ -34,6 +34,14 @@ sql-analyzer:
   limits:
     max-concurrent-runs: ${SQL_ANALYZER_MAX_CONCURRENT_RUNS:10}
   knowledge:
+    upload:
+      max-file-bytes: ${SQL_ANALYZER_KNOWLEDGE_MAX_FILE_BYTES:10485760}
+      max-chunks: ${SQL_ANALYZER_KNOWLEDGE_MAX_CHUNKS:1000}
+      parse-timeout-ms: ${SQL_ANALYZER_KNOWLEDGE_PARSE_TIMEOUT_MS:30000}
+      max-expanded-bytes: ${SQL_ANALYZER_KNOWLEDGE_MAX_EXPANDED_BYTES:52428800}
+    operations:
+      retention-days: ${SQL_ANALYZER_KNOWLEDGE_LOG_RETENTION_DAYS:90}
+      export-limit: ${SQL_ANALYZER_KNOWLEDGE_EXPORT_LIMIT:5000}
     vector:
       # Requires a PostgreSQL with the pgvector extension; structured search works regardless.
       enabled: ${SQL_ANALYZER_KNOWLEDGE_VECTOR_ENABLED:false}

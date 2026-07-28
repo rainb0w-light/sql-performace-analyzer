@@ -246,6 +246,151 @@ class PluginBackendConsumerContractTest {
                 "the planStatement() method and its /plan URL must be removed (Goal §4.4)");
     }
 
+    @Test
+    void p1SuggestionsAndBoundSqlPreviewUseRealBackendContracts() throws Exception {
+        int sessionsBefore = sessionCount();
+        String suggestBody = json.writeValueAsString(java.util.Map.of(
+                "artifactId", artifactId,
+                "statementId", "findOverdueLoans",
+                "datasourceProfileId", datasourceProfileId,
+                "projectId", "library",
+                "moduleId", "library-dao"
+        ));
+        HttpResponse<String> suggest = authenticatedPost(
+                "/api/v1/mapper-statements/default-parameters/suggest",
+                "suggest-contract", suggestBody);
+        assertEquals(200, suggest.statusCode(), suggest.body());
+        JsonNode suggestions = json.readTree(suggest.body());
+        assertTrue(suggestions.path("suggestionSetId").asText().startsWith("artifact_"));
+        assertTrue(suggestions.path("nodes").size() >= 2);
+        JsonNode member = null;
+        var selections = json.createArrayNode();
+        for (JsonNode node : suggestions.path("nodes")) {
+            boolean selected = "memberId".equals(node.path("parameterPath").asText());
+            if (selected) member = node;
+            var selection = selections.addObject();
+            selection.put("nodeId", node.path("nodeId").asText());
+            selection.put("selected", selected);
+            selection.putNull("collectionMode");
+        }
+        assertNotNull(member);
+        var previewBody = json.createObjectNode();
+        previewBody.put("suggestionSetId", suggestions.path("suggestionSetId").asText());
+        previewBody.set("selections", selections);
+        previewBody.set("parameters", json.readTree(
+                "{\"memberId\":{\"type\":\"INTEGER\",\"value\":\"7\",\"values\":[],\"fields\":{}}}"));
+        HttpResponse<String> preview = authenticatedPost(
+                "/api/v1/mapper-statements/default-parameters/preview",
+                "preview-contract", previewBody.toString());
+        assertEquals(200, preview.statusCode(), preview.body());
+        JsonNode bound = json.readTree(preview.body());
+        assertTrue(bound.path("boundSql").asText().contains("l.member_id = ?"));
+        assertTrue(bound.path("hitNodeIds").toString()
+                .contains(member.path("nodeId").asText()));
+        assertTrue(bound.path("redacted").asBoolean());
+        assertEquals(sessionsBefore, sessionCount(),
+                "suggest/preview must not create a Session or Run");
+    }
+
+    @Test
+    void staticAnnotationIndexRejectsDynamicJavaExpressions() throws Exception {
+        String javaSource = """
+                package demo;
+                interface AnnotatedMapper {
+                  @org.apache.ibatis.annotations.Select({"select * from loan",
+                    "where id = #{id}"})
+                  Object find(long id);
+                }
+                """;
+        HttpResponse<String> indexed = authenticatedPost(
+                "/api/v1/artifacts/mybatis/annotation-index", "annotation-static",
+                json.writeValueAsString(java.util.Map.of(
+                        "javaContent", javaSource,
+                        "namespace", "demo.AnnotatedMapper",
+                        "methodName", "find")));
+        assertEquals(200, indexed.statusCode(), indexed.body());
+        assertTrue(json.readTree(indexed.body()).path("artifactId").asText()
+                .startsWith("artifact_"));
+
+        String unsupported = """
+                interface BadMapper {
+                  String SQL = "select 1";
+                  @org.apache.ibatis.annotations.Select(SQL) Object find();
+                }
+                """;
+        HttpResponse<String> rejected = authenticatedPost(
+                "/api/v1/artifacts/mybatis/annotation-index", "annotation-unsupported",
+                json.writeValueAsString(java.util.Map.of(
+                        "javaContent", unsupported,
+                        "namespace", "BadMapper",
+                        "methodName", "find")));
+        assertEquals(422, rejected.statusCode(), rejected.body());
+        assertEquals("UNSUPPORTED", json.readTree(rejected.body()).path("code").asText());
+    }
+
+    @Test
+    void reviewRunWaitsAndConfirmationContinuesTheSameRun() throws Exception {
+        String body = json.writeValueAsString(java.util.Map.of(
+                "artifactId", artifactId,
+                "statementId", "findOverdueLoans",
+                "datasourceProfileId", datasourceProfileId,
+                "executionMode", "REVIEW",
+                "costThreshold", "EXTREME",
+                "projectId", "library-project",
+                "moduleId", "library-dao"
+        ));
+        HttpResponse<String> analyze = authenticatedPost(
+                "/api/v1/mapper-statements/analyze", "review-run", body);
+        assertEquals(202, analyze.statusCode(), analyze.body());
+        JsonNode handle = json.readTree(analyze.body());
+        String runId = handle.path("runId").asText();
+        String streamUrl = handle.path("streamUrl").asText();
+        JsonNode matrix = planningMatrixFromStream(streamUrl);
+        assertTrue(matrix.path("requiresConfirmation").asBoolean());
+        assertTrue(matrix.path("scenarios").size() > 0);
+
+        HttpResponse<String> status = http.send(HttpRequest.newBuilder(
+                        URI.create(url("/api/v1/runs/" + runId)))
+                        .header("Authorization", "Bearer " + token).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals("AWAITING_CONFIRMATION",
+                json.readTree(status.body()).path("status").asText());
+
+        var included = json.createArrayNode();
+        for (JsonNode scenario : matrix.path("scenarios")) {
+            included.add(scenario.path("scenarioId").asText());
+        }
+        var confirmation = json.createObjectNode();
+        confirmation.set("includedScenarioIds", included);
+        confirmation.set("excludedScenarios", json.createArrayNode());
+        HttpResponse<String> confirmed = authenticatedPost(
+                "/api/v1/runs/" + runId + "/confirm", "confirm-" + runId,
+                confirmation.toString());
+        assertEquals(202, confirmed.statusCode(), confirmed.body());
+        assertEquals(runId, json.readTree(confirmed.body()).path("runId").asText());
+
+        String reportId = reportIdFromStream(streamUrl);
+        assertFalse(reportId.isBlank());
+        HttpResponse<String> completed = http.send(HttpRequest.newBuilder(
+                        URI.create(url("/api/v1/runs/" + runId)))
+                        .header("Authorization", "Bearer " + token).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        JsonNode completedBody = json.readTree(completed.body());
+        assertEquals("COMPLETED", completedBody.path("status").asText());
+        assertEquals(reportId, completedBody.path("reportId").asText());
+
+        HttpResponse<String> history = http.send(HttpRequest.newBuilder(URI.create(url(
+                        "/api/v1/reports?projectId=library-project&moduleId=library-dao"
+                                + "&statement=findOverdueLoans&datasourceProfileId="
+                                + datasourceProfileId + "&stale=false&page=0&size=10")))
+                        .header("Authorization", "Bearer " + token).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, history.statusCode(), history.body());
+        JsonNode historyBody = json.readTree(history.body());
+        assertTrue(historyBody.path("totalElements").asInt() >= 1);
+        assertEquals(reportId, historyBody.path("items").get(0).path("reportId").asText());
+    }
+
     private static String fieldNames(JsonNode node) {
         var names = new java.util.ArrayList<String>();
         node.fieldNames().forEachRemaining(names::add);
@@ -281,5 +426,58 @@ class PluginBackendConsumerContractTest {
             }
         }
         return "";
+    }
+
+    private HttpResponse<String> authenticatedPost(String path, String key, String body)
+            throws Exception {
+        return http.send(HttpRequest.newBuilder(URI.create(url(path)))
+                        .header("Authorization", "Bearer " + token)
+                        .header("Idempotency-Key", key)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body)).build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    private JsonNode planningMatrixFromStream(String streamPath) throws Exception {
+        HttpResponse<InputStream> response = http.send(HttpRequest.newBuilder(
+                        URI.create(url(streamPath)))
+                        .header("Authorization", "Bearer " + token)
+                        .header("Accept", "text/event-stream")
+                        .timeout(Duration.ofSeconds(30)).GET().build(),
+                HttpResponse.BodyHandlers.ofInputStream());
+        JsonNode matrix = null;
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+            String event = null;
+            StringBuilder data = new StringBuilder();
+            for (String line; (line = reader.readLine()) != null; ) {
+                if (line.startsWith("event:")) event = line.substring(6).trim();
+                else if (line.startsWith("data:")) data.append(line.substring(5).trim());
+                else if (line.isEmpty() && event != null) {
+                    if ("CUSTOM".equals(event)) {
+                        JsonNode payload = json.readTree(data.toString());
+                        if ("spa.scenarios_ready".equals(payload.path("name").asText())) {
+                            matrix = payload;
+                        }
+                        if ("spa.awaiting_confirmation".equals(payload.path("name").asText())) {
+                            break;
+                        }
+                    }
+                    event = null;
+                    data.setLength(0);
+                }
+            }
+        }
+        assertNotNull(matrix, "spa.scenarios_ready must precede awaiting confirmation");
+        return matrix;
+    }
+
+    private int sessionCount() throws Exception {
+        HttpResponse<String> response = http.send(HttpRequest.newBuilder(
+                        URI.create(url("/api/v1/sessions")))
+                        .header("Authorization", "Bearer " + token).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode(), response.body());
+        return json.readTree(response.body()).size();
     }
 }

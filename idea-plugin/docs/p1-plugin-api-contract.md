@@ -1,6 +1,6 @@
 # IDEA Plugin P1 API 契约冻结
 
-状态：Plugin consumer contract，等待服务端实现。
+状态：Plugin consumer contract，服务端 P1 契约已实现并由真实后端 consumer contract 验证。
 基路径：`/api/v1`。所有上行请求携带 `X-Request-Id`；创建/变更请求携带可重放的 `Idempotency-Key`。
 
 ## 1. 默认参数建议
@@ -149,6 +149,10 @@ Java 注解 Mapper 在 PSI 能唯一解析时，Plugin 使用
 - `GET /client` 可选返回 `expiresAt`；缺失时 Plugin 不推断到期时间。
 - 所有错误使用 RFC 9457 Problem Details：`code`、`retryable`、`errors[]`。401 进入重新认证；网络、429、`retryable=true` 的 5xx 才允许有界重试；解析、`UNSUPPORTED`、校验失败和非幂等冲突不自动重试。
 
-## 7. 尚未实现的真实集成
+## 7. 真实集成状态
 
-基线 `ea30131` 尚无第 1、2、4、5、6 节端点。P1 Plugin 使用 Fake Gateway 做 consumer contract 和状态交互验收；真实按钮收到 404/501 时显示结构化“服务端能力未部署”，不回退为本地伪造结果。
+`codex/idea-plugin-ui-ux` 已实现第 1–6 节契约：静态注解 Mapper index、默认参数建议、
+MyBatis 官方 BoundSql 预览、临时规则影响预览、同 Run 确认、Run 恢复、服务端历史筛选和
+真实 Client 投影。`PluginBackendConsumerContractTest` 使用启动后的真实 Spring 后端覆盖
+建议/预览零 Run 副作用，以及 `REVIEW → AWAITING_CONFIRMATION → confirm → COMPLETED`
+同 Run 生命周期；Fake Gateway 继续用于 Plugin 独立状态机和错误交互测试，不冒充生产响应。

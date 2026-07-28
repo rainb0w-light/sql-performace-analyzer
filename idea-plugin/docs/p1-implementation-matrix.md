@@ -33,3 +33,10 @@
 - Plugin 只做 PSI 定位、类型化 UI 数据建模、字段级客户端预校验、状态投影与安全守卫展示。
 - P1 缺失服务端能力先按 `idea-plugin/docs/p1-plugin-api-contract.md` 冻结，并由 Fake Gateway 覆盖；不得用本地硬编码成功结果冒充后端。
 - 不修改 Knowledge/Admin Web、Profiling、Metadata、Flyway、RBAC 或 `BearerClients`。
+
+## 后端阻塞解除记录
+
+编码前矩阵保留为基线审计证据。当前分支已按冻结契约补齐 Plugin 专用服务端能力，并使用真实
+Spring 后端 consumer contract 覆盖静态注解 Mapper、建议、BoundSql 预览、REVIEW 确认、
+Run 恢复和报告历史；Fake Gateway 只保留为 Plugin 模块的隔离测试替身。实现未修改
+Knowledge/Admin Web、Profiling、Metadata、Flyway、RBAC 或 `BearerClients`。

@@ -25,8 +25,10 @@
                 implementationClass="com.biz.sccba.sqlanalyzer.idea.actions.MyBatisStatementLineMarkerProvider" />
         <codeInsight.lineMarkerProvider language="JAVA"
                 implementationClass="com.biz.sccba.sqlanalyzer.idea.actions.MyBatisStatementLineMarkerProvider" />
-        <intentionAction implementationClass="com.biz.sccba.sqlanalyzer.idea.actions.AnalyzeStatementIntention"
-                category="SQL Performance Analyzer" />
+        <intentionAction>
+            <className>com.biz.sccba.sqlanalyzer.idea.actions.AnalyzeStatementIntention</className>
+            <category>SQL Performance Analyzer</category>
+        </intentionAction>
     </extensions>
     <actions>
         <action id="SqlAnalyzer.AnalyzeStatement"

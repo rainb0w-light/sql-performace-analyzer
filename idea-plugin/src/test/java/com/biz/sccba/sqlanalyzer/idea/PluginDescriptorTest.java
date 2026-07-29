@@ -31,6 +31,10 @@ public class PluginDescriptorTest {
                 xml.contains("MyBatisStatementLineMarkerProvider"));
         assertTrue("Alt/Option+Enter must expose an Intention",
                 xml.contains("AnalyzeStatementIntention"));
+        assertTrue("IntelliJ intentionAction requires its implementation as the className element",
+                xml.contains("<className>com.biz.sccba.sqlanalyzer.idea.actions.AnalyzeStatementIntention</className>"));
+        assertFalse("implementationClass is ignored by IntelliJ's intentionAction extension bean",
+                xml.contains("<intentionAction implementationClass="));
         assertTrue("project settings must be searchable under Tools",
                 xml.contains("<projectConfigurable id=\"tools.sql.analyzer\""));
         assertFalse("the plugin must not occupy IntelliJ's Ctrl/Cmd+Shift+A shortcut",

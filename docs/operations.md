@@ -12,25 +12,33 @@ docker compose up -d postgres agent
 curl http://localhost:18881/healthz
 ```
 
-### 无持久化开发
+### 本地开发（默认文件型 H2）
 
 ```bash
 ./gradlew bootRun
 curl http://localhost:18881/healthz
 ```
 
-`/healthz` 无需认证，返回进程状态与 persistence/worker 开关，不含密钥或凭据。
+无需 PostgreSQL 或 Docker。首次启动时，Flyway 从 `db/migration-h2` 和
+`db/migration-common` 初始化数据库；数据默认持久化到
+`~/.sql-performance-analyzer/data/management.mv.db`，服务重启后保留。
+
+`/healthz` 无需认证，默认返回 `persistenceEnabled=true`、
+`workerEnabled=true`，不含密钥或凭据。若只需要无持久化健康检查，可显式设置
+`SQL_ANALYZER_PERSISTENCE_ENABLED=false SQL_ANALYZER_WORKER_ENABLED=false`。
 
 ## 2. 配置（环境变量）
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `SERVER_PORT` | 18881 | HTTP 端口 |
-| `SQL_ANALYZER_PERSISTENCE_ENABLED` | false | 启用管理库持久化（REST/AG-UI 资源 API 随之启用） |
-| `SQL_ANALYZER_POSTGRES_JDBC_URL` | jdbc:postgresql://localhost:5432/sql_analyzer | 管理库连接 |
-| `SQL_ANALYZER_POSTGRES_USERNAME` / `SQL_ANALYZER_POSTGRES_PASSWORD` | postgres/postgres | 管理库凭据 |
+| `SQL_ANALYZER_PERSISTENCE_ENABLED` | true | 启用管理库持久化（REST/AG-UI 资源 API 随之启用） |
+| `SQL_ANALYZER_JDBC_URL` | `jdbc:h2:file:${SQL_ANALYZER_H2_DATA_PATH};AUTO_SERVER=TRUE` | 管理库连接；部署时可覆盖为 PostgreSQL |
+| `SQL_ANALYZER_H2_DATA_PATH` | `~/.sql-performance-analyzer/data/management` | H2 数据文件基路径，实际文件后缀为 `.mv.db` |
+| `SQL_ANALYZER_JDBC_USERNAME` / `SQL_ANALYZER_JDBC_PASSWORD` | sa/空 | 管理库凭据；PostgreSQL 部署必须覆盖 |
+| `SQL_ANALYZER_POSTGRES_JDBC_URL/USERNAME/PASSWORD` | — | 兼容旧部署变量；优先级低于通用 `SQL_ANALYZER_JDBC_*` |
 | `SQL_ANALYZER_POSTGRES_POOL_SIZE` | 10 | HikariCP 连接池 |
-| `SQL_ANALYZER_WORKER_ENABLED` | false | 启用 Agent Job 与画像 Worker |
+| `SQL_ANALYZER_WORKER_ENABLED` | true | 启用 Agent Job 与画像 Worker |
 | `SQL_ANALYZER_WORKER_POLL_DELAY_MS` | 500 | Worker 轮询间隔 |
 | `SQL_ANALYZER_MAX_CONCURRENT_RUNS` | 10 | 单客户端并发 Run 上限 |
 | `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` / `DEEPSEEK_TEMPERATURE` | — | LLM 模型配置（OpenAI 兼容协议） |

@@ -18,18 +18,23 @@ spring:
 
 sql-analyzer:
   persistence:
-    enabled: ${SQL_ANALYZER_PERSISTENCE_ENABLED:false}
-    # Management database: PostgreSQL in production; H2 for the Docker-free local gate and dev.
-    # The dialect is detected from the JDBC URL via JDBC metadata (docs/cloud-code-next-goal.md §3.5);
-    # the driver is inferred from the URL, so no driver-class-name is configured here.
-    #   PostgreSQL: jdbc:postgresql://localhost:5432/sql_analyzer
-    #   H2 (file, restart-recoverable): jdbc:h2:file:./data/sql-analyzer-management
-    jdbc-url: ${SQL_ANALYZER_POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/sql_analyzer}
-    username: ${SQL_ANALYZER_POSTGRES_USERNAME:postgres}
-    password: ${SQL_ANALYZER_POSTGRES_PASSWORD:postgres}
+    enabled: ${SQL_ANALYZER_PERSISTENCE_ENABLED:true}
+    # Docker-free default: restart-recoverable file H2. The effective database file is
+    # ${SQL_ANALYZER_H2_DATA_PATH}.mv.db; by default:
+    # ~/.sql-performance-analyzer/data/management.mv.db
+    #
+    # Flyway remains the only schema initializer. JDBC metadata selects:
+    #   H2         -> classpath:db/migration-h2 + classpath:db/migration-common
+    #   PostgreSQL -> classpath:db/migration    + classpath:db/migration-common
+    #
+    # Production can override SQL_ANALYZER_JDBC_URL/USERNAME/PASSWORD with PostgreSQL.
+    # The legacy SQL_ANALYZER_POSTGRES_* names remain accepted for compatibility.
+    jdbc-url: ${SQL_ANALYZER_JDBC_URL:${SQL_ANALYZER_POSTGRES_JDBC_URL:jdbc:h2:file:${SQL_ANALYZER_H2_DATA_PATH:${user.home}/.sql-performance-analyzer/data/management};AUTO_SERVER=TRUE}}
+    username: ${SQL_ANALYZER_JDBC_USERNAME:${SQL_ANALYZER_POSTGRES_USERNAME:sa}}
+    password: ${SQL_ANALYZER_JDBC_PASSWORD:${SQL_ANALYZER_POSTGRES_PASSWORD:}}
     maximum-pool-size: ${SQL_ANALYZER_POSTGRES_POOL_SIZE:10}
   worker:
-    enabled: ${SQL_ANALYZER_WORKER_ENABLED:false}
+    enabled: ${SQL_ANALYZER_WORKER_ENABLED:true}
     poll-delay-ms: ${SQL_ANALYZER_WORKER_POLL_DELAY_MS:500}
   limits:
     max-concurrent-runs: ${SQL_ANALYZER_MAX_CONCURRENT_RUNS:10}

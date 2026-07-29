@@ -27,11 +27,12 @@ public class ArtifactService {
     public Artifact ingest(String clientId, String sessionId, String sourceType, String fileName,
                            String mediaType, byte[] content, String metadataJson) {
         if (content == null) throw new IllegalArgumentException("Artifact 内容不能为空");
+        String normalizedSessionId = normalizeOptionalId(sessionId);
         String contentHash = sha256(content);
         var existing = artifacts.findBySha256ForClient(clientId, sourceType, contentHash);
         if (existing.isPresent()) return existing.get();
         String id = "artifact_" + UUID.randomUUID();
-        Artifact artifact = new Artifact(id, clientId, sessionId, sourceType, fileName, mediaType,
+        Artifact artifact = new Artifact(id, clientId, normalizedSessionId, sourceType, fileName, mediaType,
                 contentHash, content.length, "INGESTED", metadataJson == null ? "{}" : metadataJson, Instant.now());
         artifacts.create(artifact);
         for (int offset = 0, sequence = 0; offset < content.length; offset += CHUNK_SIZE, sequence++) {
@@ -57,5 +58,9 @@ public class ArtifactService {
         } catch (Exception e) {
             throw new IllegalStateException("无法计算 Artifact hash", e);
         }
+    }
+
+    private static String normalizeOptionalId(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 }

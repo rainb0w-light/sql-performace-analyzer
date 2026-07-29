@@ -73,6 +73,7 @@ public final class BackendClient {
     public String indexMyBatisMapper(String sessionId, String xmlContent, String namespace) throws Exception {
         JsonObject body = new JsonObject();
         body.addProperty("sessionId", sessionId);
+        removeBlank(body, "sessionId");
         body.addProperty("namespace", namespace);
         body.addProperty("xmlContent", xmlContent);
         return requiredText(jsonRequest("POST", "/api/v1/artifacts/mybatis/index", body, true, true),
@@ -83,6 +84,7 @@ public final class BackendClient {
                                          String namespace, String methodName) throws Exception {
         JsonObject body = new JsonObject();
         body.addProperty("sessionId", sessionId);
+        removeBlank(body, "sessionId");
         body.addProperty("namespace", namespace);
         body.addProperty("methodName", methodName);
         body.addProperty("javaContent", javaContent);

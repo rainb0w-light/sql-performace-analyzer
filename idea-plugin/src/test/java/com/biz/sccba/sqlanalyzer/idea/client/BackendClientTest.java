@@ -155,6 +155,20 @@ public class BackendClientTest {
     }
 
     @Test
+    public void mapperIndexOmitsBlankOptionalSessionId() throws Exception {
+        BackendClient client = client("spa_saved");
+
+        assertEquals("artifact_test",
+                client.indexMyBatisMapper(" ", "<mapper namespace=\"x\"></mapper>", "x"));
+
+        RequestRecord request = requests.stream()
+                .filter(item -> item.path().equals("/api/v1/artifacts/mybatis/index"))
+                .findFirst().orElseThrow();
+        assertFalse("blank optional sessionId must not become a database foreign-key value",
+                request.body().contains("\"sessionId\""));
+    }
+
+    @Test
     public void non2xxResponseContainsStatusAndBody() throws Exception {
         BackendClient client = new BackendClient(baseUrl() + "/api/v1/fail", "spa_saved");
 

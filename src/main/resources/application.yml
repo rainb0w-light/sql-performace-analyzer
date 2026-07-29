@@ -64,6 +64,13 @@ sql-analyzer:
     sample-rows: ${SQL_ANALYZER_PROFILING_SAMPLE_ROWS:50000}
     top-k: ${SQL_ANALYZER_PROFILING_TOP_K:10}
     statement-timeout-ms: ${SQL_ANALYZER_PROFILING_STATEMENT_TIMEOUT_MS:10000}
+  local-h2:
+    datasource-bootstrap:
+      # A client with no configured target receives one local, read-only static-analysis
+      # context. Existing profiles are never changed, and PostgreSQL management mode ignores it.
+      enabled: ${SQL_ANALYZER_H2_DATASOURCE_BOOTSTRAP_ENABLED:true}
+      jdbc-url: ${SQL_ANALYZER_H2_TARGET_JDBC_URL:jdbc:h2:file:${SQL_ANALYZER_H2_TARGET_DATA_PATH:${user.home}/.sql-performance-analyzer/data/local-target};AUTO_SERVER=TRUE}
+      username: ${SQL_ANALYZER_H2_TARGET_USERNAME:sa}
 
 logging:
   level:

@@ -23,6 +23,11 @@ curl http://localhost:18881/healthz
 `db/migration-common` 初始化数据库；数据默认持久化到
 `~/.sql-performance-analyzer/data/management.mv.db`，服务重启后保留。
 
+当管理库为 H2 时，完全没有 datasource profile 的客户端首次读取数据源列表会得到
+唯一的 `Local H2 Static Analysis` 只读 profile。它不会覆盖已有真实数据源，也不会在
+PostgreSQL 模式启用。其目标路径默认为
+`~/.sql-performance-analyzer/data/local-target.mv.db`，仅在实际连接时创建。
+
 `/healthz` 无需认证，默认返回 `persistenceEnabled=true`、
 `workerEnabled=true`，不含密钥或凭据。若只需要无持久化健康检查，可显式设置
 `SQL_ANALYZER_PERSISTENCE_ENABLED=false SQL_ANALYZER_WORKER_ENABLED=false`。
@@ -40,6 +45,9 @@ curl http://localhost:18881/healthz
 | `SQL_ANALYZER_POSTGRES_POOL_SIZE` | 10 | HikariCP 连接池 |
 | `SQL_ANALYZER_WORKER_ENABLED` | true | 启用 Agent Job 与画像 Worker |
 | `SQL_ANALYZER_WORKER_POLL_DELAY_MS` | 500 | Worker 轮询间隔 |
+| `SQL_ANALYZER_H2_DATASOURCE_BOOTSTRAP_ENABLED` | true | H2 本地模式为无数据源客户端创建唯一静态分析 profile |
+| `SQL_ANALYZER_H2_TARGET_DATA_PATH` | `~/.sql-performance-analyzer/data/local-target` | 本地目标 H2 文件基路径 |
+| `SQL_ANALYZER_H2_TARGET_JDBC_URL` / `_USERNAME` | 文件型 H2 / sa | 本地目标 profile 连接覆盖 |
 | `SQL_ANALYZER_MAX_CONCURRENT_RUNS` | 10 | 单客户端并发 Run 上限 |
 | `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` / `DEEPSEEK_TEMPERATURE` | — | LLM 模型配置（OpenAI 兼容协议） |
 | `SQL_ANALYZER_KNOWLEDGE_VECTOR_ENABLED` | false | 启用 SimpleKnowledge + PgVector 检索层（需要 pgvector 扩展） |

@@ -33,6 +33,14 @@ class DefaultRuntimeConfigurationTest {
                     .isEqualTo("sa");
             assertThat(environment.getRequiredProperty("sql-analyzer.persistence.password"))
                     .isEmpty();
+            assertThat(environment.getProperty(
+                    "sql-analyzer.local-h2.datasource-bootstrap.enabled", Boolean.class))
+                    .isTrue();
+            assertThat(environment.getRequiredProperty(
+                    "sql-analyzer.local-h2.datasource-bootstrap.jdbc-url"))
+                    .startsWith("jdbc:h2:file:")
+                    .contains("/.sql-performance-analyzer/data/local-target")
+                    .contains("AUTO_SERVER=TRUE");
         });
     }
 }

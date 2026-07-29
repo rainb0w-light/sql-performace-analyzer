@@ -2,6 +2,7 @@ package com.biz.sccba.sqlanalyzer.controller;
 
 import com.biz.sccba.sqlanalyzer.repository.ProfilingRepository;
 import com.biz.sccba.sqlanalyzer.domain.profiling.Profiling.DatasourceProfile;
+import com.biz.sccba.sqlanalyzer.service.LocalH2DatasourceBootstrapService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -27,16 +28,19 @@ public class ProfilingController {
     private final ProfilingRepository dao;
     private final ObjectMapper objectMapper;
     private final BearerClients bearer;
+    private final LocalH2DatasourceBootstrapService localH2Bootstrap;
 
-    public ProfilingController(ProfilingRepository dao, ObjectMapper objectMapper, BearerClients bearer) {
+    public ProfilingController(ProfilingRepository dao, ObjectMapper objectMapper, BearerClients bearer,
+                               LocalH2DatasourceBootstrapService localH2Bootstrap) {
         this.dao = dao;
         this.objectMapper = objectMapper;
         this.bearer = bearer;
+        this.localH2Bootstrap = localH2Bootstrap;
     }
 
     @GetMapping("/datasource-profiles")
     public Object profiles(@RequestHeader("Authorization") String authorization) {
-        return dao.listProfiles(bearer.clientId(authorization));
+        return localH2Bootstrap.listOrBootstrap(bearer.clientId(authorization));
     }
 
     @PostMapping("/datasource-profiles")

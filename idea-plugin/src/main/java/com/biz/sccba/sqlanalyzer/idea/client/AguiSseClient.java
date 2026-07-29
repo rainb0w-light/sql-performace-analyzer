@@ -28,6 +28,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * </ul>
  */
 public final class AguiSseClient {
+    private static final String SSE_ACCEPT =
+            "text/event-stream, application/problem+json, application/json";
+
     public enum ConnectionState { CONNECTING, STREAMING, BACKOFF, RESUMING, TERMINAL, ABORTED }
 
     /** Receives parsed events on the calling (background) thread. */
@@ -281,12 +284,16 @@ public final class AguiSseClient {
     private HttpRequest.Builder newRequest(String method, String path, String requestId, int attempt) {
         URI uri = path.startsWith("http://") || path.startsWith("https://")
                 ? URI.create(path) : URI.create(baseUrl + (path.startsWith("/") ? path : "/" + path));
-        return HttpRequest.newBuilder(uri)
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
                 .timeout(Duration.ofMinutes(6))
-                .header("Accept", "text/event-stream")
+                .header("Accept", SSE_ACCEPT)
                 .header("Authorization", "Bearer " + token)
                 .header("X-Request-Id", requestId + "-" + attempt)
                 .method(method, HttpRequest.BodyPublishers.noBody());
+        if ("POST".equals(method)) {
+            builder.header("Content-Type", "application/json");
+        }
+        return builder;
     }
 
     private String streamPath(String streamUrl) {

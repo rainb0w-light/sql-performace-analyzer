@@ -28,6 +28,7 @@ public class AguiSseClientTest {
     private HttpServer server;
     private final AtomicReference<String> lastEventIdOnResume = new AtomicReference<>();
     private final AtomicReference<String> acceptHeader = new AtomicReference<>();
+    private final AtomicReference<String> contentTypeHeader = new AtomicReference<>();
     private final AtomicReference<String> idempotencyKey = new AtomicReference<>();
     private final AtomicReference<String> existingRunAuthorization = new AtomicReference<>();
     private final AtomicInteger unauthorizedCalls = new AtomicInteger();
@@ -40,6 +41,7 @@ public class AguiSseClientTest {
         // First connection: deliver events 1-2, then drop the connection WITHOUT a terminal event.
         server.createContext("/api/v1/agui/runs", exchange -> {
             acceptHeader.set(exchange.getRequestHeaders().getFirst("Accept"));
+            contentTypeHeader.set(exchange.getRequestHeaders().getFirst("Content-Type"));
             idempotencyKey.set(exchange.getRequestHeaders().getFirst("Idempotency-Key"));
             exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
             exchange.sendResponseHeaders(200, 0);
@@ -127,7 +129,9 @@ public class AguiSseClientTest {
         assertTrue(received.get(1)[2].contains("hel"));
         assertTrue(received.get(2)[2].contains("lo"));
 
-        assertEquals("text/event-stream", acceptHeader.get());
+        assertTrue(acceptHeader.get().contains("text/event-stream"));
+        assertTrue(acceptHeader.get().contains("application/problem+json"));
+        assertEquals("application/json", contentTypeHeader.get());
         assertNotNull(idempotencyKey.get());
         assertEquals("2", lastEventIdOnResume.get());
     }

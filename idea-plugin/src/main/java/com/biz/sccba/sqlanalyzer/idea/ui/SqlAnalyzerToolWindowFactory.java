@@ -150,11 +150,14 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         private JComponent contextArea() {
             JBPanel<?> context = new JBPanel<>(new BorderLayout());
             JBPanel<?> labels = new JBPanel<>(new GridLayout(3, 2, JBUI.scale(12), JBUI.scale(2)));
+            labels.setBorder(JBUI.Borders.empty(2, 4, 6, 4));
             labels.add(statementLabel); labels.add(datasourceLabel);
             labels.add(knowledgeLabel); labels.add(profileLabel);
             labels.add(moduleLabel); labels.add(runLabel);
-            context.add(labels, BorderLayout.CENTER);
-            context.add(toolbar(), BorderLayout.EAST);
+            // Keep the persistent context above the wide action row. Putting the toolbar in EAST
+            // lets its preferred width squeeze CENTER to zero in a narrow Tool Window.
+            context.add(labels, BorderLayout.NORTH);
+            context.add(toolbar(), BorderLayout.CENTER);
 
             JBPanel<?> banners = new JBPanel<>();
             banners.setLayout(new BoxLayout(banners, BoxLayout.Y_AXIS));
@@ -174,7 +177,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         }
 
         private JComponent toolbar() {
-            JBPanel<?> toolbar = new JBPanel<>(new FlowLayout(FlowLayout.RIGHT));
+            JBPanel<?> toolbar = new JBPanel<>(new FlowLayout(FlowLayout.LEFT));
             JButton settingsButton = new JButton(AllIcons.General.Settings);
             settingsButton.setToolTipText("项目设置");
             settingsButton.addActionListener(event ->
@@ -327,7 +330,8 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
             knowledgeLabel.setText("Knowledge: " + fallback(context.knowledgeVersion(), "等待服务端上下文"));
             profileLabel.setText("Profile: " + fallback(context.profileSnapshotId(), "等待服务端上下文"));
             moduleLabel.setText("Module: " + fallback(context.moduleName(), "—"));
-            runLabel.setText("Run: " + fallback(newState.run().runId(), "—"));
+            runLabel.setText("Run: " + fallback(newState.run().runId(), "—")
+                    + " · " + newState.businessState());
             readOnlyBanner.setVisible(context.readOnlyStaticAnalysis());
             stateLabel.setText(stateText(newState));
             connectionLabel.setText("SSE: " + newState.connectionState());

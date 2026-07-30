@@ -51,6 +51,10 @@ AG-UI 事件先持久化到 `run_event` 再发送；客户端以事件 ID 作为
 
 结构化 JSON Schema（contracts/report-schema.json）：基本信息、结论摘要（严重度/瓶颈/置信度）、业务语义证据、场景矩阵与 BoundSql、索引/分片、数据分布、执行计划、风险（全表扫描/回表/排序/临时表/跨分片/热点/`${}`）、优化建议（问题/证据/影响/建议 SQL-DDL/优先级/置信度）、限制与缺失证据、审计（runId/sessionId/知识版本/画像快照/模型/时间）。同时提供 Markdown 展示投影。
 
+- 执行计划只对已启用、已绑定只读目标数据源的 `SELECT/WITH` BoundSql 场景执行普通 `EXPLAIN`。MyBatis 参数按 mapping 顺序使用 PreparedStatement 绑定，绝不插值进 SQL；`${}` 风险场景不发送到目标库。
+- `INSERT/UPDATE/DELETE` 只进行静态分析，禁止发送 DML，禁止 `EXPLAIN ANALYZE`。目标库、凭据、权限或参数不可用时，报告仍生成，并在 `limits` 中记录降级原因。
+- AgentScope 增强是可选的报告后置审阅：输入为已通过 Schema 校验、含 EXPLAIN evidence 的确定性报告，不接收目标库密码，不覆盖确定性风险/建议。模型失败只写入 `agentEnhancement.status=FAILED`，不阻断报告持久化。
+
 ## 7. 模块
 
 ```text
@@ -70,6 +74,8 @@ IDEA Plugin (PSI 识别 statement → REST + AG-UI SSE)
 ## 8. 安全与只读边界
 
 - 目标数据库仅只读凭据；EXPLAIN/统计受超时、最大行数、白名单与方言适配限制。
+- EXPLAIN 与 Agent 增强默认关闭，分别由 `SQL_ANALYZER_EXPLAIN_ENABLED` 和
+  `SQL_ANALYZER_AGENT_ENHANCEMENT_ENABLED` 显式开启。
 - Token 在 IDEA 端存入 PasswordSafe；服务端只存 SHA-256 哈希。数据源密码不落库，经环境变量引用解析。
 - 默认禁止对目标库执行 Mapper 的 INSERT/UPDATE/DELETE（仅静态分析）；产品不执行 DDL、不修改代码。
 - 错误统一 RFC 9457 Problem Details（code/message/requestId/field errors/retryable）。

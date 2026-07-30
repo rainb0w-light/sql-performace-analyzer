@@ -1,11 +1,17 @@
 package com.biz.sccba.sqlanalyzer.profiling;
 
+import com.biz.sccba.sqlanalyzer.analysis.ExecutionPlanCollector;
 import com.biz.sccba.sqlanalyzer.domain.profiling.Profiling.ColumnStat;
 import com.biz.sccba.sqlanalyzer.domain.profiling.Profiling.DatasourceProfile;
 import com.biz.sccba.sqlanalyzer.domain.profiling.Profiling.Job;
 import com.biz.sccba.sqlanalyzer.knowledge.KnowledgeImportService;
+import com.biz.sccba.sqlanalyzer.mybatis.MyBatisStatementRuntime.ParameterMappingView;
 import com.biz.sccba.sqlanalyzer.repository.ClientRepository;
 import com.biz.sccba.sqlanalyzer.repository.ProfilingRepository;
+import com.biz.sccba.sqlanalyzer.scenario.ScenarioEngine.PlanResult;
+import com.biz.sccba.sqlanalyzer.scenario.ScenarioModels.BoundScenario;
+import com.biz.sccba.sqlanalyzer.scenario.ScenarioModels.ParameterScenario;
+import com.biz.sccba.sqlanalyzer.scenario.ScenarioModels.ParameterSource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -43,7 +49,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
         "sql-analyzer.persistence.enabled=true",
-        "sql-analyzer.worker.enabled=false"
+        "sql-analyzer.worker.enabled=false",
+        "sql-analyzer.analysis.explain-enabled=true"
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @EnabledIfEnvironmentVariable(named = "RUN_POSTGRES_INTEGRATION_TESTS", matches = "true")
@@ -79,6 +86,8 @@ class ProfilingTargetIT {
     ClientRepository clients;
     @Autowired
     ObjectMapper json;
+    @Autowired
+    ExecutionPlanCollector executionPlans;
 
     @BeforeAll
     void seedTargetAndKnowledge() throws Exception {
@@ -155,6 +164,31 @@ class ProfilingTargetIT {
         assertTrue(profiling.listSnapshots("client_other_tenant", profile.id()).isEmpty());
         assertTrue(profiling.snapshotStats("client_other_tenant", snapshots.get(0).id()).isEmpty(),
                 "statistics must not leak across tenants");
+    }
+
+    @Test
+    void parameterizedSelectProducesRealReadOnlyExplainEvidence() {
+        DatasourceProfile profile = profiling.createProfile(new DatasourceProfile(
+                "dsp_explain_" + UUID.randomUUID(), CLIENT, "target-mysql-explain", "MYSQL",
+                jdbcUrl(), mysql.getUsername(), "test.mysql.password", true, null));
+        var scenario = new ParameterScenario("scenario_explain", "按状态查询", "按状态查询",
+                ParameterSource.BOUNDARY_GENERATED, Map.of("status", "PAID"),
+                List.of(), List.of(), List.of("MAIN"), 0.9, null, null, 1);
+        var bound = new BoundScenario(scenario,
+                "SELECT * FROM orders WHERE status = ?", "fp_explain",
+                List.of(new ParameterMappingView("status", "IN", "java.lang.String", "VARCHAR")),
+                Map.of(), List.of(), false, null, List.of("MAIN"));
+
+        var result = executionPlans.collect(CLIENT, profile.id(), "SELECT",
+                new PlanResult("OrdersMapper", "findByStatus", List.of(bound), null));
+
+        assertEquals(1, result.plans().size(), result.missingPermissions().toString());
+        assertTrue(result.plans().getFirst().plan().contains("orders"),
+                "real MySQL EXPLAIN must identify the target table: " + result.plans().getFirst().plan());
+        assertTrue(result.plans().getFirst().evidenceId().startsWith("ev_explain_"));
+        assertTrue(!result.plans().getFirst().plan().contains(mysql.getPassword()),
+                "target credentials must never enter EXPLAIN evidence");
+        assertTrue(!result.explainSkipped());
     }
 
     private static byte[] knowledgeWorkbook() throws Exception {

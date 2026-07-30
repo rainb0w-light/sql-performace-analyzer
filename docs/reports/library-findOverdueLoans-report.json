@@ -1,6 +1,6 @@
 {
   "schemaVersion" : "1.1",
-  "reportId" : "report_e5b5b9ab-647e-4941-9c81-e21c6fb2166d",
+  "reportId" : "report_665faaae-bb76-4831-8611-278866e9ab55",
   "subject" : {
     "projectId" : "library",
     "moduleId" : null,
@@ -28,10 +28,10 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "tables!row5",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
@@ -45,10 +45,10 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "columns!row8",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
@@ -61,10 +61,10 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "columns!row9",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
@@ -77,10 +77,10 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "columns!row10",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
@@ -91,10 +91,10 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "rules!row3",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
@@ -105,24 +105,24 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "rules!row4",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
     "fact" : "索引 idx_loan_member_status_due(member_id,status,due_at)，来源 MANUAL",
     "structured" : {
-      "columnsJson" : "[{\"column\":\"member_id\",\"direction\":\"ASC\"},{\"column\":\"status\",\"direction\":\"ASC\"},{\"column\":\"due_at\",\"direction\":\"ASC\"}]",
-      "indexType" : "NORMAL"
+      "indexType" : "NORMAL",
+      "columnsJson" : "[{\"column\":\"member_id\",\"direction\":\"ASC\"},{\"column\":\"status\",\"direction\":\"ASC\"},{\"column\":\"due_at\",\"direction\":\"ASC\"}]"
     },
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
-      "sourceId" : "idx_9d294aad-c414-4ba0-8a77-af5b00c18c40",
+      "sourceId" : "idx_a30ec815-a859-4910-9044-7931b8b2c6a3",
       "version" : 1,
       "locator" : "loan",
-      "collectedAt" : "2026-07-27T06:25:59.057379Z",
+      "collectedAt" : "2026-07-27T23:56:36.910751Z",
       "confidence" : 0.95
     }
   }, {
@@ -133,10 +133,10 @@
     },
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
-      "sourceId" : "shard_8e50f32e-742f-4988-aaad-197ad3ae11bc",
+      "sourceId" : "shard_2515c577-98aa-4bd6-811d-305ac2006693",
       "version" : 2,
       "locator" : "loan",
-      "collectedAt" : "2026-07-27T06:25:59.059318Z",
+      "collectedAt" : "2026-07-27T23:56:36.914244Z",
       "confidence" : 0.95
     }
   }, {
@@ -149,10 +149,10 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "tables!row3",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
@@ -166,10 +166,10 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "columns!row5",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   }, {
@@ -180,15 +180,15 @@
     },
     "evidence" : {
       "sourceType" : "EXCEL_PUBLISHED",
-      "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+      "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
       "version" : 1,
       "locator" : "rules!row2",
-      "collectedAt" : "2026-07-27T06:25:59.055053Z",
+      "collectedAt" : "2026-07-27T23:56:36.906196Z",
       "confidence" : 0.9
     }
   } ],
   "scenarios" : [ {
-    "scenarioId" : "scn_main-path_d6390e19",
+    "scenarioId" : "scn_main-path_4ec04959",
     "name" : "业务主路径",
     "businessDescription" : "必填参数齐备的典型业务调用",
     "parameterSource" : "RULE_INFERRED",
@@ -247,12 +247,12 @@
     "unsupported" : null,
     "confidence" : 0.9,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "IF_TRUE@findOverdueLoans#where[0]/if[0]", "IF_TRUE@findOverdueLoans#where[0]/if[1]", "IF_TRUE@findOverdueLoans#where[0]/if[2]", "IF_TRUE@findOverdueLoans#where[0]/if[3]", "IF_TRUE@findOverdueLoans#where[0]/if[4]", "IF_TRUE@findOverdueLoans#where[0]/if[5]", "FOREACH_SINGLE@findOverdueLoans#where[0]/if[5]/foreach[0]", "SHARD_SINGLE", "ENUM_UNKNOWN@dueBefore", "ENUM_HIGH@statuses", "ENUM_LOW@statuses", "ENUM_UNKNOWN@statuses", "RANGE_MIN@dueBefore", "RANGE_P50@dueBefore" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "必填参数齐备的典型业务调用"
   }, {
-    "scenarioId" : "scn_foreach-statuses-0_1979fa84",
+    "scenarioId" : "scn_foreach-statuses-0_5180ec29",
     "name" : "foreach(statuses) 空集合",
     "businessDescription" : "foreach 集合规模场景：空集合（不复制真实大集合）",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -304,12 +304,12 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "FOREACH_EMPTY@findOverdueLoans#where[0]/if[5]/foreach[0]", "IF_FALSE@findOverdueLoans#where[0]/if[5]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "foreach 集合规模场景：空集合（不复制真实大集合）"
   }, {
-    "scenarioId" : "scn_foreach-statuses-2_f594841b",
+    "scenarioId" : "scn_foreach-statuses-2_1c2da51b",
     "name" : "foreach(statuses) 典型多元素",
     "businessDescription" : "foreach 集合规模场景：典型多元素（不复制真实大集合）",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -380,12 +380,12 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "FOREACH_MULTI@findOverdueLoans#where[0]/if[5]/foreach[0]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "foreach 集合规模场景：典型多元素（不复制真实大集合）"
   }, {
-    "scenarioId" : "scn_shard-cross_307cad0f",
+    "scenarioId" : "scn_shard-cross_f6f4f1c8",
     "name" : "跨分片扫描",
     "businessDescription" : "分片键 member_id 缺失，可能触发跨分片扫描",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -439,12 +439,12 @@
     "unsupported" : null,
     "confidence" : 0.85,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "SHARD_CROSS", "IF_FALSE@findOverdueLoans#where[0]/if[0]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "分片键 member_id 缺失，可能触发跨分片扫描"
   }, {
-    "scenarioId" : "scn_foreach-statuses-3_d76ecbfd",
+    "scenarioId" : "scn_foreach-statuses-3_5ab1ba45",
     "name" : "foreach(statuses) 受控大列表",
     "businessDescription" : "foreach 集合规模场景：受控大列表（不复制真实大集合）",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -617,12 +617,12 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "FOREACH_LARGE@findOverdueLoans#where[0]/if[5]/foreach[0]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "foreach 集合规模场景：受控大列表（不复制真实大集合）"
   }, {
-    "scenarioId" : "scn_shard-secondary-missing_91124fcc",
+    "scenarioId" : "scn_shard-secondary-missing_10c20b1d",
     "name" : "二级分片时间范围缺失",
     "businessDescription" : "二级分片键 borrowed_at 对应参数缺失，扩大时间分区扫描",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -671,12 +671,12 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "SHARD_SECONDARY_MISSING" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "二级分片键 borrowed_at 对应参数缺失，扩大时间分区扫描"
   }, {
-    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[1]_22a3c96b",
+    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[1]_c2d619ca",
     "name" : "条件不成立：branchId != null",
     "businessDescription" : "动态条件 false 覆盖：branchId != null",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -730,12 +730,12 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "IF_FALSE@findOverdueLoans#where[0]/if[1]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "动态条件 false 覆盖：branchId != null"
   }, {
-    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[2]_ff7d2416",
+    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[2]_8bbd5b41",
     "name" : "条件不成立：dueBefore != null",
     "businessDescription" : "动态条件 false 覆盖：dueBefore != null",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -789,12 +789,12 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "IF_FALSE@findOverdueLoans#where[0]/if[2]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "动态条件 false 覆盖：dueBefore != null"
   }, {
-    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[3]_0da76094",
+    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[3]_3c364ade",
     "name" : "条件不成立：borrowedFrom != null",
     "businessDescription" : "动态条件 false 覆盖：borrowedFrom != null",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -848,12 +848,12 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "IF_FALSE@findOverdueLoans#where[0]/if[3]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "动态条件 false 覆盖：borrowedFrom != null"
   }, {
-    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[4]_99772d4c",
+    "scenarioId" : "scn_if-f-rdueloans#where[0]/if[4]_9c260079",
     "name" : "条件不成立：borrowedTo != null",
     "businessDescription" : "动态条件 false 覆盖：borrowedTo != null",
     "parameterSource" : "BOUNDARY_GENERATED",
@@ -907,23 +907,23 @@
     "unsupported" : null,
     "confidence" : 0.8,
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "coverageGoals" : [ "IF_FALSE@findOverdueLoans#where[0]/if[4]" ],
-    "evidenceIds" : [ "ev_d9e5dcf94db7f25e026c7273", "ev_4ed777c8c496443b16c50324", "ev_d0cbcd044c5d4164f44d6f1b", "ev_d54765922456cf5baf43819b", "ev_578885ba3d352b9a2a07454b", "ev_85f4bc1b4418a5196b27f98a", "ev_0b087340b41d15730c1d3cd9", "ev_48b1c3f6b7141c275dcf116c", "ev_82cdbd4cbe4c8e440dcaa0dd", "ev_8510f51dbbef476026adbfc6", "ev_84c45ca7a304b137448538a7", "ev_254a5f24523c9c5b9cd37036", "ev_50ea2aaba878df1fc937f06d", "ev_de0742c45eb0d387b0660e00" ],
+    "evidenceIds" : [ "ev_96ee68ab5b5dc7908810ace0", "ev_b24181ef9749890738f50649", "ev_23321a84c2ece661abb7c4dc", "ev_cd64b79ce1adf574b1fbe9ff", "ev_3b5f2e1416655f30dec708b1", "ev_71469f3b35789956b15c98e4", "ev_cdb99634f1bc157934d169bb", "ev_444716ed1ab59811fe2f7db6", "ev_2a358d78faa8c4829731d94e", "ev_1c2ae82f28f93813df4b40d6", "ev_0dba5b1895b02e76827bdf9f", "ev_4d103ca1714ef70b722d8a6b", "ev_b70f470f35f83354c0b8feb1", "ev_993544ca2865c299597b7e9e" ],
     "reason" : "动态条件 false 覆盖：borrowedTo != null"
   } ],
   "schemaMetadata" : [ {
     "fact" : "索引 idx_loan_member_status_due(member_id,status,due_at)，来源 MANUAL",
     "structured" : {
-      "columnsJson" : "[{\"column\":\"member_id\",\"direction\":\"ASC\"},{\"column\":\"status\",\"direction\":\"ASC\"},{\"column\":\"due_at\",\"direction\":\"ASC\"}]",
-      "indexType" : "NORMAL"
+      "indexType" : "NORMAL",
+      "columnsJson" : "[{\"column\":\"member_id\",\"direction\":\"ASC\"},{\"column\":\"status\",\"direction\":\"ASC\"},{\"column\":\"due_at\",\"direction\":\"ASC\"}]"
     },
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
-      "sourceId" : "idx_9d294aad-c414-4ba0-8a77-af5b00c18c40",
+      "sourceId" : "idx_a30ec815-a859-4910-9044-7931b8b2c6a3",
       "version" : 1,
       "locator" : "loan",
-      "collectedAt" : "2026-07-27T06:25:59.057379Z",
+      "collectedAt" : "2026-07-27T23:56:36.910751Z",
       "confidence" : 0.95
     }
   }, {
@@ -934,10 +934,10 @@
     },
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
-      "sourceId" : "shard_8e50f32e-742f-4988-aaad-197ad3ae11bc",
+      "sourceId" : "shard_2515c577-98aa-4bd6-811d-305ac2006693",
       "version" : 2,
       "locator" : "loan",
-      "collectedAt" : "2026-07-27T06:25:59.059318Z",
+      "collectedAt" : "2026-07-27T23:56:36.914244Z",
       "confidence" : 0.95
     }
   } ],
@@ -964,14 +964,14 @@
       "value" : "2026-06-15"
     } ],
     "structured" : {
-      "snapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee"
+      "snapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd"
     },
     "evidence" : {
       "sourceType" : "PROFILE_SNAPSHOT",
-      "sourceId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
-      "version" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+      "sourceId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
+      "version" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
       "locator" : "library.loan.due_at",
-      "collectedAt" : "2026-07-27T06:25:59.062396Z",
+      "collectedAt" : "2026-07-27T23:56:36.922615Z",
       "confidence" : 0.95
     }
   }, {
@@ -988,14 +988,14 @@
     "buckets" : [ ],
     "quantiles" : [ ],
     "structured" : {
-      "snapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee"
+      "snapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd"
     },
     "evidence" : {
       "sourceType" : "PROFILE_SNAPSHOT",
-      "sourceId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
-      "version" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+      "sourceId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
+      "version" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
       "locator" : "library.loan.returned_at",
-      "collectedAt" : "2026-07-27T06:25:59.062396Z",
+      "collectedAt" : "2026-07-27T23:56:36.922615Z",
       "confidence" : 0.95
     }
   }, {
@@ -1018,130 +1018,130 @@
     "buckets" : [ ],
     "quantiles" : [ ],
     "structured" : {
-      "snapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee"
+      "snapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd"
     },
     "evidence" : {
       "sourceType" : "PROFILE_SNAPSHOT",
-      "sourceId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
-      "version" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+      "sourceId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
+      "version" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
       "locator" : "library.loan.status",
-      "collectedAt" : "2026-07-27T06:25:59.062396Z",
+      "collectedAt" : "2026-07-27T23:56:36.922615Z",
       "confidence" : 0.95
     }
   } ],
   "evidenceCatalog" : [ {
-    "evidenceId" : "ev_d9e5dcf94db7f25e026c7273",
+    "evidenceId" : "ev_96ee68ab5b5dc7908810ace0",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "tables!row5",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_4ed777c8c496443b16c50324",
+    "evidenceId" : "ev_b24181ef9749890738f50649",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "columns!row8",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_d0cbcd044c5d4164f44d6f1b",
+    "evidenceId" : "ev_23321a84c2ece661abb7c4dc",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "columns!row9",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_d54765922456cf5baf43819b",
+    "evidenceId" : "ev_cd64b79ce1adf574b1fbe9ff",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "columns!row10",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_578885ba3d352b9a2a07454b",
+    "evidenceId" : "ev_3b5f2e1416655f30dec708b1",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "rules!row3",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_85f4bc1b4418a5196b27f98a",
+    "evidenceId" : "ev_71469f3b35789956b15c98e4",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "rules!row4",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_0b087340b41d15730c1d3cd9",
+    "evidenceId" : "ev_cdb99634f1bc157934d169bb",
     "sourceType" : "MANUAL_RULE",
-    "sourceId" : "idx_9d294aad-c414-4ba0-8a77-af5b00c18c40",
+    "sourceId" : "idx_a30ec815-a859-4910-9044-7931b8b2c6a3",
     "version" : 1,
     "locator" : "loan",
-    "collectedAt" : "2026-07-27T06:25:59.057379Z",
+    "collectedAt" : "2026-07-27T23:56:36.910751Z",
     "confidence" : 0.95
   }, {
-    "evidenceId" : "ev_48b1c3f6b7141c275dcf116c",
+    "evidenceId" : "ev_444716ed1ab59811fe2f7db6",
     "sourceType" : "MANUAL_RULE",
-    "sourceId" : "shard_8e50f32e-742f-4988-aaad-197ad3ae11bc",
+    "sourceId" : "shard_2515c577-98aa-4bd6-811d-305ac2006693",
     "version" : 2,
     "locator" : "loan",
-    "collectedAt" : "2026-07-27T06:25:59.059318Z",
+    "collectedAt" : "2026-07-27T23:56:36.914244Z",
     "confidence" : 0.95
   }, {
-    "evidenceId" : "ev_82cdbd4cbe4c8e440dcaa0dd",
+    "evidenceId" : "ev_2a358d78faa8c4829731d94e",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "tables!row3",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_8510f51dbbef476026adbfc6",
+    "evidenceId" : "ev_1c2ae82f28f93813df4b40d6",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "columns!row5",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_84c45ca7a304b137448538a7",
+    "evidenceId" : "ev_0dba5b1895b02e76827bdf9f",
     "sourceType" : "EXCEL_PUBLISHED",
-    "sourceId" : "ks_5180bace-ba8e-4dfb-9e15-a9468406cb37",
+    "sourceId" : "ks_3ee3be3d-a54b-4ab7-b0b9-99bc7cad9456",
     "version" : 1,
     "locator" : "rules!row2",
-    "collectedAt" : "2026-07-27T06:25:59.055053Z",
+    "collectedAt" : "2026-07-27T23:56:36.906196Z",
     "confidence" : 0.9
   }, {
-    "evidenceId" : "ev_254a5f24523c9c5b9cd37036",
+    "evidenceId" : "ev_4d103ca1714ef70b722d8a6b",
     "sourceType" : "PROFILE_SNAPSHOT",
-    "sourceId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
-    "version" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "sourceId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
+    "version" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "locator" : "library.loan.due_at",
-    "collectedAt" : "2026-07-27T06:25:59.062396Z",
+    "collectedAt" : "2026-07-27T23:56:36.922615Z",
     "confidence" : 0.95,
     "sensitivityPolicy" : "PLAINTEXT"
   }, {
-    "evidenceId" : "ev_50ea2aaba878df1fc937f06d",
+    "evidenceId" : "ev_b70f470f35f83354c0b8feb1",
     "sourceType" : "PROFILE_SNAPSHOT",
-    "sourceId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
-    "version" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "sourceId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
+    "version" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "locator" : "library.loan.returned_at",
-    "collectedAt" : "2026-07-27T06:25:59.062396Z",
+    "collectedAt" : "2026-07-27T23:56:36.922615Z",
     "confidence" : 0.95,
     "sensitivityPolicy" : "PLAINTEXT"
   }, {
-    "evidenceId" : "ev_de0742c45eb0d387b0660e00",
+    "evidenceId" : "ev_993544ca2865c299597b7e9e",
     "sourceType" : "PROFILE_SNAPSHOT",
-    "sourceId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
-    "version" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "sourceId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
+    "version" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "locator" : "library.loan.status",
-    "collectedAt" : "2026-07-27T06:25:59.062396Z",
+    "collectedAt" : "2026-07-27T23:56:36.922615Z",
     "confidence" : 0.95,
     "sensitivityPolicy" : "PLAINTEXT"
   } ],
@@ -1149,21 +1149,21 @@
   "risks" : [ {
     "type" : "CROSS_SHARD",
     "title" : "缺少主分片键导致跨分片扫描",
-    "scenarioIds" : [ "scn_shard-cross_307cad0f" ],
+    "scenarioIds" : [ "scn_shard-cross_f6f4f1c8" ],
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
       "sourceId" : "loan 主分片键 member_id",
-      "collectedAt" : "2026-07-27T06:25:59.103531Z",
+      "collectedAt" : "2026-07-27T23:56:37.000406Z",
       "confidence" : 0.9
     }
   }, {
     "type" : "CROSS_SHARD",
     "title" : "缺少二级分片时间范围，扩大时间分区扫描",
-    "scenarioIds" : [ "scn_shard-secondary-missing_91124fcc" ],
+    "scenarioIds" : [ "scn_shard-secondary-missing_10c20b1d" ],
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
       "sourceId" : "loan 二级分片键 borrowed_at",
-      "collectedAt" : "2026-07-27T06:25:59.103546Z",
+      "collectedAt" : "2026-07-27T23:56:37.000431Z",
       "confidence" : 0.9
     }
   } ],
@@ -1179,7 +1179,7 @@
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
       "sourceId" : "loan 主分片键 member_id",
-      "collectedAt" : "2026-07-27T06:25:59.103541Z",
+      "collectedAt" : "2026-07-27T23:56:37.000426Z",
       "confidence" : 0.9
     }
   }, {
@@ -1194,22 +1194,31 @@
     "evidence" : {
       "sourceType" : "MANUAL_RULE",
       "sourceId" : "loan 二级分片键 borrowed_at",
-      "collectedAt" : "2026-07-27T06:25:59.103549Z",
+      "collectedAt" : "2026-07-27T23:56:37.000434Z",
       "confidence" : 0.9
     }
   } ],
   "limits" : {
     "unsupportedTags" : [ ],
+    "missingPermissions" : [ ],
     "explainSkipped" : true,
-    "notes" : [ "确定性分析路径：未执行 EXPLAIN（只读建议边界），风险由索引/分片/画像证据规则推导。" ]
+    "notes" : [ "普通只读 EXPLAIN 未启用；确定性报告仅使用 Mapper、画像、索引和分片证据。" ]
   },
   "audit" : {
-    "runId" : "run_55f4aafa-09ff-412b-986e-ab41cf043fab",
-    "sessionId" : "session_bc50dad4-2e2d-42a8-a753-0d261bf6844a",
+    "runId" : "run_d30380bd-e0b1-4282-bf9c-0474a56ef85c",
+    "sessionId" : "session_7cf16e9b-d21e-4ac7-a058-4b5655246144",
     "knowledgeVersion" : "图书业务知识@1",
-    "profileSnapshotId" : "snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee",
+    "profileSnapshotId" : "snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd",
     "profileCollectedAt" : null,
     "model" : "deterministic-analysis",
-    "generatedAt" : "2026-07-27T06:25:59.103985Z"
+    "generatedAt" : "2026-07-27T23:56:37.001161Z"
+  },
+  "agentEnhancement" : {
+    "status" : "SKIPPED",
+    "model" : null,
+    "content" : null,
+    "error" : null,
+    "reason" : "AgentScope 增强未启用。",
+    "generatedAt" : "2026-07-27T23:56:37.002893Z"
   }
 }

@@ -2,7 +2,7 @@
 
 - 语句：`library.LoanMapper.findOverdueLoans`
 - Mapper：fixtures/library/mapper/LoanMapper.xml（c379d4fbf228…）
-- 知识版本：图书业务知识@1 · 画像快照：snap_e2e_ea52c577-b84f-4e0c-8295-b0691a9c94ee · 生成时间：2026-07-27T06:25:59.103985Z
+- 知识版本：图书业务知识@1 · 画像快照：snap_e2e_8bc75e15-3c01-4c00-b6c6-129efbd882fd · 生成时间：2026-07-27T23:56:37.001161Z
 
 ## 结论摘要
 
@@ -42,6 +42,10 @@
 - library.loan.returned_at 数据分布画像
 - library.loan.status 数据分布画像
 
+## 执行计划（普通只读 EXPLAIN）
+
+（无可用执行计划）
+
 ## 优化建议
 
 ### 为查询补充主分片键 member_id 以路由单分片（HIGH，置信度 0.9）
@@ -54,7 +58,11 @@
 - 影响：缺少 borrowed_at 范围将扫描全部历史月份分区。
 - 建议：—
 
+## AgentScope 增强
+
+- 状态：SKIPPED
+
 ## 限制与缺失证据
 
-- 确定性分析路径：未执行 EXPLAIN（只读建议边界），风险由索引/分片/画像证据规则推导。
+- 普通只读 EXPLAIN 未启用；确定性报告仅使用 Mapper、画像、索引和分片证据。
 - 未执行 EXPLAIN（只读建议边界）。

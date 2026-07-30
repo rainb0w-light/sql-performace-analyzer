@@ -49,6 +49,22 @@
 - 最终 Report 与 Recommendation **单独持久化**（`analysis_report`、`recommendation` 表），通过 `spa.report_ready`/`spa.recommendations_ready` 携带 ID；客户端不从 token 流重组业务对象。
 - 事件 payload 中的业务值按敏感级别脱敏（Top-K 值、样例参数），脱敏策略见 rest-api.md §6。
 
+标准 statement 分析的阶段事件顺序为：
+
+```text
+spa.phase_changed(PARSING_MAPPER)
+spa.phase_changed(RESOLVING_CONTEXT)
+spa.scenarios_ready(count, fingerprints)
+spa.phase_changed(COLLECTING_EXECUTION_PLANS)
+spa.phase_changed(ASSEMBLING_REPORT)
+spa.phase_changed(AGENT_ENHANCEMENT)  # 仅启用 Agent 增强时
+spa.report_ready(reportId)
+spa.recommendations_ready(reportId, count)
+```
+
+EXPLAIN 或 Agent 增强不可用不会产生第二条分析链路：降级状态写入标准 Report，随后仍由同一 Run
+发布 `spa.report_ready`。只有确定性报告本身失败才进入 `RUN_ERROR`。
+
 ## 4. 与 AgentScope 的接线
 
 - `AgentController`（AG-UI adapter）接收 `RunAgentInput`，经应用服务创建 `analysis_session`/`agent_run`/`agent_job`，由 Worker 调用共享 `HarnessAgent`（`RuntimeContext(userId, sessionId)`）。

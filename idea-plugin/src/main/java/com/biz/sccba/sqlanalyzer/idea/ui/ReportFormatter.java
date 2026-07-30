@@ -43,6 +43,27 @@ public final class ReportFormatter {
                         .append("\n");
             }
 
+            out.append("\n执行计划（普通只读 EXPLAIN）\n");
+            var plans = root.getAsJsonArray("executionPlans");
+            if (plans == null || plans.isEmpty()) out.append("- 无可用执行计划\n");
+            else for (var item : plans) {
+                JsonObject plan = item.getAsJsonObject();
+                out.append("- 场景 ").append(text(plan, "scenarioId"))
+                        .append(" | evidence=").append(text(plan, "evidenceId"))
+                        .append(" | ").append(abbreviate(
+                                plan.has("plan") ? plan.get("plan").toString() : "", 500))
+                        .append("\n");
+            }
+
+            JsonObject enhancement = object(root, "agentEnhancement");
+            out.append("\nAgentScope 增强：").append(text(enhancement, "status")).append("\n");
+            if (!text(enhancement, "content").isBlank()) {
+                out.append(abbreviate(text(enhancement, "content"), 1_500)).append("\n");
+            }
+            if (!text(enhancement, "error").isBlank()) {
+                out.append("失败原因：").append(text(enhancement, "error")).append("\n");
+            }
+
             out.append("\n证据：")
                     .append(root.has("evidenceCatalog") ? root.getAsJsonArray("evidenceCatalog").size() : 0)
                     .append(" 条\n报告 ID：").append(text(root, "reportId")).append("\n");
@@ -60,5 +81,10 @@ public final class ReportFormatter {
     private static String text(JsonObject object, String field) {
         return object.has(field) && !object.get(field).isJsonNull()
                 ? object.get(field).getAsString() : "";
+    }
+
+    private static String abbreviate(String text, int limit) {
+        if (text == null || text.length() <= limit) return text == null ? "" : text;
+        return text.substring(0, limit) + "…";
     }
 }

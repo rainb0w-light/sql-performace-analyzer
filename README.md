@@ -34,6 +34,15 @@ curl http://localhost:18881/healthz
 架构说明见 [docs/architecture.md](docs/architecture.md)，部署与配置见 [docs/operations.md](docs/operations.md)；
 接口契约见 [docs/contracts/](docs/contracts/)（REST、AG-UI 映射、报告 Schema）。
 
+标准 statement 分析可显式开启普通只读 EXPLAIN 和 AgentScope 报告增强：
+
+```bash
+export SQL_ANALYZER_EXPLAIN_ENABLED=true
+export SQL_ANALYZER_AGENT_ENHANCEMENT_ENABLED=true   # 可选
+```
+
+EXPLAIN 只接受 SELECT/WITH 和 PreparedStatement 参数；DML、EXPLAIN ANALYZE、未受信任 `${}` 均不会发送到目标库。
+
 ## IDEA 插件
 
 ```bash

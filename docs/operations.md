@@ -33,6 +33,10 @@ curl http://localhost:18881/healthz
 | `SQL_ANALYZER_WORKER_ENABLED` | false | 启用 Agent Job 与画像 Worker |
 | `SQL_ANALYZER_WORKER_POLL_DELAY_MS` | 500 | Worker 轮询间隔 |
 | `SQL_ANALYZER_MAX_CONCURRENT_RUNS` | 10 | 单客户端并发 Run 上限 |
+| `SQL_ANALYZER_EXPLAIN_ENABLED` | false | 对安全 SELECT/WITH 场景执行普通只读 EXPLAIN；禁止 EXPLAIN ANALYZE |
+| `SQL_ANALYZER_AGENT_ENHANCEMENT_ENABLED` | false | 使用 AgentScope 对确定性报告做可选后置审阅 |
+| `SQL_ANALYZER_AGENT_ENHANCEMENT_MODEL` | 默认模型 | AgentScope 报告审阅使用的模型配置名 |
+| `SQL_ANALYZER_AGENT_ENHANCEMENT_MAX_OUTPUT_CHARS` | 20000 | Agent 补充内容最大持久化字符数 |
 | `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` / `DEEPSEEK_TEMPERATURE` | — | LLM 模型配置（OpenAI 兼容协议） |
 | `SQL_ANALYZER_KNOWLEDGE_VECTOR_ENABLED` | false | 启用 SimpleKnowledge + PgVector 检索层（需要 pgvector 扩展） |
 | `SQL_ANALYZER_KNOWLEDGE_PGVECTOR_JDBC_URL/USERNAME/PASSWORD` | 同管理库 | 向量库连接 |
@@ -43,6 +47,35 @@ curl http://localhost:18881/healthz
 | `SQL_ANALYZER_PROFILING_STATEMENT_TIMEOUT_MS` | 10000 | 画像语句超时 |
 
 目标数据库密码不落库：`datasource_profile.credential_env` 记录凭据所在的**环境/属性名**，运行时解析。
+
+### 普通 EXPLAIN 与 Agent 增强
+
+生产环境建议先只开启 EXPLAIN：
+
+```bash
+export SQL_ANALYZER_EXPLAIN_ENABLED=true
+export LIBRARY_DB_PASSWORD='read-only-password'
+```
+
+要求 `datasource_profile` 使用只读账户，且 `credential_env=LIBRARY_DB_PASSWORD`。服务端只会对
+MyBatis 官方 BoundSql 生成的安全 `SELECT/WITH` 场景执行普通 `EXPLAIN`，参数通过
+PreparedStatement 绑定。以下情况只记录降级原因，不会使报告失败：
+
+- 数据源或凭据不可用。
+- 账户缺少 EXPLAIN 权限。
+- MyBatis 参数无法完整绑定。
+- 场景包含未受信任的 `${}`。
+- statement 为 INSERT/UPDATE/DELETE。
+
+确认确定性报告稳定后，可选择开启 AgentScope 后置审阅：
+
+```bash
+export SQL_ANALYZER_AGENT_ENHANCEMENT_ENABLED=true
+export SQL_ANALYZER_AGENT_ENHANCEMENT_MODEL=deepseek
+```
+
+Agent 只接收已校验的标准报告和 evidence，不接收目标库密码，也不覆盖确定性结论。模型超时或失败时
+`agentEnhancement.status` 为 `FAILED`，报告、Recommendation 和 AG-UI 终态仍按确定性结果完成。
 
 ## 3. 数据库与迁移策略
 

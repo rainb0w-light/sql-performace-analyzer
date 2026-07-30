@@ -1,6 +1,7 @@
 package com.biz.sccba.sqlanalyzer.adapter.jdbc;
 
 import com.biz.sccba.sqlanalyzer.evidence.ReadOnlyEvidenceDao;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -15,15 +16,26 @@ public class JdbcReadOnlyEvidenceDao implements ReadOnlyEvidenceDao {
     private static final Pattern SAFE_TABLE = Pattern.compile("[A-Za-z0-9_$\\.]+")
 ;
     private static final Pattern READ_ONLY_SQL = Pattern.compile("(?is)^(?:\\s*--[^\\n]*\\n)*\\s*(select|with)\\b.*");
+    private final ObjectMapper objectMapper;
+
+    public JdbcReadOnlyEvidenceDao(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public Evidence explain(String sql, Map<String, String> profile) {
+        return explain(sql, List.of(), profile);
+    }
+
+    @Override
+    public Evidence explain(String sql, List<Object> arguments, Map<String, String> profile) {
         if (sql == null || !READ_ONLY_SQL.matcher(sql).matches()) {
             return new Evidence("EXPLAIN_PLAN", false, "{}", "只允许对 SELECT/WITH SQL 获取执行计划");
         }
         return withJdbc(profile, jdbc -> {
             String statement = "EXPLAIN " + sql.trim();
-            List<Map<String, Object>> rows = jdbc.queryForList(statement);
+            List<Map<String, Object>> rows = jdbc.queryForList(statement,
+                    arguments == null ? new Object[0] : arguments.toArray());
             return new Evidence("EXPLAIN_PLAN", true, toText(rows), null);
         });
     }
@@ -58,8 +70,13 @@ public class JdbcReadOnlyEvidenceDao implements ReadOnlyEvidenceDao {
                 dataSource.setDriverClassName(profile.get("driverClassName"));
             }
             dataSource.setMaximumPoolSize(1);
+            dataSource.setConnectionTimeout(5_000);
+            dataSource.setValidationTimeout(3_000);
             dataSource.setReadOnly(true);
-            return operation.run(new JdbcTemplate(dataSource));
+            JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+            jdbc.setQueryTimeout(10);
+            jdbc.setMaxRows(1_000);
+            return operation.run(jdbc);
         } catch (Exception e) {
             return new Evidence("DATABASE_EVIDENCE", false, "{}", e.getMessage());
         } finally {
@@ -67,8 +84,12 @@ public class JdbcReadOnlyEvidenceDao implements ReadOnlyEvidenceDao {
         }
     }
 
-    private static String toText(Object value) {
-        return String.valueOf(value);
+    private String toText(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            throw new IllegalStateException("数据库证据无法序列化", e);
+        }
     }
 
     @FunctionalInterface

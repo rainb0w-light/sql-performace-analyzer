@@ -76,8 +76,18 @@ public class StatementAnalysisJobExecutor {
                         }
 
                         @Override
+                        public void collectingExecutionPlans() {
+                            phase(job.runId(), "COLLECTING_EXECUTION_PLANS");
+                        }
+
+                        @Override
                         public void assemblingReport() {
                             phase(job.runId(), "ASSEMBLING_REPORT");
+                        }
+
+                        @Override
+                        public void enhancingWithAgent() {
+                            phase(job.runId(), "AGENT_ENHANCEMENT");
                         }
                     });
 

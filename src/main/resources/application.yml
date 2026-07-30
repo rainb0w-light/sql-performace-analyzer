@@ -33,6 +33,13 @@ sql-analyzer:
     poll-delay-ms: ${SQL_ANALYZER_WORKER_POLL_DELAY_MS:500}
   limits:
     max-concurrent-runs: ${SQL_ANALYZER_MAX_CONCURRENT_RUNS:10}
+  analysis:
+    # Both operations are opt-in: EXPLAIN opens a read-only target connection; Agent enhancement
+    # invokes the configured model. The deterministic report remains available when either is off.
+    explain-enabled: ${SQL_ANALYZER_EXPLAIN_ENABLED:false}
+    agent-enhancement-enabled: ${SQL_ANALYZER_AGENT_ENHANCEMENT_ENABLED:false}
+    agent-enhancement-model: ${SQL_ANALYZER_AGENT_ENHANCEMENT_MODEL:}
+    agent-enhancement-max-output-chars: ${SQL_ANALYZER_AGENT_ENHANCEMENT_MAX_OUTPUT_CHARS:20000}
   knowledge:
     vector:
       # Requires a PostgreSQL with the pgvector extension; structured search works regardless.

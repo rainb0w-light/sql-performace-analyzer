@@ -17,6 +17,13 @@ public class ReportFormatterTest {
                     "schema":"library","table":"loan","column":"status",
                     "nullRatio":0.0,"approxDistinct":2,"sensitivityPolicy":"PLAINTEXT"
                   }],
+                  "executionPlans":[{
+                    "scenarioId":"scenario_1","evidenceId":"ev_explain_1",
+                    "plan":[{"table":"loan","type":"ref"}]
+                  }],
+                  "agentEnhancement":{
+                    "status":"COMPLETED","content":"EXPLAIN 显示索引命中"
+                  },
                   "evidenceCatalog":[{"evidenceId":"ev_1"},{"evidenceId":"ev_2"}]
                 }
                 """;
@@ -28,6 +35,10 @@ public class ReportFormatterTest {
         assertTrue(rendered.contains("[CROSS_SHARD] 缺少主分片键"));
         assertTrue(rendered.contains("library.loan.status"));
         assertTrue(rendered.contains("policy=PLAINTEXT"));
+        assertTrue(rendered.contains("场景 scenario_1"));
+        assertTrue(rendered.contains("ev_explain_1"));
+        assertTrue(rendered.contains("AgentScope 增强：COMPLETED"));
+        assertTrue(rendered.contains("索引命中"));
         assertTrue(rendered.contains("证据：2 条"));
     }
 }

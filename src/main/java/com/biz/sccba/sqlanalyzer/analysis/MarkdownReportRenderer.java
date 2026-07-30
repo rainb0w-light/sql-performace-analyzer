@@ -66,6 +66,18 @@ public class MarkdownReportRenderer {
             md.append("## 数据分布\n\n");
             appendList(md, report.path("dataDistribution"), f -> f.path("fact").asText());
 
+            md.append("## 执行计划（普通只读 EXPLAIN）\n\n");
+            if (!report.path("executionPlans").isArray() || report.path("executionPlans").isEmpty()) {
+                md.append("（无可用执行计划）\n\n");
+            } else {
+                for (JsonNode plan : report.path("executionPlans")) {
+                    md.append("### 场景 `").append(plan.path("scenarioId").asText()).append("`\n\n");
+                    md.append("- 证据：`").append(plan.path("evidenceId").asText()).append("`\n");
+                    md.append("- 计划：`").append(abbreviate(firstLine(plan.path("plan").toString()), 500))
+                            .append("`\n\n");
+                }
+            }
+
             md.append("## 优化建议\n\n");
             for (JsonNode r : report.path("recommendations")) {
                 md.append("### ").append(r.path("title").asText())
@@ -75,6 +87,18 @@ public class MarkdownReportRenderer {
                 md.append("- 影响：").append(r.path("impact").asText()).append("\n");
                 md.append("- 建议：").append(firstLine(r.path("suggestedSql").asText(""))).append("\n\n");
             }
+
+            JsonNode enhancement = report.path("agentEnhancement");
+            md.append("## AgentScope 增强\n\n");
+            md.append("- 状态：").append(enhancement.path("status").asText("SKIPPED")).append("\n");
+            if (!enhancement.path("content").asText("").isBlank()) {
+                md.append("- 补充审阅：").append(abbreviate(
+                        enhancement.path("content").asText(), 2_000)).append("\n");
+            }
+            if (!enhancement.path("error").asText("").isBlank()) {
+                md.append("- 失败原因：").append(enhancement.path("error").asText()).append("\n");
+            }
+            md.append("\n");
 
             md.append("## 限制与缺失证据\n\n");
             JsonNode limits = report.path("limits");
@@ -109,5 +133,10 @@ public class MarkdownReportRenderer {
         if (text == null || text.isBlank()) return "—";
         int nl = text.indexOf('\n');
         return nl < 0 ? text : text.substring(0, nl);
+    }
+
+    private static String abbreviate(String text, int limit) {
+        if (text == null || text.length() <= limit) return text == null ? "" : text;
+        return text.substring(0, limit) + "…";
     }
 }

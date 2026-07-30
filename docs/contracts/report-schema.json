@@ -95,11 +95,26 @@
       "type": "array",
       "items": {
         "allOf": [ { "$ref": "#/$defs/evidencedFact" } ],
+        "required": ["scenarioId", "evidenceId", "plan", "evidence"],
         "properties": {
           "scenarioId": { "type": "string" },
-          "plan": { "type": ["object", "string"] },
+          "evidenceId": { "type": "string", "description": "引用 evidenceCatalog 中的 EXPLAIN 证据" },
+          "plan": { "type": ["object", "array", "string"] },
           "keyOperators": { "type": "array", "items": { "type": "string" } }
         }
+      }
+    },
+    "agentEnhancement": {
+      "description": "可选 AgentScope 审阅结果；只补充确定性报告，不得覆盖其风险、建议或证据",
+      "type": "object",
+      "required": ["status", "generatedAt"],
+      "properties": {
+        "status": { "enum": ["SKIPPED", "COMPLETED", "FAILED"] },
+        "model": { "type": ["string", "null"] },
+        "content": { "type": ["string", "null"] },
+        "error": { "type": ["string", "null"] },
+        "reason": { "type": ["string", "null"] },
+        "generatedAt": { "type": "string", "format": "date-time" }
       }
     },
     "risks": {

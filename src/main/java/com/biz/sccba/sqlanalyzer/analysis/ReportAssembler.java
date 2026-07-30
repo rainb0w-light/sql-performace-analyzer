@@ -54,6 +54,13 @@ public class ReportAssembler {
 
     public String assemble(String reportId, Subject subject, Audit audit, ScenarioEngine.PlanResult plan,
                            ScenarioContextResolver.ContextBundle context, byte[] mapperXml) {
+        return assemble(reportId, subject, audit, plan, context, mapperXml,
+                ExecutionPlanCollector.Collection.skipped("调用方未提供目标数据源，未执行 EXPLAIN。"));
+    }
+
+    public String assemble(String reportId, Subject subject, Audit audit, ScenarioEngine.PlanResult plan,
+                           ScenarioContextResolver.ContextBundle context, byte[] mapperXml,
+                           ExecutionPlanCollector.Collection executionPlanCollection) {
         ObjectNode report = mapper.createObjectNode();
         report.put("schemaVersion", "1.1");
         report.put("reportId", reportId);
@@ -92,6 +99,20 @@ public class ReportAssembler {
         }
 
         Map<String, ObjectNode> evidenceCatalog = evidenceCatalog(context);
+        Set<String> contextualEvidenceIds = new LinkedHashSet<>(evidenceCatalog.keySet());
+        Map<String, String> explainEvidenceByScenario = new LinkedHashMap<>();
+        for (var executionPlan : executionPlanCollection.plans()) {
+            ObjectNode evidence = mapper.createObjectNode();
+            evidence.put("evidenceId", executionPlan.evidenceId());
+            evidence.put("sourceType", "EXPLAIN");
+            evidence.put("sourceId", executionPlan.datasourceProfileId());
+            evidence.put("version", "live");
+            evidence.put("locator", executionPlan.scenarioId() + "/" + executionPlan.sqlFingerprint());
+            evidence.put("collectedAt", executionPlan.collectedAt().toString());
+            evidence.put("confidence", executionPlan.confidence());
+            evidenceCatalog.put(executionPlan.evidenceId(), evidence);
+            explainEvidenceByScenario.put(executionPlan.scenarioId(), executionPlan.evidenceId());
+        }
 
         // scenario matrix (bindable scenarios only; unsupported ones go to limits)
         ArrayNode scenarios = report.putArray("scenarios");
@@ -100,7 +121,8 @@ public class ReportAssembler {
             if (bs.isUnsupported()) {
                 unsupported.add(bs);
             } else {
-                scenarios.add(scenarioNode(bs, context, evidenceCatalog.keySet()));
+                scenarios.add(scenarioNode(bs, context, contextualEvidenceIds,
+                        explainEvidenceByScenario.get(bs.scenario().scenarioId())));
             }
         }
 
@@ -119,8 +141,23 @@ public class ReportAssembler {
         ArrayNode catalogNode = report.putArray("evidenceCatalog");
         evidenceCatalog.values().forEach(catalogNode::add);
 
-        // execution plans are not executed in the deterministic path
-        report.putArray("executionPlans");
+        ArrayNode executionPlans = report.putArray("executionPlans");
+        for (var executionPlan : executionPlanCollection.plans()) {
+            ObjectNode node = executionPlans.addObject();
+            node.put("fact", "场景 " + executionPlan.scenarioId() + " 的普通只读 EXPLAIN");
+            node.set("structured", jsonValue(executionPlan.plan(), false));
+            node.put("scenarioId", executionPlan.scenarioId());
+            node.put("evidenceId", executionPlan.evidenceId());
+            node.set("plan", jsonValue(executionPlan.plan(), false));
+            node.putArray("keyOperators");
+            ObjectNode evidence = node.putObject("evidence");
+            evidence.put("sourceType", "EXPLAIN");
+            evidence.put("sourceId", executionPlan.datasourceProfileId());
+            evidence.put("version", "live");
+            evidence.put("locator", executionPlan.scenarioId() + "/" + executionPlan.sqlFingerprint());
+            evidence.put("collectedAt", executionPlan.collectedAt().toString());
+            evidence.put("confidence", executionPlan.confidence());
+        }
 
         ArrayNode risksNode = report.putArray("risks");
         risks.forEach(risksNode::add);
@@ -131,9 +168,15 @@ public class ReportAssembler {
         ObjectNode limits = report.putObject("limits");
         ArrayNode unsupportedTags = limits.putArray("unsupportedTags");
         unsupported.forEach(bs -> unsupportedTags.add(bs.scenario().name() + ": " + bs.unsupported()));
-        limits.put("explainSkipped", true);
+        ArrayNode missingPermissions = limits.putArray("missingPermissions");
+        executionPlanCollection.missingPermissions().forEach(missingPermissions::add);
+        limits.put("explainSkipped", executionPlanCollection.explainSkipped());
         ArrayNode notes = limits.putArray("notes");
-        notes.add("确定性分析路径：未执行 EXPLAIN（只读建议边界），风险由索引/分片/画像证据规则推导。");
+        executionPlanCollection.notes().forEach(notes::add);
+        if (!executionPlanCollection.plans().isEmpty()) {
+            notes.add("已对 " + executionPlanCollection.plans().size()
+                    + " 个安全 SELECT 场景执行普通只读 EXPLAIN；从未执行 EXPLAIN ANALYZE。");
+        }
         if (context.knowledgeVersion() == null) {
             notes.add("未发布业务知识：仅结构覆盖与安全默认值。");
         }
@@ -271,7 +314,7 @@ public class ReportAssembler {
     }
 
     private ObjectNode scenarioNode(BoundScenario bs, ScenarioContextResolver.ContextBundle context,
-                                    Set<String> contextualEvidenceIds) {
+                                    Set<String> contextualEvidenceIds, String explainEvidenceId) {
         ObjectNode node = mapper.createObjectNode();
         node.put("scenarioId", bs.scenario().scenarioId());
         node.put("name", bs.scenario().name());
@@ -305,6 +348,9 @@ public class ReportAssembler {
         bs.mergedCoverageGoals().forEach(coverageGoals::add);
         ArrayNode evidenceIds = node.putArray("evidenceIds");
         contextualEvidenceIds.forEach(evidenceIds::add);
+        if (explainEvidenceId != null && !explainEvidenceId.isBlank()) {
+            evidenceIds.add(explainEvidenceId);
+        }
         node.put("reason", bs.scenario().businessDescription());
         return node;
     }

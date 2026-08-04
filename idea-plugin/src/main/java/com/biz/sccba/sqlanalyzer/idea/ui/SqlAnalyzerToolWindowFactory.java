@@ -108,7 +108,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         private final JBList<String> logList = new JBList<>(logs);
 
         private final JBPanel<?> guardPanel = new JBPanel<>(new FlowLayout(FlowLayout.LEFT));
-        private final JBLabel guardMessage = new JBLabel();
+        private final JBTextArea guardMessage = readonlyArea();
         private final ComboBox<BackendClient.DatasourceProfile> datasourceChoices = new ComboBox<>();
         private final JBCheckBox rememberModule = new JBCheckBox("记住为当前 module 默认");
         private final JButton chooseDatasource = new JButton("使用此数据源");
@@ -129,6 +129,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         private ReportViewModel reportModel;
         private String rawReport = "";
         private List<BackendClient.DatasourceProfile> candidates = List.of();
+        private final Map<Integer, String> visibleScenarioIds = new HashMap<>();
 
         private Panel(Project project) {
             this.project = project;
@@ -149,20 +150,19 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
 
         private JComponent contextArea() {
             JBPanel<?> context = new JBPanel<>(new BorderLayout());
-            JBPanel<?> labels = new JBPanel<>(new GridLayout(3, 2, JBUI.scale(12), JBUI.scale(2)));
-            labels.setBorder(JBUI.Borders.empty(2, 4, 6, 4));
-            labels.add(statementLabel); labels.add(datasourceLabel);
-            labels.add(knowledgeLabel); labels.add(profileLabel);
-            labels.add(moduleLabel); labels.add(runLabel);
-            // Keep the persistent context above the wide action row. Putting the toolbar in EAST
-            // lets its preferred width squeeze CENTER to zero in a narrow Tool Window.
-            context.add(labels, BorderLayout.NORTH);
-            context.add(toolbar(), BorderLayout.CENTER);
+            // Context identifiers are diagnostic details, not primary navigation. Keep them in
+            // the model for status/tooltips, but do not spend the most prominent vertical space
+            // on a six-field technical summary.
+            context.add(toolbar(), BorderLayout.NORTH);
 
             JBPanel<?> banners = new JBPanel<>();
             banners.setLayout(new BoxLayout(banners, BoxLayout.Y_AXIS));
             staleBanner.setVisible(false);
             readOnlyBanner.setVisible(false);
+            guardMessage.setRows(3);
+            guardMessage.setColumns(58);
+            guardMessage.setOpaque(false);
+            guardMessage.getAccessibleContext().setAccessibleName("分析前安全条件");
             guardPanel.add(guardMessage);
             guardPanel.add(datasourceChoices);
             guardPanel.add(rememberModule);
@@ -350,10 +350,9 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
             datasourceChoices.setVisible(datasourceGuard);
             rememberModule.setVisible(datasourceGuard);
             chooseDatasource.setVisible(datasourceGuard);
-            confirmReview.setVisible(newState.businessState() == AnalysisState.BusinessState.AWAITING_REVIEW);
-            if (!newState.guards().isEmpty()) {
-                guardMessage.setText("⛔ " + newState.guards().get(0).message());
-            }
+            confirmReview.setVisible(newState.businessState() == AnalysisState.BusinessState.AWAITING_REVIEW
+                    && !newState.hasBlockingGuards());
+            guardMessage.setText(newState.guards().isEmpty() ? "" : guardSummary(newState.guards()));
             if (newState.businessState() == AnalysisState.BusinessState.AUTH_REQUIRED) {
                 connectButton.setVisible(true);
                 authStatus.setText("Token: 需要重新认证");
@@ -420,22 +419,23 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
                 JsonObject root = JsonParser.parseString(planJson).getAsJsonObject();
                 JsonArray items = root.has("scenarios") && root.get("scenarios").isJsonArray()
                         ? root.getAsJsonArray("scenarios") : new JsonArray();
+                visibleScenarioIds.clear();
                 Object[][] rows = new Object[items.size()][7];
                 boolean[] locked = new boolean[items.size()];
                 for (int index = 0; index < items.size(); index++) {
                     JsonObject item = items.get(index).getAsJsonObject();
+                    String scenarioId = jsonText(item, "scenarioId");
+                    visibleScenarioIds.put(index, scenarioId);
                     boolean required = jsonBool(item, "required");
                     boolean main = jsonBool(item, "mainPath");
-                    boolean guard = jsonBool(item, "guardScenario");
-                    boolean excludable = !item.has("excludable") || jsonBool(item, "excludable");
-                    locked[index] = required || main || guard || !excludable;
-                    rows[index] = new Object[]{Boolean.TRUE, jsonText(item, "scenarioId"),
-                            jsonText(item, "name"), jsonText(item, "costLevel"),
-                            required ? "必选" : "可选", main ? "主路径" : "",
-                            guard ? "守卫" : ""};
+                    locked[index] = required || main;
+                    rows[index] = new Object[]{Boolean.TRUE, String.valueOf(index + 1),
+                            jsonText(item, "name"), jsonText(item, "description"),
+                            jsonText(item, "source"), jsonArrayText(item, "coverageGoals"),
+                            required ? (main ? "必选 · 主路径" : "必选") : "可选"};
                 }
                 scenarioTable.setModel(new DefaultTableModel(rows,
-                        new Object[]{"包含", "scenarioId", "场景", "成本", "约束", "主路径", "守卫"}) {
+                        new Object[]{"包含", "编号", "场景", "场景说明", "来源", "覆盖目标", "约束"}) {
                     @Override public Class<?> getColumnClass(int column) {
                         return column == 0 ? Boolean.class : String.class;
                     }
@@ -445,7 +445,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
                     @Override public void setValueAt(Object value, int row, int column) {
                         if (column != 0) return;
                         boolean include = Boolean.TRUE.equals(value);
-                        String id = String.valueOf(getValueAt(row, 1));
+                        String id = visibleScenarioIds.getOrDefault(row, "");
                         String reason = "";
                         if (!include) {
                             reason = Messages.showInputDialog(project,
@@ -474,15 +474,17 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
         }
 
         private void renderScenarios(List<ReportViewModel.Scenario> scenarios) {
+            visibleScenarioIds.clear();
             Object[][] rows = new Object[scenarios.size()][6];
             for (int i = 0; i < scenarios.size(); i++) {
                 ReportViewModel.Scenario scenario = scenarios.get(i);
-                rows[i] = new Object[]{scenario.scenarioId(), scenario.name(), scenario.source(),
+                visibleScenarioIds.put(i, scenario.scenarioId());
+                rows[i] = new Object[]{String.valueOf(i + 1), scenario.name(), scenario.source(),
                         String.join(", ", scenario.coverageGoals()), scenario.fingerprint(),
                         scenario.hasExplainEvidence() ? "EXPLAIN 可用" : "无 EXPLAIN 证据"};
             }
             scenarioTable.setModel(new DefaultTableModel(rows,
-                    new Object[]{"scenarioId", "场景", "来源", "覆盖目标", "指纹", "执行计划"}) {
+                    new Object[]{"编号", "场景", "来源", "覆盖目标", "指纹", "执行计划"}) {
                 @Override public boolean isCellEditable(int row, int column) { return false; }
             });
         }
@@ -503,6 +505,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
                         navigation.go(new ReportNavigation.Target(
                                 ReportNavigation.TargetType.SCENARIO, scenario.scenarioId(), ""));
                         scenarioDetail.setText("场景：" + scenario.name()
+                                + "\n稳定 ID：" + scenario.scenarioId()
                                 + "\n来源：" + scenario.source()
                                 + "\n覆盖：" + scenario.coverageGoals()
                                 + "\n指纹：" + scenario.fingerprint()
@@ -742,6 +745,7 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
 
         private String scenarioIdAt(int row) {
             if (row < 0 || row >= scenarioTable.getRowCount()) return "";
+            if (visibleScenarioIds.containsKey(row)) return visibleScenarioIds.get(row);
             int column = scenarioTable.getColumnClass(0) == Boolean.class ? 1 : 0;
             return String.valueOf(scenarioTable.getValueAt(row, column));
         }
@@ -750,9 +754,36 @@ public final class SqlAnalyzerToolWindowFactory implements ToolWindowFactory {
             return object.has(field) && !object.get(field).isJsonNull()
                     ? object.get(field).getAsString() : "";
         }
+        private static String jsonArrayText(JsonObject object, String field) {
+            if (!object.has(field) || !object.get(field).isJsonArray()) return "";
+            List<String> values = new ArrayList<>();
+            for (JsonElement value : object.getAsJsonArray(field)) values.add(value.getAsString());
+            return String.join(", ", values);
+        }
         private static boolean jsonBool(JsonObject object, String field) {
             try { return object.has(field) && object.get(field).getAsBoolean(); }
             catch (RuntimeException ignored) { return false; }
+        }
+
+        private static String guardSummary(List<AnalysisState.Guard> guards) {
+            StringBuilder text = new StringBuilder("分析前必须满足的安全条件：");
+            for (AnalysisState.Guard guard : guards) {
+                text.append("\n- ").append(guardDescription(guard));
+                if (guard.blocking()) text.append("（当前阻断分析）");
+            }
+            return text.toString();
+        }
+
+        private static String guardDescription(AnalysisState.Guard guard) {
+            String description = switch (guard.type()) {
+                case DATASOURCE_MISSING -> "数据源绑定：为当前 statement 选择可访问的数据源，才能生成真实 BoundSql 和只读证据";
+                case DATASOURCE_AMBIGUOUS -> "数据源绑定：多个数据源都可能对应当前 statement，需要明确实际目标";
+                case DOLLAR_WHITELIST_MISSING -> "动态 SQL 安全：${...} 只能使用显式白名单值，防止未经允许的文本直接拼入 SQL";
+                case SCENARIO_OR_COST_LIMIT -> "场景与成本边界：场景数量或分析成本超过当前阈值，需要调整范围或阈值";
+                case UNSUPPORTED_LANGUAGE_OR_TYPE -> "可执行性：Mapper 语言或参数类型无法安全绑定，避免生成不可信的 BoundSql";
+            };
+            return guard.message() == null || guard.message().isBlank()
+                    ? description : description + "；服务端提示：" + guard.message();
         }
 
         private static <T> void replace(DefaultListModel<T> model, List<T> values) {

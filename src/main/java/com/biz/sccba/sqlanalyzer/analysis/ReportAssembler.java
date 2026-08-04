@@ -90,7 +90,7 @@ public class ReportAssembler {
         risks.forEach(r -> bottlenecks.add(r.path("title").asText()));
         summary.put("impactScope", plan.scenarios().size() + " 个动态 SQL 场景，覆盖 "
                 + context.references().tables().size() + " 张引用表");
-        summary.put("confidence", 0.85);
+        summary.put("confidence", boundedConfidence(0.85));
 
         // business semantics evidence
         ArrayNode semantics = report.putArray("businessSemantics");
@@ -109,7 +109,7 @@ public class ReportAssembler {
             evidence.put("version", "live");
             evidence.put("locator", executionPlan.scenarioId() + "/" + executionPlan.sqlFingerprint());
             evidence.put("collectedAt", executionPlan.collectedAt().toString());
-            evidence.put("confidence", executionPlan.confidence());
+            evidence.put("confidence", boundedConfidence(executionPlan.confidence()));
             evidenceCatalog.put(executionPlan.evidenceId(), evidence);
             explainEvidenceByScenario.put(executionPlan.scenarioId(), executionPlan.evidenceId());
         }
@@ -294,7 +294,7 @@ public class ReportAssembler {
         evidence.put("sourceType", sourceType == null ? "MAPPER_XML" : sourceType);
         evidence.put("sourceId", sourceId);
         evidence.put("collectedAt", Instant.now().toString());
-        evidence.put("confidence", 0.9);
+        evidence.put("confidence", boundedConfidence(0.9));
         return evidence;
     }
 
@@ -309,7 +309,7 @@ public class ReportAssembler {
         evidence.put("locator", fact.evidence().locator());
         evidence.put("collectedAt", fact.evidence().collectedAt() == null
                 ? Instant.now().toString() : fact.evidence().collectedAt().toString());
-        evidence.put("confidence", fact.evidence().confidence());
+        evidence.put("confidence", boundedConfidence(fact.evidence().confidence()));
         return node;
     }
 
@@ -340,7 +340,7 @@ public class ReportAssembler {
         bs.coveredNodeIds().forEach(coverage::add);
         node.put("hasDollarInterpolation", bs.hasDollarInterpolation());
         node.put("unsupported", bs.unsupported());
-        node.put("confidence", bs.scenario().confidence());
+        node.put("confidence", boundedConfidence(bs.scenario().confidence()));
         // Goal §4.6 per-scenario traceability
         node.put("knowledgeVersion", context.knowledgeVersion());
         node.put("profileSnapshotId", context.profileSnapshotId());
@@ -386,7 +386,7 @@ public class ReportAssembler {
             evidence.put("locator", stat.schemaName() + "." + stat.tableName() + "." + stat.columnName());
             evidence.put("collectedAt", stat.collectedAt() == null
                     ? Instant.now().toString() : stat.collectedAt().toString());
-            evidence.put("confidence", 0.95);
+            evidence.put("confidence", boundedConfidence(0.95));
         }
     }
 
@@ -406,7 +406,7 @@ public class ReportAssembler {
             entry.put("locator", locator);
             entry.put("collectedAt", evidence.collectedAt() == null
                     ? Instant.now().toString() : evidence.collectedAt().toString());
-            entry.put("confidence", evidence.confidence());
+            entry.put("confidence", boundedConfidence(evidence.confidence()));
             catalog.putIfAbsent(id, entry);
         }
         for (var stat : context.profileStats()) {
@@ -420,11 +420,18 @@ public class ReportAssembler {
             entry.put("locator", locator);
             entry.put("collectedAt", stat.collectedAt() == null
                     ? Instant.now().toString() : stat.collectedAt().toString());
-            entry.put("confidence", 0.95);
+            entry.put("confidence", boundedConfidence(0.95));
             entry.put("sensitivityPolicy", stat.sensitivityPolicy());
             catalog.putIfAbsent(id, entry);
         }
         return catalog;
+    }
+
+    private static double boundedConfidence(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) return 0.0;
+        if (value < 0.0) return 0.0;
+        if (value > 1.0) return 1.0;
+        return value;
     }
 
     private JsonNode jsonValue(String json, boolean arrayFallback) {

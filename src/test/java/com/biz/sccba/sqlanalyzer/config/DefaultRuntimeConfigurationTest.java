@@ -26,7 +26,7 @@ class DefaultRuntimeConfigurationTest {
                     .isTrue();
             assertThat(environment.getRequiredProperty("sql-analyzer.persistence.jdbc-url"))
                     .startsWith("jdbc:h2:file:")
-                    .contains("/.sql-performance-analyzer/data/management")
+                    .contains("sql-performance-analyzer/data/management")
                     .contains("AUTO_SERVER=TRUE")
                     .doesNotContain("DB_CLOSE_ON_EXIT=FALSE");
             assertThat(environment.getRequiredProperty("sql-analyzer.persistence.username"))

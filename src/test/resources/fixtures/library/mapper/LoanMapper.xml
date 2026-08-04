@@ -21,6 +21,7 @@
                 AND l.copy_id IN (SELECT id FROM book_copy WHERE branch_id = #{branchId})
             </if>
             <if test="dueBefore != null">
+
                 AND l.due_at &lt; #{dueBefore}
             </if>
             <if test="borrowedFrom != null">

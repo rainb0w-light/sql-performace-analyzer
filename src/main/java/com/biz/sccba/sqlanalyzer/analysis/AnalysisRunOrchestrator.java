@@ -7,12 +7,15 @@ import com.biz.sccba.sqlanalyzer.repository.ProfilingRepository;
 import com.biz.sccba.sqlanalyzer.repository.RunEventRepository;
 import com.biz.sccba.sqlanalyzer.repository.SessionRepository;
 import com.biz.sccba.sqlanalyzer.service.ArtifactService;
+import com.biz.sccba.sqlanalyzer.domain.AnalysisSession;
 import com.biz.sccba.sqlanalyzer.pluginapi.PluginApiModels;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -27,6 +30,7 @@ import java.util.UUID;
 public class AnalysisRunOrchestrator {
 
     public static final String PROTOCOL = "STATEMENT_ANALYSIS";
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisRunOrchestrator.class);
 
     private final SessionRepository sessions;
     private final AgentRunRepository runs;
@@ -61,9 +65,15 @@ public class AnalysisRunOrchestrator {
             sessionId = sessions.create("session_" + UUID.randomUUID(), clientId,
                     command.statementId() + " SQL 分析").id();
         } else {
-            sessionId = sessions.findByIdForClient(command.sessionId(), clientId)
-                    .orElseThrow(() -> new ResourceNotFoundException("会话不存在"))
-                    .id();
+            String normalizedSessionId = command.sessionId().trim();
+            sessionId = sessions.findByIdForClient(normalizedSessionId, clientId)
+                    .map(AnalysisSession::id)
+                    .orElseGet(() -> {
+                        LOGGER.warn("Analyze 请求携带失效 session，已自动新建会话: clientId={}, requestedSessionId={}",
+                                clientId, normalizedSessionId);
+                        return sessions.create("session_" + UUID.randomUUID(), clientId,
+                                        command.statementId() + " SQL 分析").id();
+                    });
         }
 
         String runId = "run_" + UUID.randomUUID();

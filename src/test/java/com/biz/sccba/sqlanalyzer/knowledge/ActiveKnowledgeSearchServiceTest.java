@@ -2,7 +2,7 @@ package com.biz.sccba.sqlanalyzer.knowledge;
 
 import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.Source;
 import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.Version;
-import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.repository.KnowledgeSourceRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -22,9 +22,9 @@ class ActiveKnowledgeSearchServiceTest {
     @Test
     void sampleAndAgentGatewayPinTheSameRetrieverToCurrentVersion() {
         KnowledgeSourceRepository sources = mock(KnowledgeSourceRepository.class);
-        KnowledgeRetriever retriever = mock(KnowledgeRetriever.class);
+        KnowledgeSearchIndex retriever = mock(KnowledgeSearchIndex.class);
         @SuppressWarnings("unchecked")
-        ObjectProvider<KnowledgeRetriever> provider = mock(ObjectProvider.class);
+        ObjectProvider<KnowledgeSearchIndex> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(retriever);
         when(retriever.available()).thenReturn(true);
 
@@ -35,7 +35,7 @@ class ActiveKnowledgeSearchServiceTest {
         when(sources.listSources("client_a")).thenReturn(List.of(source));
         when(sources.findVersionForClient("client_a", "version_2")).thenReturn(Optional.of(active));
         when(retriever.search("client_a", "loan status", "source_a", 2, 5))
-                .thenReturn(List.of(new KnowledgeRetriever.RetrievedFact(
+                .thenReturn(List.of(new KnowledgeSearchIndex.SearchHit(
                         "ACTIVE and CLOSED", "DOCUMENT", "policy", "source_a", 2,
                         "chunk:0", 0.9, 0.9)));
 
@@ -50,9 +50,9 @@ class ActiveKnowledgeSearchServiceTest {
     @Test
     void sourceScopeCannotCrossTenantAndTopKIsWhitelisted() {
         KnowledgeSourceRepository sources = mock(KnowledgeSourceRepository.class);
-        KnowledgeRetriever retriever = mock(KnowledgeRetriever.class);
+        KnowledgeSearchIndex retriever = mock(KnowledgeSearchIndex.class);
         @SuppressWarnings("unchecked")
-        ObjectProvider<KnowledgeRetriever> provider = mock(ObjectProvider.class);
+        ObjectProvider<KnowledgeSearchIndex> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(retriever);
         when(retriever.available()).thenReturn(true);
         when(sources.findSourceForClient("client_a", "source_b")).thenReturn(Optional.empty());

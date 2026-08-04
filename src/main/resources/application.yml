@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:18881}
+  port: 18881
 
 spring:
   application:
@@ -10,15 +10,15 @@ spring:
       - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
   llms:
     configs:
-      - name: ${AGENTSCOPE_MODEL_NAME:deepseek}
-        api-key: ${DEEPSEEK_API_KEY:}
-        base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
-        model: ${DEEPSEEK_MODEL:deepseek-chat}
-        temperature: ${DEEPSEEK_TEMPERATURE:0.2}
+      - name: deepseek
+        api-key: ""
+        base-url: https://api.deepseek.com
+        model: deepseek-chat
+        temperature: 0.2
 
 sql-analyzer:
   persistence:
-    enabled: ${SQL_ANALYZER_PERSISTENCE_ENABLED:true}
+    enabled: true
     # Docker-free default: restart-recoverable file H2. The effective database file is
     # ${SQL_ANALYZER_H2_DATA_PATH}.mv.db; by default:
     # ~/.sql-performance-analyzer/data/management.mv.db
@@ -29,55 +29,55 @@ sql-analyzer:
     #
     # Production can override SQL_ANALYZER_JDBC_URL/USERNAME/PASSWORD with PostgreSQL.
     # The legacy SQL_ANALYZER_POSTGRES_* names remain accepted for compatibility.
-    jdbc-url: ${SQL_ANALYZER_JDBC_URL:${SQL_ANALYZER_POSTGRES_JDBC_URL:jdbc:h2:file:${SQL_ANALYZER_H2_DATA_PATH:${user.home}/.sql-performance-analyzer/data/management};AUTO_SERVER=TRUE}}
-    username: ${SQL_ANALYZER_JDBC_USERNAME:${SQL_ANALYZER_POSTGRES_USERNAME:sa}}
-    password: ${SQL_ANALYZER_JDBC_PASSWORD:${SQL_ANALYZER_POSTGRES_PASSWORD:}}
-    maximum-pool-size: ${SQL_ANALYZER_POSTGRES_POOL_SIZE:10}
+    jdbc-url: jdbc:h2:file:/Volumes/Appdata/codebase/sql-performance-analyzer/data/management;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+    maximum-pool-size: 10
   worker:
-    enabled: ${SQL_ANALYZER_WORKER_ENABLED:true}
-    poll-delay-ms: ${SQL_ANALYZER_WORKER_POLL_DELAY_MS:500}
+    enabled: true
+    poll-delay-ms: 500
   limits:
-    max-concurrent-runs: ${SQL_ANALYZER_MAX_CONCURRENT_RUNS:10}
+    max-concurrent-runs: 10
   analysis:
     # Both operations are opt-in: EXPLAIN opens a read-only target connection; Agent enhancement
     # invokes the configured model. The deterministic report remains available when either is off.
-    explain-enabled: ${SQL_ANALYZER_EXPLAIN_ENABLED:false}
-    agent-enhancement-enabled: ${SQL_ANALYZER_AGENT_ENHANCEMENT_ENABLED:false}
-    agent-enhancement-model: ${SQL_ANALYZER_AGENT_ENHANCEMENT_MODEL:}
-    agent-enhancement-max-output-chars: ${SQL_ANALYZER_AGENT_ENHANCEMENT_MAX_OUTPUT_CHARS:20000}
+    explain-enabled: false
+    agent-enhancement-enabled: false
+    agent-enhancement-model: ""
+    agent-enhancement-max-output-chars: 20000
   knowledge:
     upload:
-      max-file-bytes: ${SQL_ANALYZER_KNOWLEDGE_MAX_FILE_BYTES:10485760}
-      max-chunks: ${SQL_ANALYZER_KNOWLEDGE_MAX_CHUNKS:1000}
-      parse-timeout-ms: ${SQL_ANALYZER_KNOWLEDGE_PARSE_TIMEOUT_MS:30000}
-      max-expanded-bytes: ${SQL_ANALYZER_KNOWLEDGE_MAX_EXPANDED_BYTES:52428800}
+      max-file-bytes: 10485760
+      max-chunks: 1000
+      parse-timeout-ms: 30000
+      max-expanded-bytes: 52428800
     operations:
-      retention-days: ${SQL_ANALYZER_KNOWLEDGE_LOG_RETENTION_DAYS:90}
-      export-limit: ${SQL_ANALYZER_KNOWLEDGE_EXPORT_LIMIT:5000}
+      retention-days: 90
+      export-limit: 5000
     vector:
       # Requires a PostgreSQL with the pgvector extension; structured search works regardless.
-      enabled: ${SQL_ANALYZER_KNOWLEDGE_VECTOR_ENABLED:false}
-      jdbc-url: ${SQL_ANALYZER_KNOWLEDGE_PGVECTOR_JDBC_URL:${SQL_ANALYZER_POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/sql_analyzer}}
-      username: ${SQL_ANALYZER_KNOWLEDGE_PGVECTOR_USERNAME:${SQL_ANALYZER_POSTGRES_USERNAME:postgres}}
-      password: ${SQL_ANALYZER_KNOWLEDGE_PGVECTOR_PASSWORD:${SQL_ANALYZER_POSTGRES_PASSWORD:postgres}}
+      enabled: false
+      jdbc-url: jdbc:postgresql://localhost:5432/sql_analyzer
+      username: postgres
+      password: postgres
       schema: sql_analyzer
       table: kb_embedding
-      dimensions: ${SQL_ANALYZER_KNOWLEDGE_VECTOR_DIMENSIONS:1024}
+      dimensions: 1024
     embedding:
-      api-key: ${SQL_ANALYZER_EMBEDDING_API_KEY:}
-      base-url: ${SQL_ANALYZER_EMBEDDING_BASE_URL:https://api.openai.com}
-      model: ${SQL_ANALYZER_EMBEDDING_MODEL:text-embedding-3-small}
+      api-key: ""
+      base-url: https://api.openai.com
+      model: text-embedding-3-small
   profiling:
-    sample-rows: ${SQL_ANALYZER_PROFILING_SAMPLE_ROWS:50000}
-    top-k: ${SQL_ANALYZER_PROFILING_TOP_K:10}
-    statement-timeout-ms: ${SQL_ANALYZER_PROFILING_STATEMENT_TIMEOUT_MS:10000}
+    sample-rows: 50000
+    top-k: 10
+    statement-timeout-ms: 10000
   local-h2:
     datasource-bootstrap:
       # A client with no configured target receives one local, read-only static-analysis
       # context. Existing profiles are never changed, and PostgreSQL management mode ignores it.
-      enabled: ${SQL_ANALYZER_H2_DATASOURCE_BOOTSTRAP_ENABLED:true}
-      jdbc-url: ${SQL_ANALYZER_H2_TARGET_JDBC_URL:jdbc:h2:file:${SQL_ANALYZER_H2_TARGET_DATA_PATH:${user.home}/.sql-performance-analyzer/data/local-target};AUTO_SERVER=TRUE}
-      username: ${SQL_ANALYZER_H2_TARGET_USERNAME:sa}
+      enabled: true
+      jdbc-url: jdbc:h2:file:/Users/qili/.sql-performance-analyzer/data/local-target;AUTO_SERVER=TRUE
+      username: sa
 
 logging:
   level:

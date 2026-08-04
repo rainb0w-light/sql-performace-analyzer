@@ -14,4 +14,8 @@ public interface SessionRepository {
     List<AnalysisSession> listForClient(String clientId);
 
     void touch(String id, String status);
+
+    default boolean belongsToClient(String sessionId, String clientId) {
+        return findByIdForClient(sessionId, clientId).isPresent();
+    }
 }

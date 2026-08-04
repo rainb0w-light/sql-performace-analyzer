@@ -28,6 +28,7 @@ public class StatementReferenceResolver {
 
     private static final Pattern TABLE_REF = Pattern.compile(
             "(?is)(?:from|join|into|update)\\s+([a-z_][a-z0-9_]*)");
+    private static final Pattern HASH_INTERPOLATION = Pattern.compile("#\\{([^}]+)}");
     private static final Set<String> SQL_KEYWORDS = Set.of(
             "select", "where", "set", "values", "dual", "lateral", "unnest");
 
@@ -63,6 +64,10 @@ public class StatementReferenceResolver {
         }
         for (String dollar : statement.dollarExpressions()) {
             names.add(topLevel(dollar));
+        }
+        Matcher hash = HASH_INTERPOLATION.matcher(statement.rawDynamicSql());
+        while (hash.find()) {
+            names.add(topLevel(hash.group(1)));
         }
 
         // Probe-bind through the official runtime so every optional branch expands, then read
@@ -111,6 +116,9 @@ public class StatementReferenceResolver {
 
     private static ParamKind inferKind(String name) {
         String lower = name.toLowerCase(Locale.ROOT);
+        if (lower.equals("asof") || lower.endsWith("as_of") || lower.contains("asof")) {
+            return ParamKind.DATE;
+        }
         if (lower.endsWith("id") && !lower.equals("id")) return ParamKind.LONG;
         if (lower.endsWith("at") || lower.endsWith("time") || lower.endsWith("from")
                 || lower.endsWith("to") || lower.endsWith("before") || lower.contains("date")) {

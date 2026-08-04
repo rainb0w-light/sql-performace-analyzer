@@ -2,8 +2,12 @@ package com.biz.sccba.sqlanalyzer.service;
 
 import com.biz.sccba.sqlanalyzer.repository.ArtifactRepository;
 import com.biz.sccba.sqlanalyzer.domain.Artifact;
+import com.biz.sccba.sqlanalyzer.repository.SessionRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -17,17 +21,25 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnProperty(prefix = "sql-analyzer.persistence", name = "enabled", havingValue = "true")
 public class ArtifactService {
     private static final int CHUNK_SIZE = 1024 * 1024;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ArtifactService.class);
     private final ArtifactRepository artifacts;
+    private final SessionRepository sessions;
+
+    @Autowired
+    public ArtifactService(ArtifactRepository artifacts, SessionRepository sessions) {
+        this.artifacts = artifacts;
+        this.sessions = sessions;
+    }
 
     public ArtifactService(ArtifactRepository artifacts) {
-        this.artifacts = artifacts;
+        this(artifacts, null);
     }
 
     @Transactional(transactionManager = "managementTransactionManager")
     public Artifact ingest(String clientId, String sessionId, String sourceType, String fileName,
                            String mediaType, byte[] content, String metadataJson) {
         if (content == null) throw new IllegalArgumentException("Artifact 内容不能为空");
-        String normalizedSessionId = normalizeOptionalId(sessionId);
+        String normalizedSessionId = resolveSessionId(clientId, sessionId);
         String contentHash = sha256(content);
         var existing = artifacts.findBySha256ForClient(clientId, sourceType, contentHash);
         if (existing.isPresent()) return existing.get();
@@ -62,5 +74,15 @@ public class ArtifactService {
 
     private static String normalizeOptionalId(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private String resolveSessionId(String clientId, String sessionId) {
+        String normalizedSessionId = normalizeOptionalId(sessionId);
+        if (normalizedSessionId == null) return null;
+        if (sessions == null || sessions.belongsToClient(normalizedSessionId, clientId)) {
+            return normalizedSessionId;
+        }
+        LOGGER.warn("Artifact 入库 sessionId 不存在或不属于当前客户端，回退为 null: clientId={}, sessionId={}", clientId, normalizedSessionId);
+        return null;
     }
 }

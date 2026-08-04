@@ -13,8 +13,8 @@ import java.util.Locale;
 public final class MarkdownChunker {
 
     /** Chunks one Markdown document; locator = resourceName#anchor@L<start>-L<end>. */
-    public List<KnowledgeRetriever.Chunk> chunk(String resourceName, String markdown) {
-        List<KnowledgeRetriever.Chunk> chunks = new ArrayList<>();
+    public List<KnowledgeSearchIndex.Chunk> chunk(String resourceName, String markdown) {
+        List<KnowledgeSearchIndex.Chunk> chunks = new ArrayList<>();
         String[] lines = markdown.split("\n", -1);
         String heading = null;
         int start = -1;
@@ -36,13 +36,13 @@ public final class MarkdownChunker {
         return chunks;
     }
 
-    private void flush(String resourceName, List<KnowledgeRetriever.Chunk> out, String heading,
+    private void flush(String resourceName, List<KnowledgeSearchIndex.Chunk> out, String heading,
                        int start, int endExclusive, StringBuilder body) {
         if (heading == null || body.length() == 0) return;
         String text = body.toString().trim();
         if (text.isEmpty()) return;
         String locator = resourceName + "#" + anchor(heading) + "@L" + start + "-L" + endExclusive;
-        out.add(new KnowledgeRetriever.Chunk("MARKDOWN", heading, locator, text));
+        out.add(new KnowledgeSearchIndex.Chunk("MARKDOWN", heading, locator, text));
     }
 
     private static String anchor(String heading) {

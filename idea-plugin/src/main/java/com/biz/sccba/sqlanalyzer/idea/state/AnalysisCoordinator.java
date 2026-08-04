@@ -322,11 +322,7 @@ public final class AnalysisCoordinator implements Disposable {
             dispatch(new AnalysisEvent.PlanReady(List.of(), false));
             dispatch(new AnalysisEvent.SubmitStarted());
             String artifactId = settings.artifactForHash(statementRef.contentHash());
-            AnalyzeRequest request = new AnalyzeRequest(artifactId, statementRef.statementId(),
-                    state.statement().datasourceProfileId(), project.getLocationHash(), statementRef.moduleName(),
-                    settings.sessionId(), "REVIEW".equals(settings.executionMode())
-                    ? ExecutionMode.REVIEW : ExecutionMode.AUTO, scenario, List.copyOf(transientRules),
-                    settings.maxScenarios(), parseCost(settings.costThreshold()));
+            AnalyzeRequest request = requestForCurrentSession(artifactId, scenario);
             AnalysisHandle handle = client.analyzeStatement(request,
                     "idea-" + project.getLocationHash() + "-" + UUID.randomUUID());
             settings.sessionId(handle.sessionId());
@@ -334,8 +330,33 @@ public final class AnalysisCoordinator implements Disposable {
             bridge.runStarted(handle.runId());
             followStream(handle);
         } catch (Exception error) {
+            if (isMissingSessionError(error) && !settings.sessionId().isBlank()) {
+                settings.sessionId("");
+                try {
+                    String retryArtifactId = settings.artifactForHash(statementRef.contentHash());
+                    AnalyzeRequest request = requestForCurrentSession(retryArtifactId, scenario);
+                    AnalysisHandle handle = client.analyzeStatement(request,
+                            "idea-" + project.getLocationHash() + "-" + UUID.randomUUID());
+                    settings.sessionId(handle.sessionId());
+                    dispatch(new AnalysisEvent.RunAccepted(handle.sessionId(), handle.runId(), true));
+                    bridge.runStarted(handle.runId());
+                    followStream(handle);
+                    return;
+                } catch (Exception retryError) {
+                    handleError(retryError, "提交分析失败", "按错误类型重试或重新认证");
+                    return;
+                }
+            }
             handleError(error, "提交分析失败", "按错误类型重试或重新认证");
         }
+    }
+
+    private AnalyzeRequest requestForCurrentSession(String artifactId, MainScenario scenario) {
+        return new AnalyzeRequest(artifactId, statementRef.statementId(),
+                state.statement().datasourceProfileId(), project.getLocationHash(),
+                statementRef.moduleName(), settings.sessionId(),
+                "REVIEW".equals(settings.executionMode()) ? ExecutionMode.REVIEW : ExecutionMode.AUTO,
+                scenario, List.copyOf(transientRules), settings.maxScenarios(), parseCost(settings.costThreshold()));
     }
 
     private void followStream(AnalysisHandle handle) {
@@ -499,6 +520,17 @@ public final class AnalysisCoordinator implements Disposable {
     private static String text(JsonObject object, String field) {
         return object.has(field) && !object.get(field).isJsonNull()
                 ? object.get(field).getAsString() : "";
+    }
+    private static boolean isMissingSessionError(Exception thrown) {
+        Throwable root = thrown;
+        while (root != null) {
+            if (root instanceof BackendClient.BackendException backend) {
+                String message = root.getMessage() == null ? "" : root.getMessage();
+                return backend.status() == 404 && message.contains("会话不存在");
+            }
+            root = root.getCause();
+        }
+        return false;
     }
     private static boolean bool(JsonObject object, String field) {
         try { return object.has(field) && object.get(field).getAsBoolean(); }

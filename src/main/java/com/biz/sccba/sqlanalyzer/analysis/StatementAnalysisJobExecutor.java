@@ -97,6 +97,9 @@ public class StatementAnalysisJobExecutor {
                         .map(item -> Map.of(
                                 "scenarioId", item.scenario().scenarioId(),
                                 "name", item.scenario().name(),
+                                "description", item.scenario().businessDescription(),
+                                "source", item.scenario().source().name(),
+                                "coverageGoals", item.mergedCoverageGoals(),
                                 "required", stored.requiredScenarioIds()
                                         .contains(item.scenario().scenarioId()),
                                 "mainPath", item.scenario().name().equals("业务主路径")))

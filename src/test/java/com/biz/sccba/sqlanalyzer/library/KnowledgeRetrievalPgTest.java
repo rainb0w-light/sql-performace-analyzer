@@ -1,6 +1,8 @@
 package com.biz.sccba.sqlanalyzer.library;
 
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.LegacyKnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.PgVectorKnowledgeRetriever;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -31,10 +33,10 @@ class KnowledgeRetrievalPgTest extends KnowledgeRetrievalContractTestBase {
         }
     }
 
-    static final KnowledgeRetriever RETRIEVER = new PgVectorKnowledgeRetriever(
+    static final KnowledgeSearchIndex RETRIEVER = new LegacyKnowledgeSearchIndex(new PgVectorKnowledgeRetriever(
             new DeterministicFakeEmbedder(128),
             POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword(),
-            "sql_analyzer", "kb_embedding", 128);
+            "sql_analyzer", "kb_embedding", 128));
 
     @AfterAll
     static void stop() {
@@ -42,7 +44,7 @@ class KnowledgeRetrievalPgTest extends KnowledgeRetrievalContractTestBase {
     }
 
     @Override
-    KnowledgeRetriever retriever() {
+    KnowledgeSearchIndex retriever() {
         return RETRIEVER;
     }
 

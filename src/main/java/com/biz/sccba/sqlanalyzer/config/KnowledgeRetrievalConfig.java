@@ -1,7 +1,8 @@
 package com.biz.sccba.sqlanalyzer.config;
 
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.Embedder;
-import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.LegacyKnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.OpenAiCompatibleEmbedder;
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.PgVectorKnowledgeRetriever;
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.PortableEmbeddingKnowledgeRetriever;
@@ -18,11 +19,11 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import java.util.List;
 
 /**
- * Semantic retrieval wiring (docs/cloud-code-next-goal.md §3.3): one {@link KnowledgeRetriever}
- * bean selected by the management dialect — PgVector on PostgreSQL (when vector search is
- * enabled), portable embeddings + JVM cosine on H2. Both require an {@link Embedder}; without a
- * configured embedding endpoint the retriever reports unavailable (structured search still works)
- * — never an in-memory fake in production.
+ * Semantic retrieval wiring (docs/cloud-code-next-goal.md §3.3): one
+ * {@link KnowledgeSearchIndex} bean selected by the management dialect — PgVector on PostgreSQL
+ * (when vector search is enabled), portable embeddings + JVM cosine on H2. Both require an
+ * {@link Embedder}; without a configured embedding endpoint the retriever reports unavailable
+ * (structured search still works) — never an in-memory fake in production.
  */
 @Configuration
 @ConditionalOnProperty(prefix = "sql-analyzer.persistence", name = "enabled", havingValue = "true")
@@ -39,7 +40,7 @@ public class KnowledgeRetrievalConfig {
     }
 
     @Bean
-    public KnowledgeRetriever knowledgeRetriever(
+    public KnowledgeSearchIndex knowledgeSearchIndex(
             @Qualifier("managementDialect") ManagementDatabaseDialect dialect,
             ObjectProvider<Embedder> embedderProvider,
             @Qualifier("managementNamedParameterJdbcTemplate") NamedParameterJdbcTemplate namedJdbc,
@@ -55,19 +56,22 @@ public class KnowledgeRetrievalConfig {
         if (embedder == null) {
             return new Unavailable();
         }
+
         return switch (dialect) {
-            case H2 -> new PortableEmbeddingKnowledgeRetriever(namedJdbc, embedder, objectMapper);
+            case H2 -> new LegacyKnowledgeSearchIndex(new PortableEmbeddingKnowledgeRetriever(namedJdbc, embedder, objectMapper));
             case POSTGRESQL -> vectorEnabled
-                    ? new PgVectorKnowledgeRetriever(embedder, pgJdbcUrl, pgUsername, pgPassword, schema, table, dimensions)
+                    ? new LegacyKnowledgeSearchIndex(new PgVectorKnowledgeRetriever(embedder, pgJdbcUrl, pgUsername,
+                    pgPassword, schema, table, dimensions))
                     : new Unavailable();
         };
     }
 
     /** Retrieval disabled (no embedding endpoint / vector search off): structured search remains. */
-    static final class Unavailable implements KnowledgeRetriever {
+    static final class Unavailable implements KnowledgeSearchIndex {
         @Override public boolean available() { return false; }
-        @Override public void index(String clientId, String sourceId, int versionNo, List<Chunk> chunks) { }
-        @Override public List<RetrievedFact> search(String clientId, String query, String sourceId, int limit) {
+        @Override public void index(String clientId, String sourceId, int versionNo, List<KnowledgeSearchIndex.Chunk> chunks) {
+        }
+        @Override public List<KnowledgeSearchIndex.SearchHit> search(String clientId, String query, String sourceId, int limit) {
             return List.of();
         }
     }

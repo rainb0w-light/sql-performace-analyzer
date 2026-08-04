@@ -1,6 +1,8 @@
 package com.biz.sccba.sqlanalyzer.library;
 
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.LegacyKnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.PortableEmbeddingKnowledgeRetriever;
 import contracttest.ContractTestConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,7 +24,7 @@ import java.util.Map;
 class KnowledgeRetrievalH2Test extends KnowledgeRetrievalContractTestBase {
 
     static ConfigurableApplicationContext ctx;
-    static KnowledgeRetriever retriever;
+    static KnowledgeSearchIndex retriever;
 
     @BeforeAll
     static void start() {
@@ -36,9 +38,9 @@ class KnowledgeRetrievalH2Test extends KnowledgeRetrievalContractTestBase {
                 .initializers(c -> ((ConfigurableEnvironment) c.getEnvironment())
                         .getPropertySources().addFirst(props))
                 .run();
-        retriever = new PortableEmbeddingKnowledgeRetriever(
+        retriever = new LegacyKnowledgeSearchIndex(new PortableEmbeddingKnowledgeRetriever(
                 ctx.getBean("managementNamedParameterJdbcTemplate", NamedParameterJdbcTemplate.class),
-                new DeterministicFakeEmbedder(128), new ObjectMapper());
+                new DeterministicFakeEmbedder(128), new ObjectMapper()));
     }
 
     @AfterAll
@@ -47,7 +49,7 @@ class KnowledgeRetrievalH2Test extends KnowledgeRetrievalContractTestBase {
     }
 
     @Override
-    KnowledgeRetriever retriever() {
+    KnowledgeSearchIndex retriever() {
         return retriever;
     }
 }

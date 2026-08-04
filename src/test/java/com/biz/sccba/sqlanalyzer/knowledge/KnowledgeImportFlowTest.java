@@ -12,7 +12,7 @@ import com.biz.sccba.sqlanalyzer.domain.metadata.Metadata.Conflict;
 import com.biz.sccba.sqlanalyzer.domain.metadata.Metadata.IndexDef;
 import com.biz.sccba.sqlanalyzer.domain.metadata.Metadata.ShardDef;
 import com.biz.sccba.sqlanalyzer.metadata.MetadataService;
-import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.repository.ArtifactRepository;
 import com.biz.sccba.sqlanalyzer.repository.KnowledgeSourceRepository;
 import com.biz.sccba.sqlanalyzer.repository.MetadataRepository;
@@ -150,12 +150,13 @@ class KnowledgeImportFlowTest {
         service.publish("client_1", first.versionId(), "alice");
         var second = service.importExcel("client_1", "业务知识", "kb.xlsx", twoVersionWorkbook("新版用途"));
 
-        KnowledgeRetriever failing = new KnowledgeRetriever() {
+        KnowledgeSearchIndex failing = new KnowledgeSearchIndex() {
             @Override public boolean available() { return true; }
-            @Override public void index(String clientId, String sourceId, int versionNo, List<Chunk> chunks) {
+            @Override public void index(String clientId, String sourceId, int versionNo,
+                                        List<KnowledgeSearchIndex.Chunk> chunks) {
                 throw new IllegalStateException("embedding timeout");
             }
-            @Override public List<RetrievedFact> search(String clientId, String query, String sourceId, int limit) {
+            @Override public List<SearchHit> search(String clientId, String query, String sourceId, int limit) {
                 return List.of();
             }
         };

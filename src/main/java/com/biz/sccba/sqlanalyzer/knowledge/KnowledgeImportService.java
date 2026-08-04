@@ -8,7 +8,7 @@ import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.Rule;
 import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.Source;
 import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.TableDef;
 import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.Version;
-import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.MarkdownChunker;
 import com.biz.sccba.sqlanalyzer.knowledge.retrieval.MarkdownKnowledgeNormalizer;
 import com.biz.sccba.sqlanalyzer.metadata.MetadataService;
@@ -40,20 +40,20 @@ public class KnowledgeImportService {
     private final KnowledgeSourceRepository knowledge;
     private final MetadataService metadata;
     private final ObjectMapper objectMapper;
-    private final ObjectProvider<KnowledgeRetriever> retrieverProvider;
+    private final ObjectProvider<KnowledgeSearchIndex> searchIndexProvider;
     private final MarkdownKnowledgeNormalizer normalizer = new MarkdownKnowledgeNormalizer();
     private final MarkdownChunker chunker = new MarkdownChunker();
 
     public KnowledgeImportService(ArtifactService artifacts, ExcelKnowledgeParser parser,
                                   KnowledgeSourceRepository knowledge,
                                   MetadataService metadata, ObjectMapper objectMapper,
-                                  ObjectProvider<KnowledgeRetriever> retrieverProvider) {
+                                  ObjectProvider<KnowledgeSearchIndex> searchIndexProvider) {
         this.artifacts = artifacts;
         this.parser = parser;
         this.knowledge = knowledge;
         this.metadata = metadata;
         this.objectMapper = objectMapper;
-        this.retrieverProvider = retrieverProvider;
+        this.searchIndexProvider = searchIndexProvider;
     }
 
     /** Serializable parsed facts stored as the version preview (rebuildable from the artifact). */
@@ -153,8 +153,8 @@ public class KnowledgeImportService {
         try {
             KnowledgeAdminService.DocumentDraft draft =
                     objectMapper.readValue(version.previewJson(), KnowledgeAdminService.DocumentDraft.class);
-            List<KnowledgeRetriever.Chunk> chunks = draft.chunks().stream()
-                    .map(chunk -> new KnowledgeRetriever.Chunk(
+            List<KnowledgeSearchIndex.Chunk> chunks = draft.chunks().stream()
+                    .map(chunk -> new KnowledgeSearchIndex.Chunk(
                             chunk.kind(), chunk.name(), chunk.locator(), chunk.text()))
                     .toList();
             indexOrThrow(clientId, version, chunks, true);
@@ -177,34 +177,34 @@ public class KnowledgeImportService {
      * Builds deterministic chunks from the controlled Excel facts. This preserves the old
      * template path while the new Web upload path uses AgentScope Reader chunks directly.
      */
-    private List<KnowledgeRetriever.Chunk> chunksForStructuredFacts(
+    private List<KnowledgeSearchIndex.Chunk> chunksForStructuredFacts(
             String clientId, Version version, Facts facts) {
         String sourceName = knowledge.findSourceForClient(clientId, version.sourceId())
                 .map(s -> s.name()).orElse("业务知识");
-        List<KnowledgeRetriever.Chunk> chunks = new ArrayList<>();
+        List<KnowledgeSearchIndex.Chunk> chunks = new ArrayList<>();
         String markdown = normalizer.normalize(sourceName, facts);
         chunks.addAll(chunker.chunk("knowledge.md", markdown));
         for (var t : facts.tables()) {
-            chunks.add(new KnowledgeRetriever.Chunk("TABLE", t.tableName(), t.sheetLocator(),
+            chunks.add(new KnowledgeSearchIndex.Chunk("TABLE", t.tableName(), t.sheetLocator(),
                     "表 " + t.tableName() + (isBlank(t.businessName()) ? "" : "（" + t.businessName() + "）")
                             + (isBlank(t.purpose()) ? "" : "：" + t.purpose())));
         }
         for (var c : facts.columns()) {
-            chunks.add(new KnowledgeRetriever.Chunk("COLUMN", c.tableName() + "." + c.columnName(),
+            chunks.add(new KnowledgeSearchIndex.Chunk("COLUMN", c.tableName() + "." + c.columnName(),
                     c.sheetLocator(), "字段 " + c.tableName() + "." + c.columnName()
                     + (isBlank(c.businessMeaning()) ? "" : "：" + c.businessMeaning())
                     + "，敏感策略 " + c.sensitivityPolicy()));
         }
         for (var r : facts.rules()) {
-            chunks.add(new KnowledgeRetriever.Chunk("RULE", isBlank(r.ruleKey()) ? r.target() : r.ruleKey(),
+            chunks.add(new KnowledgeSearchIndex.Chunk("RULE", isBlank(r.ruleKey()) ? r.target() : r.ruleKey(),
                     r.sheetLocator(), "规则：" + r.description()));
         }
         for (var e : facts.enums()) {
-            chunks.add(new KnowledgeRetriever.Chunk("ENUM", e.enumCode(), e.sheetLocator(),
+            chunks.add(new KnowledgeSearchIndex.Chunk("ENUM", e.enumCode(), e.sheetLocator(),
                     "枚举 " + e.enumCode() + (isBlank(e.displayName()) ? "" : "（" + e.displayName() + "）")));
         }
         for (var s : facts.shards()) {
-            chunks.add(new KnowledgeRetriever.Chunk("SHARD", s.logicalTable(), s.sheetLocator(),
+            chunks.add(new KnowledgeSearchIndex.Chunk("SHARD", s.logicalTable(), s.sheetLocator(),
                     s.logicalTable() + " 主分片键 " + s.shardKey() + "，二级分片键 " + s.secondaryShardKey()));
         }
         return chunks;
@@ -216,13 +216,13 @@ public class KnowledgeImportService {
      * documents require an available retrieval backend because they have no alternate fact path.
      */
     private void indexOrThrow(String clientId, Version version,
-                              List<KnowledgeRetriever.Chunk> chunks, boolean required) {
-        var retriever = retrieverProvider.getIfAvailable();
-        if (retriever == null || !retriever.available()) {
+                              List<KnowledgeSearchIndex.Chunk> chunks, boolean required) {
+        var searchIndex = searchIndexProvider.getIfAvailable();
+        if (searchIndex == null || !searchIndex.available()) {
             if (required) throw new IllegalStateException("知识检索后端未启用，文档不能发布");
             return;
         }
-        retriever.index(clientId, version.sourceId(), version.versionNo(), chunks);
+        searchIndex.index(clientId, version.sourceId(), version.versionNo(), chunks);
     }
 
     private static boolean isBlank(String s) {

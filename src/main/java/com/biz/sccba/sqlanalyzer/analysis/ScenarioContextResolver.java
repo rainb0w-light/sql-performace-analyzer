@@ -4,7 +4,7 @@ import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.Version;
 import com.biz.sccba.sqlanalyzer.domain.profiling.Profiling.ColumnStat;
 import com.biz.sccba.sqlanalyzer.knowledge.KnowledgeQueryService;
 import com.biz.sccba.sqlanalyzer.knowledge.KnowledgeQueryService.Fact;
-import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.repository.KnowledgeSourceRepository;
 import com.biz.sccba.sqlanalyzer.repository.MetadataRepository;
 import com.biz.sccba.sqlanalyzer.repository.ProfilingRepository;
@@ -45,18 +45,18 @@ public class ScenarioContextResolver {
     private final MetadataRepository metadata;
     private final ProfilingRepository profiling;
     private final ObjectMapper objectMapper;
-    private final ObjectProvider<KnowledgeRetriever> retrieverProvider;
+    private final ObjectProvider<KnowledgeSearchIndex> searchIndexProvider;
 
     public ScenarioContextResolver(KnowledgeQueryService knowledge, KnowledgeSourceRepository knowledgeSources,
                                    MetadataRepository metadata, ProfilingRepository profiling,
                                    ObjectMapper objectMapper,
-                                   ObjectProvider<KnowledgeRetriever> retrieverProvider) {
+                                   ObjectProvider<KnowledgeSearchIndex> searchIndexProvider) {
         this.knowledge = knowledge;
         this.knowledgeSources = knowledgeSources;
         this.metadata = metadata;
         this.profiling = profiling;
         this.objectMapper = objectMapper;
-        this.retrieverProvider = retrieverProvider;
+        this.searchIndexProvider = searchIndexProvider;
     }
 
     public record ContextBundle(PlannerInput plannerInput, StatementReferenceResolver.References references,
@@ -159,8 +159,8 @@ public class ScenarioContextResolver {
     private void appendSemanticRetrieval(String clientId,
                                          StatementReferenceResolver.References references,
                                          List<Fact> facts) {
-        KnowledgeRetriever retriever = retrieverProvider.getIfAvailable();
-        if (retriever == null || !retriever.available()) return;
+        KnowledgeSearchIndex searchIndex = searchIndexProvider.getIfAvailable();
+        if (searchIndex == null || !searchIndex.available()) return;
         String query = String.join(" ", references.tables()) + " "
                 + String.join(" ", references.parameters().keySet());
         if (query.isBlank()) query = references.statementId();
@@ -169,7 +169,7 @@ public class ScenarioContextResolver {
             var active = knowledgeSources.findVersionForClient(clientId, source.currentVersionId())
                     .orElse(null);
             if (active == null) continue;
-            for (var hit : retriever.search(clientId, query, source.id(), active.versionNo(), 5)) {
+            for (var hit : searchIndex.search(clientId, query, source.id(), active.versionNo(), 5)) {
                 facts.add(new Fact(hit.kind(), hit.name(), hit.text(),
                         Map.of("score", hit.score(), "retrieval", "SEMANTIC"),
                         new KnowledgeQueryService.Evidence("EXCEL_PUBLISHED", hit.sourceId(),

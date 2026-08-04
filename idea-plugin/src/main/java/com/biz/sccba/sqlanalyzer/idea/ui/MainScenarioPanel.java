@@ -78,9 +78,10 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
         c.insets = JBUI.insets(3);
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 0;
-        String[] headers = {"填充", "MyBatis test / 参数", "默认值", "建议依据", "校验"};
+        double[] columnWeights = {0, 0.34, 0.28, 0.38};
+        String[] headers = {"填充", "参数", "默认值", "建议依据"};
         for (int column = 0; column < headers.length; column++) {
-            c.gridx = column; c.gridy = 0; c.weightx = column == 1 ? 1 : 0;
+            c.gridx = column; c.gridy = 0; c.weightx = columnWeights[column];
             panel.add(new JBLabel(headers[column]), c);
         }
 
@@ -91,9 +92,8 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
             if (node.category() != currentCategory) {
                 currentCategory = node.category();
                 c.gridy = row++;
-                c.gridx = 0; c.gridwidth = 5; c.weightx = 1;
-                panel.add(new TitledSeparator("分类：" + categoryName(currentCategory)
-                        + " · " + node.categorySource()), c);
+                c.gridx = 0; c.gridwidth = 4; c.weightx = 1;
+                panel.add(new TitledSeparator("分类：" + categoryName(currentCategory)), c);
                 c.gridwidth = 1;
             }
             c.gridy = row++;
@@ -102,36 +102,35 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
             controls.put(node.nodeId(), selector);
             panel.add(selector, c);
 
-            c.gridx = 1; c.weightx = 1;
-            String indent = node.parentNodeId() == null || node.parentNodeId().isBlank() ? "" : "↳ ";
-            JBLabel expression = new JBLabel(indent + safe(node.testExpression())
-                    + (node.parameterPath() == null || node.parameterPath().isBlank()
-                    ? "" : "  ·  " + node.parameterPath()));
+            c.gridx = 1; c.weightx = columnWeights[1];
+            JBLabel expression = new JBLabel(safe(node.parameterPath()));
             expression.getAccessibleContext().setAccessibleName("动态条件 " + node.nodeId());
-            panel.add(expression, c);
+            JBPanel<?> parameterCell = new JBPanel<>(new FlowLayout(FlowLayout.LEFT, 4, 0));
+            parameterCell.setOpaque(false);
+            parameterCell.add(expression);
+            panel.add(parameterCell, c);
 
-            c.gridx = 2; c.weightx = 0;
+            c.gridx = 2; c.weightx = columnWeights[2];
             JComponent value = valueControl(node, renderedParameters);
             valueControls.put(node.nodeId(), value);
             panel.add(value, c);
 
-            c.gridx = 3;
-            boolean low = MainScenarioModel.isLowConfidence(node);
-            JBLabel provenance = new JBLabel((low ? "⚠ 低置信度 · " : "")
-                    + safe(node.source()) + "@" + safe(node.version())
-                    + " · " + safe(node.locator()) + " · "
-                    + String.format(Locale.ROOT, "%.2f", node.confidence())
-                    + " · " + safe(node.reason()),
-                    low ? AllIcons.General.Warning : AllIcons.General.Information, SwingConstants.LEFT);
-            provenance.getAccessibleContext().setAccessibleName(
-                    (low ? "低置信度，" : "") + "建议依据 " + safe(node.reason()));
+            c.gridx = 3; c.weightx = columnWeights[3];
+            String basis = suggestionBasis(node);
+            JBLabel provenance = new JBLabel(basis, AllIcons.General.Information, SwingConstants.LEFT);
+            provenance.setToolTipText(provenanceDetails(node));
+            provenance.getAccessibleContext().setAccessibleName("建议依据 " + basis);
             panel.add(provenance, c);
 
-            c.gridx = 4;
-            panel.add(new JBLabel(model.conflicts().stream().anyMatch(conflict ->
-                    conflict.startsWith(safe(node.parameterPath()) + ":")) ? "⛔ 类型冲突" : "可用"), c);
+            if (hasConflict(node)) {
+                JBLabel conflict = new JBLabel("类型冲突", AllIcons.General.Error, SwingConstants.LEFT);
+                conflict.setForeground(Color.RED);
+                conflict.setToolTipText(conflictDetail(node));
+                conflict.getAccessibleContext().setAccessibleName("参数 " + safe(node.parameterPath()) + " 类型冲突");
+                parameterCell.add(conflict);
+            }
         }
-        c.gridy = row; c.gridx = 0; c.gridwidth = 5; c.weighty = 1; c.fill = GridBagConstraints.BOTH;
+        c.gridy = row; c.gridx = 0; c.gridwidth = 4; c.weighty = 1; c.fill = GridBagConstraints.BOTH;
         panel.add(Box.createVerticalGlue(), c);
         return panel;
     }
@@ -225,6 +224,30 @@ public final class MainScenarioPanel extends JBPanel<MainScenarioPanel> {
     }
 
     private static String safe(String value) { return value == null ? "" : value; }
+
+    /** Stable, user-facing projection of the retained server provenance. */
+    private static String suggestionBasis(SuggestionNode node) {
+        String source = safe(node.source()).trim().toUpperCase(Locale.ROOT);
+        return source.isBlank() || source.contains("FALLBACK") || source.contains("DEFAULT")
+                || source.startsWith("SYSTEM_") ? "默认" : "AI 推荐";
+    }
+
+    private static String provenanceDetails(SuggestionNode node) {
+        return "来源：" + safe(node.source()) + "\n版本：" + safe(node.version())
+                + "\n定位：" + safe(node.locator()) + "\n置信度："
+                + String.format(Locale.ROOT, "%.2f", node.confidence()) + "\n原因：" + safe(node.reason());
+    }
+
+    private boolean hasConflict(SuggestionNode node) {
+        return model.conflicts().stream().anyMatch(conflict ->
+                conflict.startsWith(safe(node.parameterPath()) + ":"));
+    }
+
+    private String conflictDetail(SuggestionNode node) {
+        return model.conflicts().stream().filter(conflict ->
+                conflict.startsWith(safe(node.parameterPath()) + ":")).findFirst().orElse("类型冲突");
+    }
+
     private static String categoryName(ConditionCategory category) {
         return switch (category) {
             case ROUTING -> "路由";

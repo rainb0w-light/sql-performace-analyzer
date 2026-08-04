@@ -193,21 +193,7 @@ public class ExecutionPlanCollector {
 
     private static String publicError(String value) {
         if (value == null || value.isBlank()) return "目标库拒绝或无法执行普通只读 EXPLAIN";
-        String normalized = value.toLowerCase(java.util.Locale.ROOT);
-        if (normalized.contains("access denied") || normalized.contains("permission")
-                || normalized.contains("privilege") || normalized.contains("not authorized")) {
-            return "只读账户缺少 EXPLAIN 权限";
-        }
-        if (normalized.contains("timeout") || normalized.contains("timed out")) {
-            return "连接或 EXPLAIN 超时";
-        }
-        if (normalized.contains("connection") || normalized.contains("communications link")) {
-            return "无法连接目标数据源";
-        }
-        if (normalized.contains("parameter") || normalized.contains("bind")) {
-            return "目标库拒绝参数化 EXPLAIN";
-        }
-        return "目标库拒绝或无法执行普通只读 EXPLAIN（服务端详情已隐藏）";
+        return value;
     }
 
     private record Resolution(Object value, boolean found) {}

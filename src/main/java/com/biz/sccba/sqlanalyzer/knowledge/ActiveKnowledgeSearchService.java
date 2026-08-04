@@ -1,7 +1,7 @@
 package com.biz.sccba.sqlanalyzer.knowledge;
 
 import com.biz.sccba.sqlanalyzer.domain.knowledge.Knowledge.Source;
-import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeRetriever;
+import com.biz.sccba.sqlanalyzer.knowledge.retrieval.KnowledgeSearchIndex;
 import com.biz.sccba.sqlanalyzer.repository.KnowledgeSourceRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -25,20 +25,20 @@ public class ActiveKnowledgeSearchService {
             Pattern.compile("(?i)(bearer|api[_-]?key|token|password)\\s*[:=]\\s*\\S+");
 
     private final KnowledgeSourceRepository sources;
-    private final ObjectProvider<KnowledgeRetriever> retrievers;
+    private final ObjectProvider<KnowledgeSearchIndex> searchIndexes;
 
     public ActiveKnowledgeSearchService(KnowledgeSourceRepository sources,
-                                        ObjectProvider<KnowledgeRetriever> retrievers) {
+                                       ObjectProvider<KnowledgeSearchIndex> searchIndexes) {
         this.sources = sources;
-        this.retrievers = retrievers;
+        this.searchIndexes = searchIndexes;
     }
 
     public SearchResponse search(String clientId, String query, String sourceId, int limit) {
         if (query == null || query.isBlank()) throw new IllegalArgumentException("Query 不能为空");
         int boundedLimit = Math.max(1, Math.min(limit, 20));
-        KnowledgeRetriever retriever = retrievers.getIfAvailable();
+        KnowledgeSearchIndex searchIndex = searchIndexes.getIfAvailable();
         long started = System.nanoTime();
-        if (retriever == null || !retriever.available()) {
+        if (searchIndex == null || !searchIndex.available()) {
             return new SearchResponse(false, List.of(), elapsedMs(started));
         }
 
@@ -53,16 +53,16 @@ public class ActiveKnowledgeSearchService {
             scope = source.currentVersionId() == null ? List.of() : List.of(source);
         }
 
-        List<KnowledgeRetriever.RetrievedFact> candidates = new ArrayList<>();
+        List<KnowledgeSearchIndex.SearchHit> candidates = new ArrayList<>();
         for (Source source : scope) {
             var active = sources.findVersionForClient(clientId, source.currentVersionId()).orElse(null);
             if (active == null || !(active.isPublished() || "ACTIVE".equals(active.status()))) continue;
-            candidates.addAll(retriever.search(
+            candidates.addAll(searchIndex.search(
                     clientId, query, source.id(), active.versionNo(), boundedLimit));
         }
-        candidates.sort(Comparator.comparingDouble(KnowledgeRetriever.RetrievedFact::score).reversed()
-                .thenComparing(KnowledgeRetriever.RetrievedFact::sourceId)
-                .thenComparing(KnowledgeRetriever.RetrievedFact::locator));
+        candidates.sort(Comparator.comparingDouble(KnowledgeSearchIndex.SearchHit::score).reversed()
+                .thenComparing(KnowledgeSearchIndex.SearchHit::sourceId)
+                .thenComparing(KnowledgeSearchIndex.SearchHit::locator));
         List<SearchHit> hits = candidates.stream().limit(boundedLimit)
                 .map(fact -> new SearchHit(redact(fact.text()), fact.kind(), fact.name(),
                         fact.sourceId(), fact.versionNo(), fact.locator(), fact.score()))
